@@ -30,3 +30,10 @@ schema: spec-driven
 #     archive:
 #       guidance:
 #         - Summarize the archive outcome before finishing
+
+context: |
+  Tech stack: .Net with C#
+  Frontend: Blazor with Radzen Components
+  Backend: Asp .Net Core with Grpc
+  Domain: Paperless office software to save and search any kind of document
+  We are using conventional commits

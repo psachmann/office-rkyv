@@ -1,19 +1,20 @@
 ﻿@page "/not-found"
 @layout MainLayout
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<NotFound> Localizer
 
-<PageTitle>Not Found</PageTitle>
+<PageTitle>@Localizer["Title"]</PageTitle>
 
 <RadzenStack Gap="1.5rem" class="rz-p-4">
-    <RadzenText TextStyle="TextStyle.H3">Not Found</RadzenText>
+    <RadzenText TextStyle="TextStyle.H3">@Localizer["Heading"]</RadzenText>
 
     <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Filled" AllowClose="false">
-        Sorry, the content you are looking for does not exist.
+        @Localizer["Message"]
     </RadzenAlert>
 
     <RadzenStack Orientation="Orientation.Horizontal">
         <RadzenButton
-            Text="Go to home"
+            Text="@Localizer["GoToHome"]"
             Icon="home"
             ButtonStyle="ButtonStyle.Primary"
             Click="@(() => NavigationManager.NavigateTo("/"))"

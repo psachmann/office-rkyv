@@ -1,5 +1,7 @@
 using DotNetQuery.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Localization;
 using OfficeRkyv.Web.Components;
+using OfficeRkyv.Web.Localization;
 using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,10 +11,13 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddRadzenComponents();
 builder.Services.AddDotNetQuery(config => { });
+builder.Services.AddLocalization(options => options.ResourcesPath = SupportedCultures.ResourcesPath);
 
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+
+app.UseRequestLocalization(SupportedCultures.CreateRequestLocalizationOptions());
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -25,6 +30,33 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+app.MapGet(
+    "/culture/set",
+    (string culture, string? redirectUri, HttpContext context) =>
+    {
+        if (!SupportedCultures.IsSupported(culture))
+        {
+            return Results.BadRequest();
+        }
+
+        context.Response.Cookies.Append(
+            CookieRequestCultureProvider.DefaultCookieName,
+            CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(culture)),
+            new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true }
+        );
+
+        var target =
+            redirectUri is { Length: > 0 }
+            && redirectUri.StartsWith('/')
+            && !redirectUri.StartsWith("//", StringComparison.Ordinal)
+            && !redirectUri.StartsWith("/\\", StringComparison.Ordinal)
+                ? redirectUri
+                : "/";
+
+        return Results.LocalRedirect(target);
+    }
+);
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
