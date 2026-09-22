@@ -26,6 +26,10 @@
               dotnet
               omnisharp-roslyn
               netcoredbg
+              buf
+              protobuf
+              protolint
+              api-linter
             ];
             DOTNET_ROOT = "${dotnet}/share/dotnet";
           };

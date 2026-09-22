@@ -8,9 +8,6 @@ public class GreeterService(ILogger<GreeterService> logger) : Greeter.GreeterBas
     {
         logger.LogInformation("The message is received from {Name}", request.Name);
 
-        return Task.FromResult(new HelloReply
-        {
-            Message = "Hello " + request.Name
-        });
+        return Task.FromResult(new HelloReply { Message = "Hello " + request.Name });
     }
 }
