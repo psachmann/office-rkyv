@@ -1,20 +1,41 @@
 #blazor-error-ui {
-    color-scheme: light only;
-    background: lightyellow;
-    bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
-    box-sizing: border-box;
-    display: none;
-    left: 0;
-    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
-    position: fixed;
-    width: 100%;
-    z-index: 1000;
+  background-color: var(--rz-base-background-color);
+  color: var(--rz-text-body1-color);
+  font-family: var(--rz-text-font-family);
+  font-size: var(--rz-text-body1-font-size);
+  border-block-start: 3px solid var(--rz-danger);
+  bottom: 0;
+  box-shadow: var(--rz-shadow-4);
+  box-sizing: border-box;
+  display: none;
+  left: 0;
+  padding: 0.6rem 3rem 0.7rem 1.25rem;
+  position: fixed;
+  width: 100%;
+  z-index: var(--rz-dialog-mask-zindex);
+}
+
+#blazor-error-ui .rzi {
+  color: var(--rz-danger);
+  vertical-align: -0.3em;
+  margin-inline-end: 0.5rem;
+}
+
+#blazor-error-ui .reload {
+  color: var(--rz-primary);
+  font-weight: var(--rz-text-button-font-weight);
+  margin-inline-start: 0.5rem;
 }
 
 #blazor-error-ui .dismiss {
-    cursor: pointer;
-    position: absolute;
-    right: 0.75rem;
-    top: 0.5rem;
+  cursor: pointer;
+  position: absolute;
+  right: 0.75rem;
+  top: 0.5rem;
+  color: var(--rz-text-secondary-color);
+}
+
+#blazor-error-ui .dismiss .rzi {
+  color: inherit;
+  margin: 0;
 }
