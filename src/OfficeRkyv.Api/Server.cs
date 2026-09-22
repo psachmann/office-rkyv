@@ -1,10 +1,11 @@
+using OfficeRkyv.Api.Data;
 using OfficeRkyv.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
-
 // Add services to the container.
+builder.AddServiceDefaults();
+builder.AddSqliteDbContext<OfficeRkyvContext>("sqlite");
 builder.Services.AddGrpc();
 
 var app = builder.Build();

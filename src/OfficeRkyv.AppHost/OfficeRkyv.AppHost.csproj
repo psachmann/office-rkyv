@@ -5,6 +5,9 @@
     <UserSecretsId>8582016f-5083-4bf5-ba89-86b76b423424</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
     <ProjectReference Include="..\OfficeRkyv.Web\OfficeRkyv.Web.csproj" />
   </ItemGroup>
