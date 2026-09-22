@@ -4,10 +4,11 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    openspec.url = "github:Fission-AI/OpenSpec";
   };
 
   outputs =
-    { nixpkgs, flake-utils, ... }:
+    { nixpkgs, flake-utils, openspec, ... }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -31,6 +32,7 @@
               protolint
               api-linter
               nss.tools
+              openspec.packages.${system}.default
             ];
             DOTNET_ROOT = "${dotnet}/share/dotnet";
           };
