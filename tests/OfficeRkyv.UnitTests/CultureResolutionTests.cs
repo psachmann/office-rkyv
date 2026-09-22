@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using OfficeRkyv.Web.Localization;
 
-namespace OfficeRkyv.FunctionalTests;
+namespace OfficeRkyv.UnitTests;
 
 public class CultureResolutionTests
 {

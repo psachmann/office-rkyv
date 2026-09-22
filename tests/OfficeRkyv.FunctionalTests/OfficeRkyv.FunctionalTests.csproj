@@ -1,12 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="TUnit" />
-    <PackageReference Include="TUnit.Mocks" />
+    <PackageReference Include="TUnit.Aspire" />
+    <PackageReference Include="TUnit.Playwright" />
   </ItemGroup>
-
   <ItemGroup>
-    <ProjectReference Include="..\..\src\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
-    <ProjectReference Include="..\..\src\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\..\src\OfficeRkyv.Web\OfficeRkyv.Web.csproj" />
+    <ProjectReference Include="..\..\src\OfficeRkyv.AppHost\OfficeRkyv.AppHost.csproj" />
   </ItemGroup>
 </Project>

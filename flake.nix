@@ -32,6 +32,12 @@
               protolint
               api-linter
               nss.tools
+              # For installing Playwright's own browser binaries: after
+              # building tests/OfficeRkyv.FunctionalTests, run
+              # `pwsh bin/Debug/netX/playwright.ps1 install` once (needs
+              # nix-ld configured on the host to run the downloaded browsers,
+              # since they aren't built by nixpkgs).
+              powershell
               openspec.packages.${system}.default
             ];
             DOTNET_ROOT = "${dotnet}/share/dotnet";

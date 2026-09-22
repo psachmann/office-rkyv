@@ -3,4 +3,9 @@
     <PackageReference Include="TUnit" />
     <PackageReference Include="TUnit.Mocks" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
+    <ProjectReference Include="..\..\src\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\src\OfficeRkyv.Web\OfficeRkyv.Web.csproj" />
+  </ItemGroup>
 </Project>
