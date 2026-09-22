@@ -30,6 +30,7 @@
               protobuf
               protolint
               api-linter
+              nss.tools
             ];
             DOTNET_ROOT = "${dotnet}/share/dotnet";
           };

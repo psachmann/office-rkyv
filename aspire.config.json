@@ -1,7 +1,7 @@
 {
   "$schema": "https://aspire.dev/reference/cli/configuration/schema.json",
   "appHost": {
-    "path": "src/OfficeRkyv.AppHost"
+    "path": "src/OfficeRkyv.AppHost/OfficeRkyv.AppHost.csproj"
   },
   "channel": "stable",
   "features": {

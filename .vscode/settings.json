@@ -9,11 +9,14 @@
     "**/obj": true
   },
   "cSpell.words": [
+    "blazor",
     "Blazor",
     "csharpier",
     "dotnet",
     "Radzen",
+    "rendermode",
     "Rkyv",
-    "Sqlite"
+    "Sqlite",
+    "stylesheet"
   ]
 }

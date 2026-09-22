@@ -1,11 +1,18 @@
+using DotNetQuery.Extensions.DependencyInjection;
 using OfficeRkyv.Web.Components;
+using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.AddServiceDefaults();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddRadzenComponents();
+builder.Services.AddDotNetQuery(config => { });
 
 var app = builder.Build();
+
+app.MapDefaultEndpoints();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
