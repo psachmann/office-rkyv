@@ -1,0 +1,11 @@
+{
+  "$schema": "https://aspire.dev/reference/cli/configuration/schema.json",
+  "appHost": {
+    "path": "src/OfficeRkyv.AppHost"
+  },
+  "channel": "stable",
+  "features": {
+    "defaultWatchEnabled": true,
+    "updateNotificationsEnabled": true
+  }
+}

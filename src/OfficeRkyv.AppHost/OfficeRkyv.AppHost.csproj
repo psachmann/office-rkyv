@@ -1,0 +1,11 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.5.4">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <UserSecretsId>8582016f-5083-4bf5-ba89-86b76b423424</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
+    <ProjectReference Include="..\OfficeRkyv.Web\OfficeRkyv.Web.csproj" />
+  </ItemGroup>
+</Project>

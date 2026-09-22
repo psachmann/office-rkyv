@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="DotNetQuery.Blazor" Version="2.0.0" />
+    <PackageVersion Include="DotNetQuery.Blazor.DevTools" Version="2.0.0" />
+    <PackageVersion Include="DotNetQuery.Core" Version="2.0.0" />
+    <PackageVersion Include="DotNetQuery.Extensions.DependencyInjection" Version="2.0.0" />
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.84.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageVersion Include="Radzen.Blazor" Version="11.4.1" />
+    <PackageVersion Include="TUnit" Version="1.68.17" />
+    <PackageVersion Include="TUnit.Mocks" Version="1.68.17" />
+    <PackageVersion Include="TUnit.Mocks.Logging" Version="1.68.17" />
+  </ItemGroup>
+</Project>
