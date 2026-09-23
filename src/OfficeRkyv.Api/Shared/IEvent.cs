@@ -7,6 +7,8 @@ public interface IEvent<TPayload>
 
     public Guid EntityId { get; init; }
 
+    public int Version { get; init; }
+
     public DateTimeOffset Timestamp { get; init; }
 
     public TPayload Payload { get; init; }

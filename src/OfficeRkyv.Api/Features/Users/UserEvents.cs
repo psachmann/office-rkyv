@@ -1,26 +1,9 @@
 namespace OfficeRkyv.Api.Features.Users;
 
-public record UserCreatedEvent : EventBase<UserCreatedPayload>;
+// Payload-only events: Fisher supplies the envelope (stream id, version, timestamp, metadata), so
+// there is no per-event wrapper type to write.
+public sealed record UserCreated(string Email, string DisplayName);
 
-public record UserCreatedPayload
-{
-    public required string Email { get; init; }
+public sealed record UserRenamed(string DisplayName);
 
-    public required string DisplayName { get; init; }
-}
-
-public record UserUpdatedEvent : EventBase<UserUpdatedPayload>;
-
-public record UserUpdatedPayload
-{
-    public required string Email { get; init; }
-
-    public required string DisplayName { get; init; }
-}
-
-public record UserDeletedEvent : EventBase<UserDeletedPayload>;
-
-public record UserDeletedPayload
-{
-    public required string DisplayName { get; init; }
-}
+public sealed record UserDeleted;

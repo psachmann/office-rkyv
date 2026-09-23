@@ -1,9 +1,13 @@
+using Fisher;
+using JasperFx.Events.Documents;
+
 namespace OfficeRkyv.Api.Features.Users.Handlers;
 
-public sealed class FindAllUsersHandler : IQueryHandler<FindAllUsersQuery, IReadOnlyList<UserEntity>>
+public sealed class FindAllUsersHandler(IQuerySession session)
+    : IQueryHandler<FindAllUsersQuery, IReadOnlyList<UserEntity>>
 {
-    public ValueTask<IReadOnlyList<UserEntity>> Handle(FindAllUsersQuery query, CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
-    }
+    public async ValueTask<IReadOnlyList<UserEntity>> Handle(
+        FindAllUsersQuery query,
+        CancellationToken cancellationToken
+    ) => await session.Query<UserEntity>().Where(user => !user.IsDeleted).ToListAsync(cancellationToken);
 }

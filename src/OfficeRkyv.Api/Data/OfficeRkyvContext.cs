@@ -4,7 +4,7 @@ namespace OfficeRkyv.Api.Data;
 
 internal sealed class OfficeRkyvContext(DbContextOptions<OfficeRkyvContext> options) : DbContext(options)
 {
-    public DbSet<EventRecord> Events => Set<EventRecord>();
+    public DbSet<EventEntity>? Events { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

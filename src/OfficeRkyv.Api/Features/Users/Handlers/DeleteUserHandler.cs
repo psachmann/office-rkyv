@@ -1,9 +1,23 @@
+using Fisher;
+
 namespace OfficeRkyv.Api.Features.Users.Handlers;
 
-public sealed class DeleteUserHandler : ICommandHandler<DeleteUserCommand, Unit>
+public sealed class DeleteUserHandler(IDocumentSession session) : ICommandHandler<DeleteUserCommand, Unit>
 {
-    public ValueTask<Unit> Handle(DeleteUserCommand command, CancellationToken cancellationToken)
+    public async ValueTask<Unit> Handle(DeleteUserCommand command, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var stream = await session.Events.FetchForWritingByNaturalKey<UserEntity, string>(
+            command.Email,
+            cancellationToken
+        );
+
+        if (stream.Aggregate is { IsDeleted: false })
+        {
+            stream.AppendOne(new UserDeleted());
+        }
+
+        await session.SaveChangesAsync(cancellationToken);
+
+        return Unit.Value;
     }
 }

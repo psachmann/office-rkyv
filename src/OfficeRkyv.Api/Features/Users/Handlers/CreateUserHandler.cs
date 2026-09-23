@@ -1,9 +1,14 @@
+using Fisher;
+
 namespace OfficeRkyv.Api.Features.Users.Handlers;
 
-public sealed class CreateUserHandler : ICommandHandler<CreateUserCommand, Unit>
+public sealed class CreateUserHandler(IDocumentSession session) : ICommandHandler<CreateUserCommand, Unit>
 {
-    public ValueTask<Unit> Handle(CreateUserCommand command, CancellationToken cancellationToken)
+    public async ValueTask<Unit> Handle(CreateUserCommand command, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        session.Events.StartStream<UserEntity>(new UserCreated(command.Email, command.DisplayName));
+        await session.SaveChangesAsync(cancellationToken);
+
+        return Unit.Value;
     }
 }
