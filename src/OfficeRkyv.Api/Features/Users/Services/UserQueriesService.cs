@@ -4,20 +4,25 @@ namespace OfficeRkyv.Api.Features.Users.Services;
 
 public class UserQueriesService(IMediator mediator) : UserQueries.UserQueriesBase
 {
-    public override async Task<FindAllUsersResult> FindAllUsers(FindAllUsersQuery request, ServerCallContext context)
-    {
-        var result = await mediator.Send(request, context.CancellationToken);
-
-        return result;
-    }
-
-    public override async Task<FindUserByEmailResult> FindUserByEmail(
-        FindUserByEmailQuery request,
+    public override async Task<FindAllUsersResponse> FindAllUsers(
+        FindAllUsersRequest request,
         ServerCallContext context
     )
     {
-        var result = await mediator.Send(request, context.CancellationToken);
+        var query = request.ToQuery();
+        var entities = await mediator.Send(query, context.CancellationToken);
 
-        return result;
+        return entities.ToResponse();
+    }
+
+    public override async Task<FindUserByEmailResponse> FindUserByEmail(
+        FindUserByEmailRequest request,
+        ServerCallContext context
+    )
+    {
+        var query = request.ToQuery();
+        var user = await mediator.Send(query, context.CancellationToken);
+
+        return user.ToResponse();
     }
 }

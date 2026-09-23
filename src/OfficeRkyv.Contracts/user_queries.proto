@@ -7,8 +7,8 @@ package users;
 
 // Read side of the user feature.
 service UserQueries {
-  rpc FindAllUsers (FindAllUsersQuery) returns (FindAllUsersResult);
-  rpc FindUserByEmail (FindUserByEmailQuery) returns (FindUserByEmailResult);
+  rpc FindAllUsers (FindAllUsersRequest) returns (FindAllUsersResponse);
+  rpc FindUserByEmail (FindUserByEmailRequest) returns (FindUserByEmailResponse);
 }
 
 message UserDto {
@@ -19,17 +19,17 @@ message UserDto {
   google.protobuf.Timestamp updated_at = 5;
 }
 
-message FindAllUsersQuery {}
+message FindAllUsersRequest {}
 
-message FindAllUsersResult {
+message FindAllUsersResponse {
   repeated UserDto users = 1;
 }
 
-message FindUserByEmailQuery {
+message FindUserByEmailRequest {
   string email = 1;
 }
 
-message FindUserByEmailResult {
+message FindUserByEmailResponse {
   // Unset when no user with the given email exists.
   optional UserDto user = 1;
 }

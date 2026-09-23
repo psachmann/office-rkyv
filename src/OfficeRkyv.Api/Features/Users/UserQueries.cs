@@ -1,5 +1,5 @@
-namespace OfficeRkyv.Contracts.Users;
+namespace OfficeRkyv.Api.Features.Users;
 
-public sealed partial class FindAllUsersQuery : IQuery<FindAllUsersResult>;
+public sealed record FindAllUsersQuery : IQuery<IReadOnlyList<UserEntity>>;
 
-public sealed partial class FindUserByEmailQuery : IQuery<FindUserByEmailResult>;
+public sealed record FindUserByEmailQuery(string Email) : IQuery<UserEntity?>;

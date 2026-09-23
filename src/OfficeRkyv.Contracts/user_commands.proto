@@ -8,21 +8,21 @@ import "google/protobuf/empty.proto";
 
 // Write side of the user feature.
 service UserCommands {
-  rpc CreateUser (CreateUserCommand) returns (google.protobuf.Empty);
-  rpc UpdateUser (UpdateUserCommand) returns (google.protobuf.Empty);
-  rpc DeleteUser (DeleteUserCommand) returns (google.protobuf.Empty);
+  rpc CreateUser (CreateUserRequest) returns (google.protobuf.Empty);
+  rpc UpdateUser (UpdateUserRequest) returns (google.protobuf.Empty);
+  rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty);
 }
 
-message CreateUserCommand {
+message CreateUserRequest {
   string email = 1;
   string display_name = 2;
 }
 
-message UpdateUserCommand {
+message UpdateUserRequest {
   string email = 1;
   string display_name = 2;
 }
 
-message DeleteUserCommand {
+message DeleteUserRequest {
   string email = 1;
 }
