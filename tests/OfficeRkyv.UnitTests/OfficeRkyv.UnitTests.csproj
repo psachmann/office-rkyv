@@ -4,7 +4,7 @@
     <PackageReference Include="TUnit.Mocks" />
   </ItemGroup>
 
-  <!-- SPIKE ONLY: tests for the hand-rolled event store, excluded along with the code they cover. -->
+  <!-- SPIKE: tests for the hand-rolled event store, excluded along with the code they cover. -->
   <ItemGroup>
     <Compile Remove="EventSourcing/**/*.cs" />
   </ItemGroup>

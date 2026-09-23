@@ -8,21 +8,27 @@ public static partial class UserMapper
 {
     public static partial CreateUserCommand ToCommand(this CreateUserRequest request);
 
-    public static partial UpdateUserCommand ToCommand(this UpdateUserRequest request);
+    public static UpdateUserCommand ToCommand(this UpdateUserRequest request) =>
+        new(Guid.Parse(request.UserId), request.Version, request.DisplayName);
 
-    public static partial DeleteUserCommand ToCommand(this DeleteUserRequest request);
+    public static DeleteUserCommand ToCommand(this DeleteUserRequest request) =>
+        new(Guid.Parse(request.UserId), request.Version);
 
     public static FindAllUsersQuery ToQuery(this FindAllUsersRequest request) => new();
 
     public static partial FindUserByEmailQuery ToQuery(this FindUserByEmailRequest request);
 
-    public static partial UserDto ToDto(this UserEntity entity);
+    public static partial UserDto ToDto(this User user);
 
     // Hand-written: `repeated` fields are get-only RepeatedField<T>, so items must be added, not assigned.
-    public static FindAllUsersResponse ToResponse(this IEnumerable<UserEntity> entities) =>
-        new() { Users = { entities.Select(ToDto) } };
+    public static FindAllUsersResponse ToResponse(this IEnumerable<User> users) =>
+        new() { Users = { users.Select(ToDto) } };
 
-    public static FindUserByEmailResponse ToResponse(this UserEntity? entity) => new() { User = entity?.ToDto() };
+    public static FindUserByEmailResponse ToResponse(this User? user) => new() { User = user?.ToDto() };
+
+    public static CreateUserResponse ToCreateResponse(this User user) => new() { User = user.ToDto() };
+
+    public static UpdateUserResponse ToUpdateResponse(this User user) => new() { User = user.ToDto() };
 
     private static Timestamp ToTimestamp(DateTimeOffset value) => Timestamp.FromDateTimeOffset(value);
 }

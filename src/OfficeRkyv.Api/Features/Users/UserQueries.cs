@@ -1,5 +1,7 @@
 namespace OfficeRkyv.Api.Features.Users;
 
-public sealed record FindAllUsersQuery : IQuery<IReadOnlyList<UserEntity>>;
+public sealed record FindAllUsersQuery;
 
-public sealed record FindUserByEmailQuery(string Email) : IQuery<UserEntity?>;
+public sealed record FindUserByIdQuery(Guid UserId);
+
+public sealed record FindUserByEmailQuery(string Email);
