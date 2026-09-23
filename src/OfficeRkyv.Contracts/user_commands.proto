@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+option csharp_namespace = "OfficeRkyv.Contracts.Users";
+
+package users;
+
+import "google/protobuf/empty.proto";
+
+// Write side of the user feature.
+service UserCommands {
+  rpc CreateUser (CreateUserCommand) returns (google.protobuf.Empty);
+  rpc UpdateUser (UpdateUserCommand) returns (google.protobuf.Empty);
+  rpc DeleteUser (DeleteUserCommand) returns (google.protobuf.Empty);
+}
+
+message CreateUserCommand {
+  string email = 1;
+  string display_name = 2;
+}
+
+message UpdateUserCommand {
+  string email = 1;
+  string display_name = 2;
+}
+
+message DeleteUserCommand {
+  string email = 1;
+}

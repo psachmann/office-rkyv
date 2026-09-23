@@ -8,6 +8,6 @@ internal sealed class OfficeRkyvContext(DbContextOptions<OfficeRkyvContext> opti
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OfficeRkyvContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(OfficeRkyvApiLib.Assembly);
     }
 }

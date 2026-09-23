@@ -1,4 +1,6 @@
+using OfficeRkyv.Api;
 using OfficeRkyv.Api.Data;
+using OfficeRkyv.Api.Features.Users.Services;
 using OfficeRkyv.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddSqliteDbContext<OfficeRkyvContext>("sqlite");
 builder.Services.AddGrpc();
+builder.Services.AddMediator(options =>
+{
+    options.Namespace = "OfficeRkyv.Api.Mediator";
+    options.ServiceLifetime = ServiceLifetime.Scoped;
+    options.GenerateTypesAsInternal = true;
+    options.NotificationPublisherType = typeof(Mediator.ForeachAwaitPublisher);
+    options.Assemblies = [OfficeRkyvApiLib.Assembly];
+    options.PipelineBehaviors = [];
+    options.StreamPipelineBehaviors = [];
+});
 
 var app = builder.Build();
 
@@ -14,6 +26,8 @@ app.MapDefaultEndpoints();
 
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();
+app.MapGrpcService<UserCommandsService>();
+app.MapGrpcService<UserQueriesService>();
 app.MapGet(
     "/",
     () =>

@@ -17,6 +17,7 @@
     "nixpkgs",
     "openspec",
     "pkgs",
+    "protobuf",
     "Radzen",
     "rendermode",
     "Rkyv",

@@ -1,0 +1,35 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "OfficeRkyv.Contracts.Users";
+
+package users;
+
+// Read side of the user feature.
+service UserQueries {
+  rpc FindAllUsers (FindAllUsersQuery) returns (FindAllUsersResult);
+  rpc FindUserByEmail (FindUserByEmailQuery) returns (FindUserByEmailResult);
+}
+
+message UserDto {
+  string id = 1;
+  string email = 2;
+  string display_name = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message FindAllUsersQuery {}
+
+message FindAllUsersResult {
+  repeated UserDto users = 1;
+}
+
+message FindUserByEmailQuery {
+  string email = 1;
+}
+
+message FindUserByEmailResult {
+  // Unset when no user with the given email exists.
+  optional UserDto user = 1;
+}

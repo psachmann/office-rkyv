@@ -1,6 +1,6 @@
 namespace OfficeRkyv.Api.Shared;
 
-public record Event<TPayload> : IEvent<TPayload>
+public abstract record EventBase<TPayload> : IEvent<TPayload>
     where TPayload : class
 {
     public Guid Id { get; init; }
