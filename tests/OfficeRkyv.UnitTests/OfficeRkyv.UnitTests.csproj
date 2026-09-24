@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
     <ProjectReference Include="..\..\src\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\..\src\OfficeRkyv.Web\OfficeRkyv.Web.csproj" />
+    <!-- Aliased: Api and Web each generate the same proto message types, so the names would be ambiguous. -->
+    <ProjectReference Include="..\..\src\OfficeRkyv.Web\OfficeRkyv.Web.csproj" Aliases="web" />
   </ItemGroup>
 </Project>

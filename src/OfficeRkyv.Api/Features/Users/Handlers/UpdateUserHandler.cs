@@ -2,6 +2,9 @@ namespace OfficeRkyv.Api.Features.Users.Handlers;
 
 public static class UpdateUserHandler
 {
+    public static Task ValidateAsync(UpdateUserCommand command, IQuerySession session) =>
+        UserExistence.RequireAsync(session, command.UserId);
+
     /// <summary>
     /// decide(command, state) -> events. Wolverine loads the aggregate, enforces the expected
     /// version, appends whatever comes back and commits - none of which appears here.

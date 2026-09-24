@@ -1,8 +1,52 @@
-﻿@page "/"
+@page "/"
+@using OfficeRkyv.Web.Components.Pages.Users
 @inject IStringLocalizer<Home> Localizer
+@inject DialogService DialogService
+@inject UsersFacade Users
 
 <PageTitle>@Localizer["Title"]</PageTitle>
 
-<h1>@Localizer["Heading"]</h1>
+<RadzenStack Gap="1rem" class="rz-p-4">
+    <RadzenText TextStyle="TextStyle.H3">@Localizer["Heading"]</RadzenText>
+    <Transition Query="@Users.FindAllUsers">
+        <Content Context="users">
+            @if (users.Count == 0)
+            {
+                <RadzenCard>
+                    <RadzenStack Gap="1rem" AlignItems="AlignItems.Center" class="rz-p-4">
+                        <RadzenText TextStyle="TextStyle.H5">@Localizer["EmptyTitle"]</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">@Localizer["EmptyText"]</RadzenText>
+                        <RadzenButton Text="@Localizer["NewUser"]" Icon="person_add" Click="@OpenCreateDialog" />
+                    </RadzenStack>
+                </RadzenCard>
+            }
+            else
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                    <RadzenButton Text="@Localizer["NewUser"]" Icon="person_add" Click="@OpenCreateDialog" />
+                </RadzenStack>
+                <RadzenDataGrid TItem="UserDto" Data="@users" AllowSorting="true">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="UserDto" Property="@nameof(UserDto.Email)" Title="@Localizer["ColumnEmail"]" />
+                        <RadzenDataGridColumn TItem="UserDto" Property="@nameof(UserDto.DisplayName)" Title="@Localizer["ColumnDisplayName"]" />
+                    </Columns>
+                </RadzenDataGrid>
+            }
+        </Content>
+        <Loading>
+            <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+        </Loading>
+        <Failure>
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
+        </Failure>
+    </Transition>
+</RadzenStack>
 
-@Localizer["Welcome"]
+@code {
+    protected override void OnInitialized()
+    {
+        Users.FindAllUsers.SetArgs(Unit.Default);
+    }
+
+    private Task OpenCreateDialog() => DialogService.OpenAsync<CreateUserDialog>(Localizer["NewUser"], options: new DialogOptions { Width = "28rem" });
+}

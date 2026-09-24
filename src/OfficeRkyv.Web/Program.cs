@@ -5,6 +5,7 @@ using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Users;
 using OfficeRkyv.Web.Components;
 using OfficeRkyv.Web.Localization;
+using OfficeRkyv.Web.Shared;
 using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +22,7 @@ builder.Services.AddDotNetQuery(options =>
     options.RefetchInterval = TimeSpan.FromSeconds(30); // automatically refetch every 30 seconds
 });
 builder.Services.AddLocalization(options => options.ResourcesPath = SupportedCultures.ResourcesPath);
+builder.Services.AddScoped<UsersFacade>();
 
 // "api-svc" is resolved by Aspire service discovery (see AppHost). gRPC only accepts plain
 // http/https here; the "https+http" form throws "No address resolver configured".
