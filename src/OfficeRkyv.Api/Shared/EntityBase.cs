@@ -2,25 +2,13 @@ namespace OfficeRkyv.Api.Shared;
 
 public abstract record EntityBase : IEntity
 {
-    public Guid Id { get; init; }
+    public Guid Id { get; protected set; }
 
-    public int Version { get; init; }
+    public int Version { get; protected set; }
 
-    public EntityStatus Status { get; init; }
+    public EntityStatus Status { get; protected set; }
 
-    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset CreatedAt { get; protected set; }
 
-    public DateTimeOffset UpdatedAt { get; init; }
-
-    // Applied by the projector for every Deleted event, regardless of entity type - soft delete is
-    // infrastructure-owned, not something individual entity projectors implement.
-    internal EntityBase MarkDeleted(DateTimeOffset timestamp) =>
-        this with
-        {
-            Status = EntityStatus.Deleted,
-            UpdatedAt = timestamp,
-        };
-
-    // Applied by the projector after folding every event - individual projectors never set this.
-    internal EntityBase WithVersion(int version) => this with { Version = version };
+    public DateTimeOffset UpdatedAt { get; protected set; }
 }

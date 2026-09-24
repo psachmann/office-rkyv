@@ -5,7 +5,7 @@ public static class DeleteUserHandler
     [DeciderFunction]
     public static IEnumerable<object> Handle(DeleteUserCommand command, User user)
     {
-        if (!user.IsDeleted)
+        if (user.Status is EntityStatus.Active)
         {
             yield return new UserDeleted();
         }

@@ -9,7 +9,7 @@ public static class UpdateUserHandler
     [DeciderFunction]
     public static IEnumerable<object> Handle(UpdateUserCommand command, User user)
     {
-        if (user.IsDeleted)
+        if (user.Status is EntityStatus.Deleted)
         {
             throw new InvariantViolationException("A deleted user cannot be renamed.");
         }
