@@ -11,12 +11,19 @@ namespace OfficeRkyv.Api.Features.Users;
 /// </remarks>
 public sealed record User : EntityBase
 {
-    // Addresses the stream by email AND claims uniqueness inside the append transaction: a second
-    // stream claiming a live key is refused by the store, not by a check-then-write race.
-    [NaturalKey]
+    // The address as entered (trimmed), for display.
+    [JsonInclude]
     public string Email { get; private set; } = string.Empty;
 
-    public string DisplayName { get; set; } = string.Empty;
+    // Addresses the stream by email AND claims uniqueness inside the append transaction: a second
+    // stream claiming a live key is refused by the store, not by a check-then-write race. Taken from
+    // the event, not derived here, so replay can never re-key a stream (see UserCreated).
+    [NaturalKey]
+    [JsonInclude]
+    public string NormalizedEmail { get; private set; } = string.Empty;
+
+    [JsonInclude]
+    public string DisplayName { get; private set; } = string.Empty;
 
     [NaturalKeySource]
     public static User Create(IEvent<UserCreated> @event) =>
@@ -24,6 +31,7 @@ public sealed record User : EntityBase
         {
             Id = @event.StreamId,
             Email = @event.Data.Email,
+            NormalizedEmail = @event.Data.NormalizedEmail,
             DisplayName = @event.Data.DisplayName,
             Status = EntityStatus.Active,
             CreatedAt = @event.Timestamp,

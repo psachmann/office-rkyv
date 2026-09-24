@@ -1,9 +1,11 @@
+global using System.Text.Json.Serialization;
 global using Fisher;
 global using JasperFx.Events;
 global using JasperFx.Events.Aggregation;
 global using JasperFx.Events.Documents;
 global using JasperFx.Events.Projections;
 global using OfficeRkyv.Api.Shared;
+global using OfficeRkyv.Api.Shared.Exceptions;
 global using OfficeRkyv.Contracts;
 global using OfficeRkyv.Contracts.Users;
 global using Wolverine.Persistence.EventSourcing;

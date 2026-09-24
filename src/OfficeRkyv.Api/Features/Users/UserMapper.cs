@@ -18,6 +18,10 @@ public static partial class UserMapper
 
     public static partial FindUserByEmailQuery ToQuery(this FindUserByEmailRequest request);
 
+    // NormalizedEmail is a storage concern (the uniqueness key); the contract exposes Email only.
+    // Status is not exposed either: deleted users are filtered out before they reach the API.
+    [MapperIgnoreSource(nameof(User.NormalizedEmail))]
+    [MapperIgnoreSource(nameof(User.Status))]
     public static partial UserDto ToDto(this User user);
 
     // Hand-written: `repeated` fields are get-only RepeatedField<T>, so items must be added, not assigned.

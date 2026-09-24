@@ -1,5 +1,7 @@
+using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Services;
+using OfficeRkyv.Api.Shared.Interceptors;
 using Wolverine;
 using Wolverine.Fisher;
 
@@ -31,7 +33,7 @@ builder.Host.UseWolverine(options =>
     options.Durability.Mode = DurabilityMode.Solo;
     options.Policies.AutoApplyTransactions();
 });
-builder.Services.AddGrpc();
+builder.Services.AddGrpc(options => options.Interceptors.Add<ExceptionMappingInterceptor>());
 
 var app = builder.Build();
 
