@@ -17,6 +17,7 @@
     "nixpkgs",
     "openspec",
     "pkgs",
+    "podman",
     "protobuf",
     "Radzen",
     "rendermode",

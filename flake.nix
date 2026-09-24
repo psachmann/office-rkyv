@@ -23,6 +23,8 @@
           in
           pkgs.mkShell {
             packages = with pkgs; [
+              just
+              just-lsp
               nixd
               dotnet
               omnisharp-roslyn
@@ -32,6 +34,8 @@
               protolint
               api-linter
               nss.tools
+              openssl
+              icu
               # For installing Playwright's own browser binaries: after
               # building tests/OfficeRkyv.FunctionalTests, run
               # `pwsh bin/Debug/netX/playwright.ps1 install` once (needs
@@ -41,6 +45,15 @@
               openspec.packages.${system}.default
             ];
             DOTNET_ROOT = "${dotnet}/share/dotnet";
+            # .NET (and thus Aspire) loads ICU dynamically; nixpkgs has no
+            # global lib path, so expose it explicitly.
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.icu ];
+            # Let OpenSSL-based clients (.NET, Aspire's DCP, curl, ...) trust
+            # the ASP.NET Core dev cert that `dotnet dev-certs https --trust`
+            # drops into ~/.aspnet/dev-certs/trust.
+            shellHook = ''
+              export SSL_CERT_DIR="''${SSL_CERT_DIR:+$SSL_CERT_DIR:}/etc/ssl/certs:$HOME/.aspnet/dev-certs/trust"
+            '';
           };
       }
     );
