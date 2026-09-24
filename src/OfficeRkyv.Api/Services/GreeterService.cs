@@ -1,13 +1,16 @@
-using Grpc.Core;
+using Wolverine.Grpc;
 
 namespace OfficeRkyv.Api.Services;
 
-public class GreeterService(ILogger<GreeterService> logger) : Greeter.GreeterBase
+[WolverineGrpcService]
+public abstract class GreeterService : Greeter.GreeterBase;
+
+public class GreeterHandler(ILogger<GreeterHandler> logger)
 {
-    public override Task<HelloReply> SayHello(HelloRequest request, ServerCallContext context)
+    public HelloReply Handle(HelloRequest request)
     {
         logger.LogInformation("The message is received from {Name}", request.Name);
 
-        return Task.FromResult(new HelloReply { Message = "Hello " + request.Name });
+        return new HelloReply { Message = "Hello " + request.Name };
     }
 }

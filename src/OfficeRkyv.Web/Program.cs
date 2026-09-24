@@ -1,5 +1,7 @@
+using DotNetQuery.Core;
 using DotNetQuery.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Localization;
+using OfficeRkyv.Contracts;
 using OfficeRkyv.Web.Components;
 using OfficeRkyv.Web.Localization;
 using Radzen;
@@ -10,8 +12,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddRadzenComponents();
-builder.Services.AddDotNetQuery(config => { });
+builder.Services.AddDotNetQuery(options =>
+{
+    options.ExecutionMode = QueryExecutionMode.Ssr;
+    options.StaleTime = TimeSpan.Zero; // data is immediately stale
+    options.CacheTime = TimeSpan.FromMinutes(10); // cache entries live 10 minutes after last subscriber
+    options.RefetchInterval = TimeSpan.FromSeconds(30); // automatically refetch every 30 seconds
+});
 builder.Services.AddLocalization(options => options.ResourcesPath = SupportedCultures.ResourcesPath);
+
+// "api-svc" is resolved by Aspire service discovery (see AppHost). gRPC only accepts plain
+// http/https here; the "https+http" form throws "No address resolver configured".
+builder.Services.AddGrpcClient<Greeter.GreeterClient>(options => options.Address = new Uri("https://api-svc"));
 
 var app = builder.Build();
 

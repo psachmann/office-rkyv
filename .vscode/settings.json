@@ -15,6 +15,7 @@
     "dotnet",
     "github",
     "nixpkgs",
+    "officerkyv",
     "openspec",
     "pkgs",
     "podman",
