@@ -4,7 +4,7 @@ using Wolverine;
 
 namespace OfficeRkyv.Api.Features.Users;
 
-public class UserGrpcService(IMessageBus bus) : UserService.UserServiceBase
+public class UsersServiceImpl(IMessageBus bus) : UsersService.UsersServiceBase
 {
     public override async Task<ListUsersResponse> ListUsers(ListUsersRequest request, ServerCallContext context)
     {

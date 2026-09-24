@@ -39,6 +39,6 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 app.MapGrpcService<GreeterService>();
-app.MapGrpcService<UserGrpcService>();
+app.MapGrpcService<UsersServiceImpl>();
 
 app.Run();

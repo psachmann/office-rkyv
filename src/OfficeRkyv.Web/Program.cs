@@ -27,7 +27,9 @@ builder.Services.AddScoped<UsersFacade>();
 // "api-svc" is resolved by Aspire service discovery (see AppHost). gRPC only accepts plain
 // http/https here; the "https+http" form throws "No address resolver configured".
 builder.Services.AddGrpcClient<Greeter.GreeterClient>(options => options.Address = new Uri("https://api-svc"));
-builder.Services.AddGrpcClient<UserService.UserServiceClient>(options => options.Address = new Uri("https://api-svc"));
+builder.Services.AddGrpcClient<UsersService.UsersServiceClient>(options =>
+    options.Address = new Uri("https://api-svc")
+);
 
 var app = builder.Build();
 

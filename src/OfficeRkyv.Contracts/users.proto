@@ -8,7 +8,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 // Resource-oriented user API. The command/query split is an internal concern of the server.
-service UserService {
+service UsersService {
   rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
   rpc FindUserByEmail (FindUserByEmailRequest) returns (FindUserByEmailResponse);
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);

@@ -2,7 +2,7 @@ using OfficeRkyv.Contracts.Users;
 
 namespace OfficeRkyv.Web.Shared;
 
-public sealed class UsersFacade(IQueryClient queryClient, UserService.UserServiceClient userService) : IDisposable
+public sealed class UsersFacade(IQueryClient queryClient, UsersService.UsersServiceClient userService) : IDisposable
 {
     private static readonly QueryKey UsersKey = ["users"];
 
