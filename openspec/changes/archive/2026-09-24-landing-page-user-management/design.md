@@ -6,7 +6,7 @@ See proposal.md - Why. Current state that shapes the approach:
 
 - **API**: the `UserService` gRPC service (`Features/Users/UserGrpcService.cs`) sends Wolverine messages. It has no exception handling of its own, so every exception reaches the client as `StatusCode.Unknown`. Users are event-sourced with Fisher on **SQLite**, with an inline snapshot of `User`. `User.Email` carries `[NaturalKey]`, and `User.Create` is `[NaturalKeySource]`, so the key value is **extracted from the `UserCreated` event**, not from the snapshot.
 - **Fisher's key behaviour**: on append, Fisher refuses a key that another live stream already holds, throwing `Fisher.Exceptions.DuplicateNaturalKeyException`, a subclass of `JasperFx.Events.DuplicateNaturalKeyException`. On replay or rebuild the lookup is **last-writer-wins and refuses nothing**.
-- **Existing failure types**: `InvariantViolationException` (a decider refusing an operation), `JasperFx.Events.EventStreamUnexpectedMaxEventIdException` (stale expected version, already asserted in `UserPipelineTests`), `Wolverine.Persistence.RequiredDataMissingException` and `Fisher.Exceptions.NonExistentStreamException` (candidates for "no such stream").
+- **Existing failure types**: `InvariantViolationException` (a decider refusing an operation), `JasperFx.Events.EventStreamUnexpectedMaxEventIdException` (stale expected version, already asserted in `UserPipelineTests`), No exception identifies a missing stream: an unknown id with expected version >= 1 throws the same `EventStreamUnexpectedMaxEventIdException` as a stale version (it carries no expected/actual versions, only ids and types), and at version 0 the decider receives a null aggregate.
 - **Web**: Blazor Server with global `InteractiveServer` rendering and Radzen. `DialogService` is available through `AddRadzenComponents` and `<RadzenComponents />` in `MainLayout`. `UserService.UserServiceClient` is registered but unused. DotNetQuery 2.0 is registered (30 s refetch, stale immediately) but no page uses it yet. `Home.razor` is the scaffold.
 - **Dev data**: the AppHost's `AddSqlite("officerkyv-db")` has no path, so every AppHost start gets a fresh temp database. No data migration is needed.
 
@@ -39,12 +39,14 @@ See proposal.md - Why. Current state that shapes the approach:
 
 *Why:* it matches the existing style, where deciders throw `InvariantViolationException`. It keeps `Handle` free of validation code, and it goes through the real Wolverine pipeline that `UserPipelineTests` already exercises. Stable codes let the UI pick localized text without parsing English.
 
+*Lightweight validation (`Validate` returning `ValidationOutcome` or `string[]`) was tried and rejected:* over `IMessageBus.InvokeAsync<T>` a failing outcome is only logged and the handler is stopped, so the caller receives `null` and no exception. Field errors would never reach the gRPC interceptor. `Validate` therefore returns void and throws.
+
 *Alternatives:* FluentValidation plus Wolverine middleware (a new dependency for two fields, rejected for now); validating in the gRPC mapper (then non-gRPC callers of the bus skip validation, rejected).
 
 The email shape check is a small hand-written check that follows the spec's rule. It does not use `MailAddress`, which accepts display-name forms like `"A" <a@b.c>`, or a large regex.
 
 ### D3. One gRPC server interceptor maps exceptions to status codes
-`Shared/Grpc/ExceptionMappingInterceptor : Interceptor` overrides `UnaryServerHandler` and is registered with `AddGrpc(o => o.Interceptors.Add<ExceptionMappingInterceptor>())`. It handles unary calls only, because no streaming RPCs exist.
+`Shared/ExceptionMappingInterceptor : Interceptor` overrides `UnaryServerHandler` and is registered with `AddGrpc(o => o.Interceptors.Add<ExceptionMappingInterceptor>())`. It handles unary calls only, because no streaming RPCs exist.
 
 | Exception | Status | Detail |
 |---|---|---|
@@ -52,7 +54,7 @@ The email shape check is a small hand-written check that follows the spec's rule
 | `JasperFx.Events.DuplicateNaturalKeyException` | `AlreadyExists` | none |
 | `InvariantViolationException` | `FailedPrecondition` | domain message (app-authored, safe) |
 | `EventStreamUnexpectedMaxEventIdException` | `Aborted` | none |
-| `RequiredDataMissingException`, `NonExistentStreamException` | `NotFound` | none |
+| `NotFoundException` | `NotFound` | none |
 | `RpcException` | passed through unchanged | none |
 | anything else | `Internal` | generic message only; the exception is logged with `ILogger` |
 
@@ -62,7 +64,7 @@ Rich status uses `Grpc.StatusProto` (`Google.Rpc.Status` plus `ToRpcException()`
 
 *Alternatives:* try/catch in every service method (repetitive, and easy to forget in the next service); a plain status with the message as the only detail (the UI would have to parse text, rejected).
 
-The exact exception that a missing user raises is verified with a test (see tasks) rather than assumed. Both candidates are mapped.
+**Unknown ids are reported as not found by the handlers, not inferred by the interceptor.** `UpdateUserHandler` and `DeleteUserHandler` each have a `ValidateAsync` step (via a shared `UserExistence.RequireAsync`) that loads the user and throws `NotFoundException` when absent. Wolverine runs `Validate` before the decider loads the stream and checks the expected version, so the check precedes the conflict it would otherwise be mistaken for. A soft-deleted user still exists, so it passes and the decider applies its own rules (`FailedPrecondition` for a rename, a no-op for a repeat delete). The cost is one extra read per update or delete; a user removed between the read and the write still surfaces as `Aborted`.
 
 ### D4. Web: DotNetQuery query and mutation, rendered through `Transition`
 - `Home.razor` creates an `IQuery<Unit, IReadOnlyList<UserDto>>` through `IQueryClient.CreateQuery`. The key is `QueryKey.From("users")` and the fetcher calls `ListUsersAsync`. It's rendered with `<Transition>`, not `<Suspense>`, so the 30 s background refetch doesn't blank the grid every time. The success content branches on count: zero shows the empty-state card, more than zero shows a `RadzenDataGrid<UserDto>` with Email and Display name columns. The failure template shows the localized load error, so a failure is never shown as "no users".

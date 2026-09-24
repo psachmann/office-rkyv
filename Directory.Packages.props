@@ -10,6 +10,7 @@
     <PackageVersion Include="DotNetQuery.Extensions.DependencyInjection" Version="2.0.0" />
     <PackageVersion Include="Fisher" Version="1.12.0" />
     <PackageVersion Include="Grpc.AspNetCore" Version="2.84.0" />
+    <PackageVersion Include="Grpc.StatusProto" Version="2.84.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.10.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
@@ -17,15 +18,15 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
-    <PackageVersion Include="Radzen.Blazor" Version="11.4.2" />
+    <PackageVersion Include="Radzen.Blazor" Version="11.4.3" />
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
-    <PackageVersion Include="WolverineFx" Version="6.39.1" />
-    <PackageVersion Include="WolverineFx.Fisher" Version="6.39.1" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.39.1" />
-    <PackageVersion Include="TUnit" Version="1.68.17" />
-    <PackageVersion Include="TUnit.Aspire" Version="1.68.17" />
-    <PackageVersion Include="TUnit.Mocks" Version="1.68.17" />
+    <PackageVersion Include="WolverineFx" Version="6.40.0" />
+    <PackageVersion Include="WolverineFx.Fisher" Version="6.40.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.40.0" />
+    <PackageVersion Include="TUnit" Version="1.69.0" />
+    <PackageVersion Include="TUnit.Aspire" Version="1.69.0" />
+    <PackageVersion Include="TUnit.Mocks" Version="1.69.0" />
     <PackageVersion Include="TUnit.Mocks.Logging" Version="1.68.17" />
-    <PackageVersion Include="TUnit.Playwright" Version="1.68.17" />
+    <PackageVersion Include="TUnit.Playwright" Version="1.69.0" />
   </ItemGroup>
 </Project>

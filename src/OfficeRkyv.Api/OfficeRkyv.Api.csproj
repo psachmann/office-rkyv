@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="Fisher" />
     <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Grpc.StatusProto" />
     <PackageReference Include="Riok.Mapperly" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.Fisher" />
