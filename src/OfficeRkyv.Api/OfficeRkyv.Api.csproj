@@ -1,36 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Aspire.Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Fisher" />
     <PackageReference Include="Grpc.AspNetCore" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Riok.Mapperly" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.Fisher" />
-    <PackageReference Include="WolverineFx.Grpc" />
     <PackageReference Include="WolverineFx.RuntimeCompilation" />
-  </ItemGroup>
-
-  <!--
-    SPIKE ONLY. The hand-rolled event store in Data/ does not compile on this branch, and did not
-    compile before it either: the second attempt replaced the non-generic Shared/IEvent that
-    EventStore/Projector/MaterializedEntityStore are written against. The files are kept on disk for
-    side-by-side comparison with the Fisher implementation, and excluded from the build.
-  -->
-  <ItemGroup>
-    <Compile Remove="Data/EventStore.cs" />
-    <Compile Remove="Data/EventStoreImpl.cs" />
-    <Compile Remove="Data/EventStoreConcurrencyException.cs" />
-    <Compile Remove="Data/Projector.cs" />
-    <Compile Remove="Data/MaterializedEntityStore.cs" />
-    <Compile Remove="Data/EventTypeName.cs" />
-    <Compile Remove="Data/EventRecord.cs" />
-    <Compile Remove="Data/Configurations/EventRecordConfiguration.cs" />
-    <Compile Remove="Data/Migrations/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>

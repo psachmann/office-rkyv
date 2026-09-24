@@ -1,11 +1,11 @@
+using Documents;
 using Fisher;
 using JasperFx.Events;
-using JasperFx.Events.Documents;
-using JasperFx.Events.Projections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Users;
+using Projections;
 using Wolverine;
 using Wolverine.Fisher;
 

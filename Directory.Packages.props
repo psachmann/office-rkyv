@@ -4,17 +4,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Sqlite" Version="13.5.0" />
-    <PackageVersion Include="CommunityToolkit.Aspire.Microsoft.EntityFrameworkCore.Sqlite" Version="9.7.2" />
     <PackageVersion Include="DotNetQuery.Blazor" Version="2.0.0" />
     <PackageVersion Include="DotNetQuery.Blazor.DevTools" Version="2.0.0" />
     <PackageVersion Include="DotNetQuery.Core" Version="2.0.0" />
     <PackageVersion Include="DotNetQuery.Extensions.DependencyInjection" Version="2.0.0" />
     <PackageVersion Include="Fisher" Version="1.12.0" />
     <PackageVersion Include="Grpc.AspNetCore" Version="2.84.0" />
-    <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
-    <PackageVersion Include="Mediator.SourceGenerator" Version="3.0.2" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.10.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
@@ -26,7 +21,6 @@
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
     <PackageVersion Include="WolverineFx" Version="6.39.1" />
     <PackageVersion Include="WolverineFx.Fisher" Version="6.39.1" />
-    <PackageVersion Include="WolverineFx.Grpc" Version="6.39.1" />
     <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.39.1" />
     <PackageVersion Include="TUnit" Version="1.68.17" />
     <PackageVersion Include="TUnit.Aspire" Version="1.68.17" />

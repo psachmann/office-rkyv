@@ -1,12 +1,9 @@
-using Fisher;
-using JasperFx.Events.Projections;
 using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Features.Users.Services;
 using OfficeRkyv.Api.Services;
 using Wolverine;
 using Wolverine.Fisher;
-using Wolverine.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,14 +34,11 @@ builder.Host.UseWolverine(options =>
     options.Policies.AutoApplyTransactions();
 });
 builder.Services.AddGrpc();
-builder.Services.AddWolverineGrpc();
 
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
-app.MapWolverineGrpcServices();
-
-// Configure the HTTP request pipeline.
+app.MapGrpcService<GreeterService>();
 app.MapGrpcService<UserCommandsService>();
 app.MapGrpcService<UserQueriesService>();
 

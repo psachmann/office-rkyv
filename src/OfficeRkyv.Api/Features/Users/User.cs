@@ -1,5 +1,3 @@
-using JasperFx.Events.Aggregation;
-
 namespace OfficeRkyv.Api.Features.Users;
 
 /// <summary>
@@ -13,18 +11,18 @@ namespace OfficeRkyv.Api.Features.Users;
 /// </remarks>
 public sealed class User
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; private set; }
 
     // Set by the projection. The client echoes it back as the expected version on the next write,
     // which is what makes optimistic concurrency reach all the way to the caller.
-    public int Version { get; set; }
+    public int Version { get; private set; }
 
     // Addresses the stream by email AND claims uniqueness inside the append transaction: a second
     // stream claiming a live key is refused by the store, not by a check-then-write race.
     [NaturalKey]
-    public string Email { get; set; } = "";
+    public string Email { get; private set; } = string.Empty;
 
-    public string DisplayName { get; set; } = "";
+    public string DisplayName { get; set; } = string.Empty;
 
     // Soft delete: the document stays queryable and callers filter explicitly.
     public bool IsDeleted { get; set; }
@@ -34,7 +32,7 @@ public sealed class User
     public DateTimeOffset UpdatedAt { get; set; }
 
     [NaturalKeySource]
-    public static User Create(JasperFx.Events.IEvent<UserCreated> @event) =>
+    public static User Create(IEvent<UserCreated> @event) =>
         new()
         {
             Id = @event.StreamId,
@@ -44,13 +42,13 @@ public sealed class User
             UpdatedAt = @event.Timestamp,
         };
 
-    public void Apply(JasperFx.Events.IEvent<UserRenamed> @event)
+    public void Apply(IEvent<UserRenamed> @event)
     {
         DisplayName = @event.Data.DisplayName;
         UpdatedAt = @event.Timestamp;
     }
 
-    public void Apply(JasperFx.Events.IEvent<UserDeleted> @event)
+    public void Apply(IEvent<UserDeleted> @event)
     {
         IsDeleted = true;
         UpdatedAt = @event.Timestamp;
