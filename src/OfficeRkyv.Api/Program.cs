@@ -1,5 +1,4 @@
 using OfficeRkyv.Api.Features.Users;
-using OfficeRkyv.Api.Features.Users.Services;
 using OfficeRkyv.Api.Services;
 using Wolverine;
 using Wolverine.Fisher;
@@ -38,7 +37,6 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 app.MapGrpcService<GreeterService>();
-app.MapGrpcService<UserCommandsService>();
-app.MapGrpcService<UserQueriesService>();
+app.MapGrpcService<UserGrpcService>();
 
 app.Run();

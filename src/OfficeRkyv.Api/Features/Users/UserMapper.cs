@@ -14,14 +14,14 @@ public static partial class UserMapper
     public static DeleteUserCommand ToCommand(this DeleteUserRequest request) =>
         new(Guid.Parse(request.UserId), request.Version);
 
-    public static FindAllUsersQuery ToQuery(this FindAllUsersRequest request) => new();
+    public static FindAllUsersQuery ToQuery(this ListUsersRequest request) => new();
 
     public static partial FindUserByEmailQuery ToQuery(this FindUserByEmailRequest request);
 
     public static partial UserDto ToDto(this User user);
 
     // Hand-written: `repeated` fields are get-only RepeatedField<T>, so items must be added, not assigned.
-    public static FindAllUsersResponse ToResponse(this IEnumerable<User> users) =>
+    public static ListUsersResponse ToResponse(this IEnumerable<User> users) =>
         new() { Users = { users.Select(ToDto) } };
 
     public static FindUserByEmailResponse ToResponse(this User? user) => new() { User = user?.ToDto() };

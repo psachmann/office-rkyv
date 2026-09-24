@@ -2,10 +2,27 @@ using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Wolverine;
 
-namespace OfficeRkyv.Api.Features.Users.Services;
+namespace OfficeRkyv.Api.Features.Users;
 
-public class UserCommandsService(IMessageBus bus) : UserCommands.UserCommandsBase
+public class UserGrpcService(IMessageBus bus) : UserService.UserServiceBase
 {
+    public override async Task<ListUsersResponse> ListUsers(ListUsersRequest request, ServerCallContext context)
+    {
+        var users = await bus.InvokeAsync<IReadOnlyList<User>>(request.ToQuery(), context.CancellationToken);
+
+        return users.ToResponse();
+    }
+
+    public override async Task<FindUserByEmailResponse> FindUserByEmail(
+        FindUserByEmailRequest request,
+        ServerCallContext context
+    )
+    {
+        var user = await bus.InvokeAsync<User?>(request.ToQuery(), context.CancellationToken);
+
+        return user.ToResponse();
+    }
+
     public override async Task<CreateUserResponse> CreateUser(CreateUserRequest request, ServerCallContext context)
     {
         var user = await bus.InvokeAsync<User>(request.ToCommand(), context.CancellationToken);
