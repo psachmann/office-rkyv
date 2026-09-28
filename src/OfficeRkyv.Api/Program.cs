@@ -1,7 +1,7 @@
 using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Services;
-using OfficeRkyv.Api.Shared.Interceptors;
+using OfficeRkyv.Api.Shared.Errors;
 using Wolverine;
 using Wolverine.Fisher;
 
@@ -32,8 +32,9 @@ builder.Host.UseWolverine(options =>
     options.ApplicationAssembly = OfficeRkyvApiLib.Assembly;
     options.Durability.Mode = DurabilityMode.Solo;
     options.Policies.AutoApplyTransactions();
+    options.UseApiErrorMapping();
 });
-builder.Services.AddGrpc(options => options.Interceptors.Add<ExceptionMappingInterceptor>());
+builder.Services.AddGrpc();
 
 var app = builder.Build();
 

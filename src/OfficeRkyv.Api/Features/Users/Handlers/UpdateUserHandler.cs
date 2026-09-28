@@ -14,7 +14,7 @@ public static class UpdateUserHandler
     {
         if (user.Status is EntityStatus.Deleted)
         {
-            throw new InvariantViolationException("A deleted user cannot be renamed.");
+            throw new InvariantViolationException(InvariantCodes.UserDeleted);
         }
 
         if (user.DisplayName != command.DisplayName)

@@ -7,6 +7,7 @@ using OfficeRkyv.Web.Components;
 using OfficeRkyv.Web.Localization;
 using OfficeRkyv.Web.Shared;
 using Radzen;
+using Wolverine.Grpc.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,8 +27,10 @@ builder.Services.AddScoped<UsersFacade>();
 
 // "api-svc" is resolved by Aspire service discovery (see AppHost). gRPC only accepts plain
 // http/https here; the "https+http" form throws "No address resolver configured".
-builder.Services.AddGrpcClient<Greeter.GreeterClient>(options => options.Address = new Uri("https://api-svc"));
-builder.Services.AddGrpcClient<UsersService.UsersServiceClient>(options =>
+// Wolverine's typed clients wrap AddGrpcClient; a failed call surfaces as a typed .NET exception with
+// the original RpcException (and its status details) as InnerException.
+builder.Services.AddWolverineGrpcClient<Greeter.GreeterClient>(options => options.Address = new Uri("https://api-svc"));
+builder.Services.AddWolverineGrpcClient<UsersService.UsersServiceClient>(options =>
     options.Address = new Uri("https://api-svc")
 );
 

@@ -18,7 +18,14 @@ public sealed class CreateUserErrorsTests
 
         foreach (var (field, code) in violations)
         {
-            details.FieldViolations.Add(new BadRequest.Types.FieldViolation { Field = field, Description = code });
+            details.FieldViolations.Add(
+                new BadRequest.Types.FieldViolation
+                {
+                    Field = field,
+                    Reason = code,
+                    Description = "Developer text the form must never show.",
+                }
+            );
         }
 
         return new Google.Rpc.Status
@@ -99,6 +106,17 @@ public sealed class CreateUserErrorsTests
         var errors = CreateUserErrors.From(new RpcException(new GrpcStatus(code, "SQLITE_BUSY at /secret")));
 
         await Assert.That(errors).IsEqualTo(new CreateUserErrors(General: "CreateFailed"));
+    }
+
+    [Test]
+    public async Task AnRpcExceptionWrappedByTheTypedClient_IsUnwrapped()
+    {
+        // Wolverine's typed client maps INVALID_ARGUMENT to an ArgumentException around the original.
+        var wrapped = new ArgumentException("The request is invalid.", InvalidArgument(("email", "required")));
+
+        var errors = CreateUserErrors.From(wrapped);
+
+        await Assert.That(errors).IsEqualTo(new CreateUserErrors(Email: "EmailRequired"));
     }
 
     [Test]

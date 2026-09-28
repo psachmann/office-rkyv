@@ -1,5 +1,6 @@
 using Google.Rpc;
 using Grpc.Core;
+using OfficeRkyv.Contracts;
 
 namespace OfficeRkyv.Web.Components.Pages.Users;
 
@@ -13,7 +14,8 @@ internal sealed record CreateUserErrors(string? Email = null, string? DisplayNam
 
     public static CreateUserErrors From(Exception exception)
     {
-        if (exception is not RpcException rpc)
+        // Wolverine's typed client rethrows a failed call as a .NET exception wrapping the RpcException.
+        if ((exception as RpcException ?? exception.InnerException as RpcException) is not { } rpc)
         {
             return new(General: CreateFailed);
         }
@@ -45,10 +47,10 @@ internal sealed record CreateUserErrors(string? Email = null, string? DisplayNam
             switch (violation.Field)
             {
                 case "email":
-                    email ??= Key("Email", violation.Description);
+                    email ??= Key("Email", violation.Reason);
                     break;
                 case "display_name":
-                    displayName ??= Key("DisplayName", violation.Description);
+                    displayName ??= Key("DisplayName", violation.Reason);
                     break;
                 default:
                     // A field the form does not have: better a general message than a silent failure.
@@ -64,9 +66,9 @@ internal sealed record CreateUserErrors(string? Email = null, string? DisplayNam
     private static string Key(string field, string code) =>
         code switch
         {
-            "required" => $"{field}Required",
-            "invalid_format" when field == "Email" => "EmailInvalid",
-            "too_long" => $"{field}TooLong",
+            ViolationCodes.Required => $"{field}Required",
+            ViolationCodes.InvalidFormat when field == "Email" => "EmailInvalid",
+            ViolationCodes.TooLong => $"{field}TooLong",
             _ => "FieldInvalid",
         };
 }

@@ -6,7 +6,7 @@ using System.Reactive.Threading.Tasks;
 using DotNetQuery.Extensions.DependencyInjection;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
-using web::OfficeRkyv.Contracts.Users;
+using OfficeRkyv.Contracts.Users;
 using web::OfficeRkyv.Web.Shared;
 
 namespace OfficeRkyv.UnitTests.Web;
@@ -20,7 +20,7 @@ public sealed class UsersFacadeTests
     private ServiceProvider CreateServices() =>
         new ServiceCollection()
             .AddDotNetQuery()
-            .AddSingleton<UserService.UserServiceClient>(client)
+            .AddSingleton<UsersService.UsersServiceClient>(client)
             .AddScoped<UsersFacade>()
             .BuildServiceProvider();
 
@@ -98,7 +98,7 @@ public sealed class UsersFacadeTests
         await Assert.That(async () => await afterSkip).Throws<TimeoutException>();
     }
 
-    private sealed class FakeUserClient : UserService.UserServiceClient
+    private sealed class FakeUserClient : UsersService.UsersServiceClient
     {
         private int listCalls;
 

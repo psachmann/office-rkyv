@@ -1,52 +1,83 @@
+extern alias web;
+
+using System.Net;
 using Fisher;
+using FluentValidation;
+using Google.Rpc;
 using Grpc.Core;
+using Grpc.Net.Client;
 using JasperFx.Events;
 using JasperFx.Events.Documents;
 using JasperFx.Events.Projections;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Features.Users.Handlers;
 using OfficeRkyv.Api.Shared;
+using OfficeRkyv.Api.Shared.Errors;
 using OfficeRkyv.Api.Shared.Exceptions;
-using OfficeRkyv.Api.Shared.Interceptors;
+using OfficeRkyv.Contracts;
+using OfficeRkyv.Contracts.Users;
+using web::OfficeRkyv.Web.Components.Pages.Users;
 using Wolverine;
 using Wolverine.Fisher;
+using Wolverine.Grpc.Client;
 
 namespace OfficeRkyv.UnitTests.Users;
 
 /// <summary>
-/// Drives the real Wolverine pipeline - decider middleware, concurrency guard and all - against a
-/// real Fisher store, so what these tests exercise is what the gRPC services call.
+/// Drives the real Wolverine pipeline - validation and decider middleware, concurrency guard and all -
+/// against a real Fisher store, and serves the real gRPC service with the real error mapping, so the
+/// OverTheWire tests see exactly what a client sees.
 /// </summary>
 public sealed class UserPipelineTests : IAsyncDisposable
 {
     private readonly string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():n}.db");
-    private IHost host = null!;
+    private WebApplication host = null!;
+    private GrpcChannel channel = null!;
+    private Uri address = null!;
 
     private IMessageBus Bus => host.Services.GetRequiredService<IMessageBus>();
 
+    private UsersService.UsersServiceClient Client => new(channel);
+
     [Before(Test)]
-    public async Task SetUp() =>
-        host = await Host.CreateDefaultBuilder()
-            .ConfigureServices(services =>
-                services
-                    .AddFisher(options =>
-                    {
-                        options.Connection($"Data Source={path}");
-                        options.Projections.Snapshot<User>(SnapshotLifecycle.Inline);
-                    })
-                    .ApplyAllDatabaseChangesOnStartup()
-                    .IntegrateWithWolverine()
-            )
-            .UseWolverine(options =>
+    public async Task SetUp()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseKestrel(kestrel =>
+            kestrel.Listen(IPAddress.Loopback, 0, listen => listen.Protocols = HttpProtocols.Http2)
+        );
+        builder
+            .Services.AddFisher(options =>
             {
-                options.Durability.Mode = DurabilityMode.Solo;
-                options.Policies.AutoApplyTransactions();
-                options.Discovery.IncludeAssembly(OfficeRkyvApiLib.Assembly);
+                options.Connection($"Data Source={path}");
+                options.Projections.Snapshot<User>(SnapshotLifecycle.Inline);
             })
-            .StartAsync();
+            .ApplyAllDatabaseChangesOnStartup()
+            .IntegrateWithWolverine();
+        builder.Host.UseWolverine(options =>
+        {
+            options.ApplicationAssembly = OfficeRkyvApiLib.Assembly;
+            options.Durability.Mode = DurabilityMode.Solo;
+            options.Policies.AutoApplyTransactions();
+            options.UseApiErrorMapping();
+        });
+        builder.Services.AddGrpc();
+
+        host = builder.Build();
+        host.MapGrpcService<UsersServiceImpl>();
+        await host.StartAsync();
+
+        var addresses = host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;
+        address = new Uri(addresses.Addresses.Single());
+        channel = GrpcChannel.ForAddress(address);
+    }
 
     [Test]
     public async Task CreateThenQueryImmediately_SeesTheWrite()
@@ -237,40 +268,74 @@ public sealed class UserPipelineTests : IAsyncDisposable
             .Throws<InvariantViolationException>();
     }
 
-    // What a gRPC client would see: the pipeline's real exception, run through the real mapping. These
-    // exist because assuming which exception the store throws was wrong once (see design D3).
-    private static async Task<RpcException> MappedFailureOf(Func<Task> call)
+    // What a gRPC client sees: a real call through the real service and error mapping. These exist
+    // because assuming which exception the store throws was wrong once.
+    private static async Task<RpcException> FailureOf(Func<Task> call)
     {
         try
         {
             await call();
         }
-        catch (Exception exception)
+        catch (RpcException exception)
         {
-            return ExceptionMappingInterceptor.Map(exception);
+            return exception;
         }
 
         throw new InvalidOperationException("Expected the call to fail.");
     }
+
+    private static T Detail<T>(RpcException failure)
+        where T : Google.Protobuf.IMessage<T>, new() => failure.GetRpcStatus()!.Details.Single().Unpack<T>();
 
     [Test]
     public async Task OverTheWire_ADuplicateEmail_IsAlreadyExists()
     {
         await Bus.InvokeAsync<User>(new CreateUserCommand("dup@example.com", "First"));
 
-        var mapped = await MappedFailureOf(async () =>
-            await Bus.InvokeAsync<User>(new CreateUserCommand("DUP@example.com", "Second"))
+        var failure = await FailureOf(async () =>
+            await Client.CreateUserAsync(new CreateUserRequest { Email = "DUP@example.com", DisplayName = "Second" })
         );
 
-        await Assert.That(mapped.StatusCode).IsEqualTo(StatusCode.AlreadyExists);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.AlreadyExists);
     }
 
     [Test]
-    public async Task OverTheWire_InvalidInput_IsInvalidArgument()
+    public async Task OverTheWire_InvalidInput_IsInvalidArgument_WithAReasonPerViolatedRule()
     {
-        var mapped = await MappedFailureOf(async () => await Bus.InvokeAsync<User>(new CreateUserCommand("", "")));
+        var failure = await FailureOf(async () =>
+            await Client.CreateUserAsync(
+                new CreateUserRequest
+                {
+                    Email = new string('a', EmailAddress.MaxLength + 1),
+                    DisplayName = new string('n', CreateUserHandler.MaxDisplayNameLength + 1),
+                }
+            )
+        );
 
-        await Assert.That(mapped.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
+        await Assert
+            .That(Detail<BadRequest>(failure).FieldViolations.Select(v => (v.Field, v.Reason)))
+            .IsEquivalentTo([
+                ("email", ViolationCodes.TooLong),
+                ("email", ViolationCodes.InvalidFormat),
+                ("display_name", ViolationCodes.TooLong),
+            ]);
+    }
+
+    [Test]
+    public async Task OverTheWire_EmptyFields_AreOnlyRequired()
+    {
+        var failure = await FailureOf(async () => await Client.CreateUserAsync(new CreateUserRequest()));
+
+        // The status message is generic: no per-field English text a client might be tempted to show.
+        await Assert.That(failure.Status.Detail).DoesNotContain("Email");
+        await Assert
+            .That(Detail<BadRequest>(failure).FieldViolations.Select(v => v.Description))
+            .DoesNotContain(string.Empty);
+
+        await Assert
+            .That(Detail<BadRequest>(failure).FieldViolations.Select(v => (v.Field, v.Reason)))
+            .IsEquivalentTo([("email", ViolationCodes.Required), ("display_name", ViolationCodes.Required)]);
     }
 
     [Test]
@@ -279,35 +344,85 @@ public sealed class UserPipelineTests : IAsyncDisposable
         var created = await Bus.InvokeAsync<User>(new CreateUserCommand("edsger@example.com", "Edsger D"));
         await Bus.InvokeAsync(new UpdateUserCommand(created.Id, created.Version, "Edsger Dijkstra"));
 
-        var mapped = await MappedFailureOf(async () =>
-            await Bus.InvokeAsync(new UpdateUserCommand(created.Id, created.Version, "Late"))
+        var failure = await FailureOf(async () =>
+            await Client.UpdateUserAsync(
+                new UpdateUserRequest
+                {
+                    UserId = created.Id.ToString(),
+                    Version = created.Version,
+                    DisplayName = "Late",
+                }
+            )
         );
 
-        await Assert.That(mapped.StatusCode).IsEqualTo(StatusCode.Aborted);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Aborted);
     }
 
     [Test]
     public async Task OverTheWire_AnUnknownUser_IsNotFound()
     {
-        var mapped = await MappedFailureOf(async () =>
-            await Bus.InvokeAsync(new UpdateUserCommand(Guid.NewGuid(), 1, "Ghost"))
+        var failure = await FailureOf(async () =>
+            await Client.UpdateUserAsync(
+                new UpdateUserRequest
+                {
+                    UserId = Guid.NewGuid().ToString(),
+                    Version = 1,
+                    DisplayName = "Ghost",
+                }
+            )
         );
 
-        await Assert.That(mapped.StatusCode).IsEqualTo(StatusCode.NotFound);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.NotFound);
     }
 
     [Test]
-    public async Task OverTheWire_RenamingADeletedUser_IsFailedPrecondition()
+    public async Task OverTheWire_RenamingADeletedUser_IsFailedPrecondition_WithAReason()
     {
         var created = await Bus.InvokeAsync<User>(new CreateUserCommand("gone@example.com", "Gone"));
         await Bus.InvokeAsync(new DeleteUserCommand(created.Id, created.Version));
         var deleted = await Bus.InvokeAsync<User?>(new FindUserByIdQuery(created.Id));
 
-        var mapped = await MappedFailureOf(async () =>
-            await Bus.InvokeAsync(new UpdateUserCommand(created.Id, deleted!.Version, "Back"))
+        var failure = await FailureOf(async () =>
+            await Client.UpdateUserAsync(
+                new UpdateUserRequest
+                {
+                    UserId = created.Id.ToString(),
+                    Version = deleted!.Version,
+                    DisplayName = "Back",
+                }
+            )
         );
 
-        await Assert.That(mapped.StatusCode).IsEqualTo(StatusCode.FailedPrecondition);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.FailedPrecondition);
+
+        var info = Detail<ErrorInfo>(failure);
+        await Assert.That(info.Reason).IsEqualTo(InvariantCodes.UserDeleted);
+        await Assert.That(info.Domain).IsEqualTo(ErrorDomain.Value);
+    }
+
+    [Test]
+    public async Task OverTheWire_ThroughTheWebsTypedClient_TheFormGetsItsOwnMessageKeys()
+    {
+        // Registered as the Web registers it, in a container with no Wolverine runtime - like the Web.
+        await using var web = new ServiceCollection()
+            .AddLogging()
+            .AddWolverineGrpcClient<UsersService.UsersServiceClient>(options => options.Address = address)
+            .Services.BuildServiceProvider();
+        var client = web.GetRequiredService<UsersService.UsersServiceClient>();
+
+        Exception? failure = null;
+        try
+        {
+            await client.CreateUserAsync(new CreateUserRequest { Email = "not-an-email", DisplayName = "" });
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+
+        await Assert
+            .That(CreateUserErrors.From(failure!))
+            .IsEqualTo(new(Email: "EmailInvalid", DisplayName: "DisplayNameRequired"));
     }
 
     private async Task<ValidationException> CreateExpectingValidationFailure(string email, string displayName)
@@ -324,16 +439,19 @@ public sealed class UserPipelineTests : IAsyncDisposable
         throw new InvalidOperationException("Expected the create to be rejected as invalid.");
     }
 
+    private static IEnumerable<(string Property, string Code)> Violations(ValidationException failure) =>
+        failure.Errors.Select(error => (error.PropertyName, error.ErrorCode));
+
     [Test]
     public async Task Create_WithEmptyEmailAndBlankName_ReportsBothFieldsAndStoresNothing()
     {
         var failure = await CreateExpectingValidationFailure("", "   ");
 
         await Assert
-            .That(failure.Violations)
+            .That(Violations(failure))
             .IsEquivalentTo([
-                new FieldViolation(nameof(CreateUserCommand.Email), ViolationCodes.Required),
-                new FieldViolation(nameof(CreateUserCommand.DisplayName), ViolationCodes.Required),
+                (nameof(CreateUserCommand.Email), ViolationCodes.Required),
+                (nameof(CreateUserCommand.DisplayName), ViolationCodes.Required),
             ]);
 
         var users = await Bus.InvokeAsync<IReadOnlyList<User>>(new FindAllUsersQuery());
@@ -346,8 +464,8 @@ public sealed class UserPipelineTests : IAsyncDisposable
         var failure = await CreateExpectingValidationFailure("alice.example.com", "Alice");
 
         await Assert
-            .That(failure.Violations)
-            .IsEquivalentTo([new FieldViolation(nameof(CreateUserCommand.Email), ViolationCodes.InvalidFormat)]);
+            .That(Violations(failure))
+            .IsEquivalentTo([(nameof(CreateUserCommand.Email), ViolationCodes.InvalidFormat)]);
     }
 
     [Test]
@@ -358,8 +476,10 @@ public sealed class UserPipelineTests : IAsyncDisposable
 
         var failure = await CreateExpectingValidationFailure(email, displayName);
 
-        await Assert.That(failure.Violations).Contains(new FieldViolation("Email", ViolationCodes.TooLong));
-        await Assert.That(failure.Violations).Contains(new FieldViolation("DisplayName", ViolationCodes.TooLong));
+        await Assert.That(Violations(failure)).Contains((nameof(CreateUserCommand.Email), ViolationCodes.TooLong));
+        await Assert
+            .That(Violations(failure))
+            .Contains((nameof(CreateUserCommand.DisplayName), ViolationCodes.TooLong));
     }
 
     [Test]
@@ -376,8 +496,9 @@ public sealed class UserPipelineTests : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        channel.Dispose();
         await host.StopAsync();
-        host.Dispose();
+        await host.DisposeAsync();
         File.Delete(path);
     }
 }
