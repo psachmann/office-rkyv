@@ -2,6 +2,7 @@ using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Services;
 using OfficeRkyv.Api.Shared.Errors;
+using OfficeRkyv.Api.Shared.Telemetry;
 using Wolverine;
 using Wolverine.Fisher;
 
@@ -21,6 +22,11 @@ builder
         );
         options.Projections.Snapshot<User>(SnapshotLifecycle.Inline);
 
+        // SQLite allows one writer per file, so time spent queued for that lock is the first thing to
+        // watch as load grows. TrackConnections is deliberately left off: Fisher rejects it, because
+        // Microsoft.Data.Sqlite pools connections process-wide and not per store.
+        options.OpenTelemetry.TrackWriteLockContention();
+
         return options;
     })
     .ApplyAllDatabaseChangesOnStartup()
@@ -35,6 +41,7 @@ builder.Host.UseWolverine(options =>
     options.UseApiErrorMapping();
 });
 builder.Services.AddGrpc();
+builder.Services.AddApiTelemetry();
 
 var app = builder.Build();
 

@@ -1,4 +1,5 @@
 using DotNetQuery.Core;
+using DotNetQuery.Core.Observability;
 using DotNetQuery.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Localization;
 using OfficeRkyv.Contracts;
@@ -6,6 +7,8 @@ using OfficeRkyv.Contracts.Users;
 using OfficeRkyv.Web.Components;
 using OfficeRkyv.Web.Localization;
 using OfficeRkyv.Web.Shared;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using Radzen;
 using Wolverine.Grpc.Client;
 
@@ -22,6 +25,10 @@ builder.Services.AddDotNetQuery(options =>
     options.CacheTime = TimeSpan.FromMinutes(10); // cache entries live 10 minutes after last subscriber
     options.RefetchInterval = TimeSpan.FromSeconds(30); // automatically refetch every 30 seconds
 });
+
+// DotNetQuery uses one name for both its ActivitySource and its Meter (see the observability spec).
+builder.Services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddSource(QueryTelemetry.SourceName));
+builder.Services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddMeter(QueryTelemetry.SourceName));
 builder.Services.AddLocalization(options => options.ResourcesPath = SupportedCultures.ResourcesPath);
 builder.Services.AddScoped<UsersFacade>();
 

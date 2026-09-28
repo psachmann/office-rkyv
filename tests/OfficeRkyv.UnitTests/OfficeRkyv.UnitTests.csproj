@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
     <PackageReference Include="TUnit" />
     <PackageReference Include="TUnit.Mocks" />
   </ItemGroup>
