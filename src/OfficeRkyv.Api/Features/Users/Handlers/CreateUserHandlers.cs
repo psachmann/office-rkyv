@@ -1,7 +1,7 @@
 namespace OfficeRkyv.Api.Features.Users.Handlers;
 
 /// <summary>
-/// Input rules live in <see cref="CreateUserCommandValidator"/>; Wolverine's FluentValidation middleware
+/// Input rules live in <see cref="CreateUserValidator"/>; Wolverine's FluentValidation middleware
 /// runs it before <see cref="Handle"/> and throws with every violated rule, so this only sees valid input.
 /// </summary>
 public static class CreateUserHandler

@@ -307,7 +307,7 @@ public sealed class UserPipelineTests : IAsyncDisposable
                 new CreateUserRequest
                 {
                     Email = new string('a', EmailAddress.MaxLength + 1),
-                    DisplayName = new string('n', CreateUserHandler.MaxDisplayNameLength + 1),
+                    DisplayName = new string('n', CreateUserValidator.MaxDisplayNameLength + 1),
                 }
             )
         );
@@ -472,7 +472,7 @@ public sealed class UserPipelineTests : IAsyncDisposable
     public async Task Create_WithOverLongValues_ReportsTooLong()
     {
         var email = new string('a', EmailAddress.MaxLength) + "@example.com";
-        var displayName = new string('n', CreateUserHandler.MaxDisplayNameLength + 1);
+        var displayName = new string('n', CreateUserValidator.MaxDisplayNameLength + 1);
 
         var failure = await CreateExpectingValidationFailure(email, displayName);
 
@@ -487,7 +487,7 @@ public sealed class UserPipelineTests : IAsyncDisposable
     {
         // 64 + '@' + 185 chars + ".com" is 254 - exactly the limit; the display name is exactly 100.
         var email = new string('a', 64) + "@" + new string('b', 185) + ".com";
-        var displayName = new string('n', CreateUserHandler.MaxDisplayNameLength);
+        var displayName = new string('n', CreateUserValidator.MaxDisplayNameLength);
 
         var created = await Bus.InvokeAsync<User>(new CreateUserCommand(email, displayName));
 

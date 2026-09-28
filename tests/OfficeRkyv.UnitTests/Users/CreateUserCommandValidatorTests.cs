@@ -7,7 +7,7 @@ namespace OfficeRkyv.UnitTests.Users;
 public sealed class CreateUserCommandValidatorTests
 {
     private static IEnumerable<(string Property, string Code)> Failures(string email, string displayName) =>
-        new CreateUserCommandValidator()
+        new CreateUserValidator()
             .Validate(new CreateUserCommand(email, displayName))
             .Errors.Select(failure => (failure.PropertyName, failure.ErrorCode));
 

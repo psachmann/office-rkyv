@@ -9,9 +9,11 @@ namespace OfficeRkyv.Api.Features.Users.Handlers;
 /// Public so Wolverine's FluentValidation discovery finds it; it takes no dependencies, which keeps the
 /// generated middleware free of service location.
 /// </summary>
-public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>
+public sealed class CreateUserValidator : AbstractValidator<CreateUserCommand>
 {
-    public CreateUserCommandValidator()
+    public const int MaxDisplayNameLength = 100;
+
+    public CreateUserValidator()
     {
         // The rules run on the trimmed value, so the property name is pinned back to the command
         // property: the expression's own name would be derived from the Trim() call.
@@ -33,7 +35,7 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
         RuleFor(c => c.DisplayName.Trim())
             .NotEmpty()
             .WithErrorCode(ViolationCodes.Required)
-            .MaximumLength(CreateUserHandler.MaxDisplayNameLength)
+            .MaximumLength(MaxDisplayNameLength)
             .WithErrorCode(ViolationCodes.TooLong)
             .OverridePropertyName(nameof(CreateUserCommand.DisplayName));
     }
