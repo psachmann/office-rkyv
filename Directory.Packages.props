@@ -8,7 +8,7 @@
     <PackageVersion Include="DotNetQuery.Blazor.DevTools" Version="2.0.0" />
     <PackageVersion Include="DotNetQuery.Core" Version="2.0.0" />
     <PackageVersion Include="DotNetQuery.Extensions.DependencyInjection" Version="2.0.0" />
-    <PackageVersion Include="Fisher" Version="1.12.0" />
+    <PackageVersion Include="Fisher" Version="1.13.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="Grpc.AspNetCore" Version="2.84.0" />
     <PackageVersion Include="Grpc.StatusProto" Version="2.84.0" />
@@ -19,15 +19,16 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
-    <PackageVersion Include="Radzen.Blazor" Version="11.4.3" />
+    <PackageVersion Include="Radzen.Blazor" Version="11.5.1" />
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
-    <PackageVersion Include="WolverineFx" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.Fisher" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.40.0" />
-    <PackageVersion Include="TUnit" Version="1.69.0" />
-    <PackageVersion Include="TUnit.Aspire" Version="1.69.0" />
-    <PackageVersion Include="TUnit.Mocks" Version="1.69.0" />
+    <PackageVersion Include="WolverineFx" Version="6.41.0" />
+    <PackageVersion Include="WolverineFx.Fisher" Version="6.41.0" />
+    <PackageVersion Include="WolverineFx.FluentValidation.Grpc" Version="6.41.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.41.0" />
+    <PackageVersion Include="TUnit" Version="1.70.1" />
+    <PackageVersion Include="TUnit.Aspire" Version="1.70.1" />
+    <PackageVersion Include="TUnit.Mocks" Version="1.70.1" />
     <PackageVersion Include="TUnit.Mocks.Logging" Version="1.68.17" />
-    <PackageVersion Include="TUnit.Playwright" Version="1.69.0" />
+    <PackageVersion Include="TUnit.Playwright" Version="1.70.1" />
   </ItemGroup>
 </Project>

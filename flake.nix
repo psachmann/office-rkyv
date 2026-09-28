@@ -23,6 +23,7 @@
           in
           pkgs.mkShell {
             packages = with pkgs; [
+              gh
               just
               just-lsp
               nixd

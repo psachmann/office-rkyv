@@ -7,6 +7,7 @@
     <PackageReference Include="Riok.Mapperly" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.Fisher" />
+    <PackageReference Include="WolverineFx.FluentValidation.Grpc" />
     <PackageReference Include="WolverineFx.RuntimeCompilation" />
   </ItemGroup>
 
