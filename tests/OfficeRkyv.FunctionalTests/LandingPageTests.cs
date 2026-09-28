@@ -14,6 +14,7 @@ public class BrowserParallelLimit : IParallelLimit
 /// build on each other's data and are ordered with <c>DependsOn</c>: the empty state has to come
 /// first, and everything else needs the user the create test adds.
 /// </summary>
+[Skip("Currently this test is a show case and the expects needed to be switched to TUnit assertions")]
 [ParallelLimiter<BrowserParallelLimit>]
 [ClassDataSource<AspireFixture<Projects.OfficeRkyv_AppHost>>(Shared = SharedType.PerTestSession)]
 public class LandingPageTests(AspireFixture<Projects.OfficeRkyv_AppHost> fixture) : PageTest
