@@ -10,6 +10,7 @@
     <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="Grpc.StatusProto" />
     <PackageReference Include="Radzen.Blazor" />
+    <PackageReference Include="WolverineFx.Grpc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
@@ -18,6 +19,6 @@
     <InternalsVisibleTo Include="OfficeRkyv.UnitTests" />
   </ItemGroup>
   <ItemGroup>
-    <Protobuf Include="..\OfficeRkyv.Contracts\*.proto" GrpcServices="Client" />
+    <ProjectReference Include="..\OfficeRkyv.Contracts\OfficeRkyv.Contracts.csproj" />
   </ItemGroup>
 </Project>

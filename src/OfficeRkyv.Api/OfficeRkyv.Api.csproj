@@ -7,7 +7,8 @@
     <PackageReference Include="Riok.Mapperly" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.Fisher" />
-    <PackageReference Include="WolverineFx.FluentValidation.Grpc" />
+    <PackageReference Include="WolverineFx.FluentValidation" />
+    <PackageReference Include="WolverineFx.Grpc" />
     <PackageReference Include="WolverineFx.RuntimeCompilation" />
   </ItemGroup>
 
@@ -20,6 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\OfficeRkyv.Contracts\*.proto" GrpcServices="Server" />
+    <ProjectReference Include="..\OfficeRkyv.Contracts\OfficeRkyv.Contracts.csproj" />
   </ItemGroup>
 </Project>

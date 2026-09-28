@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/OfficeRkyv.Api/OfficeRkyv.Api.csproj" />
     <Project Path="src/OfficeRkyv.AppHost/OfficeRkyv.AppHost.csproj" />
+    <Project Path="src/OfficeRkyv.Contracts/OfficeRkyv.Contracts.csproj" />
     <Project Path="src/OfficeRkyv.ServiceDefaults/OfficeRkyv.ServiceDefaults.csproj" />
     <Project Path="src/OfficeRkyv.Web/OfficeRkyv.Web.csproj" />
   </Folder>
