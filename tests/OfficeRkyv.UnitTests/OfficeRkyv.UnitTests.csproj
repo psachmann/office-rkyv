@@ -1,11 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="TUnit" />
     <PackageReference Include="TUnit.Mocks" />
   </ItemGroup>
+
+  <!-- SPIKE: tests for the hand-rolled event store, excluded along with the code they cover. -->
+  <ItemGroup>
+    <Compile Remove="EventSourcing/**/*.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
     <ProjectReference Include="..\..\src\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\..\src\OfficeRkyv.Web\OfficeRkyv.Web.csproj" />
+    <ProjectReference Include="..\..\src\OfficeRkyv.Web\OfficeRkyv.Web.csproj" Aliases="web" />
   </ItemGroup>
 </Project>

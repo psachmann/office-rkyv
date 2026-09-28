@@ -8,12 +8,17 @@
     <PackageReference Include="DotNetQuery.Core" />
     <PackageReference Include="DotNetQuery.Extensions.DependencyInjection" />
     <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Grpc.StatusProto" />
     <PackageReference Include="Radzen.Blazor" />
+    <PackageReference Include="WolverineFx.Grpc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Protobuf Include="..\OfficeRkyv.Contracts\*.proto" GrpcServices="Client" />
+    <InternalsVisibleTo Include="OfficeRkyv.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OfficeRkyv.Contracts\OfficeRkyv.Contracts.csproj" />
   </ItemGroup>
 </Project>

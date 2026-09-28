@@ -1,12 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Aspire.Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Fisher" />
+    <PackageReference Include="FluentValidation" />
     <PackageReference Include="Grpc.AspNetCore" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Grpc.StatusProto" />
+    <PackageReference Include="Riok.Mapperly" />
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.Fisher" />
+    <PackageReference Include="WolverineFx.FluentValidation" />
+    <PackageReference Include="WolverineFx.Grpc" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" />
   </ItemGroup>
 
   <ItemGroup>
@@ -14,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\OfficeRkyv.Contracts\*.proto" GrpcServices="Server" />
+    <InternalsVisibleTo Include="OfficeRkyv.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OfficeRkyv.Contracts\OfficeRkyv.Contracts.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,102 @@
+@using Grpc.Core
+@using System.Reactive.Linq
+@implements IDisposable
+@inject IStringLocalizer<CreateUserDialog> Localizer
+@inject UsersFacade Users
+@inject DialogService DialogService
+
+<RadzenTemplateForm TItem="CreateUserModel" Data="@model" Submit="@Submit">
+    <RadzenStack Gap="1rem">
+        @if (errors.General is not null)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer[errors.General]</RadzenAlert>
+        }
+
+        <RadzenStack Gap="0.25rem">
+            <RadzenFormField Text="@Localizer["EmailLabel"]" Component="Email">
+                <RadzenTextBox Name="Email" @bind-Value="@model.Email" autocomplete="email" />
+            </RadzenFormField>
+            <RadzenRequiredValidator Component="Email" Text="@Localizer["EmailRequired"]" Popup="false" />
+            <RadzenEmailValidator Component="Email" Text="@Localizer["EmailInvalid"]" Popup="false" />
+            @if (errors.Email is not null)
+            {
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-danger">@Localizer[errors.Email]</RadzenText>
+            }
+        </RadzenStack>
+
+        <RadzenStack Gap="0.25rem">
+            <RadzenFormField Text="@Localizer["DisplayNameLabel"]" Component="DisplayName">
+                <RadzenTextBox Name="DisplayName" @bind-Value="@model.DisplayName" />
+            </RadzenFormField>
+            <RadzenRequiredValidator Component="DisplayName" Text="@Localizer["DisplayNameRequired"]" Popup="false" />
+            @if (errors.DisplayName is not null)
+            {
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-danger">@Localizer[errors.DisplayName]</RadzenText>
+            }
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton
+                ButtonType="ButtonType.Button"
+                ButtonStyle="ButtonStyle.Light"
+                Text="@Localizer["Cancel"]"
+                Disabled="@isBusy"
+                Click="@(() => DialogService.Close())" />
+            <RadzenButton
+                ButtonType="ButtonType.Submit"
+                Text="@Localizer["Submit"]"
+                IsBusy="@isBusy"
+                BusyText="@Localizer["Creating"]" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    private readonly CreateUserModel model = new();
+    private IDisposable? subscription;
+    private CreateUserErrors errors = new();
+    private bool isBusy;
+
+    protected override void OnInitialized()
+    {
+        // Skip(1): State replays the facade mutation's last outcome, which may belong to an earlier
+        // opening of this dialog. Only executions started from here should close it or show errors.
+        subscription = Users
+            .CreateUser.State.Skip(1)
+            .Subscribe(state =>
+            {
+                if (state.IsSuccess)
+                {
+                    _ = InvokeAsync(() => DialogService.Close(true));
+                }
+                else if (state.IsFailure)
+                {
+                    _ = InvokeAsync(() => ShowFailure(state.Error!));
+                }
+            });
+    }
+
+    // Only obvious mistakes are stopped here (Radzen's validators); whether the input is really valid,
+    // and whether the email is taken, is the server's call and comes back through the mutation state.
+    private void Submit()
+    {
+        errors = new();
+        isBusy = true;
+        Users.CreateUser.Execute(new CreateUserRequest { Email = model.Email, DisplayName = model.DisplayName });
+    }
+
+    private void ShowFailure(Exception exception)
+    {
+        errors = CreateUserErrors.From(exception);
+        isBusy = false;
+        StateHasChanged();
+    }
+
+    public void Dispose() => subscription?.Dispose();
+
+    private sealed class CreateUserModel
+    {
+        public string Email { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+    }
+}

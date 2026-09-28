@@ -64,6 +64,9 @@
   <data name="NavHome" xml:space="preserve">
     <value>Home</value>
   </data>
+  <data name="NavGreeter" xml:space="preserve">
+    <value>Greeter</value>
+  </data>
   <data name="NavError" xml:space="preserve">
     <value>Error</value>
   </data>

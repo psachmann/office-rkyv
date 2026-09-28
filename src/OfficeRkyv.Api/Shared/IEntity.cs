@@ -2,9 +2,13 @@ namespace OfficeRkyv.Api.Shared;
 
 public interface IEntity
 {
-    public Guid Id { get; init; }
+    public Guid Id { get; }
 
-    public DateTimeOffset CreatedAt { get; init; }
+    public int Version { get; }
 
-    public DateTimeOffset UpdatedAt { get; init; }
+    public EntityStatus Status { get; }
+
+    public DateTimeOffset CreatedAt { get; }
+
+    public DateTimeOffset UpdatedAt { get; }
 }

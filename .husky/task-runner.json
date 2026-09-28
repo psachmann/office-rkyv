@@ -12,10 +12,10 @@
       ],
       "include": [
         "**/*.cs",
-        "**/*.razor",
-        "**/*.cshtml",
         "**/*.csx",
-        "**/*.js"
+        "**/*.csproj",
+        "**/*.props",
+        "**/*.targets"
       ]
     },
     {

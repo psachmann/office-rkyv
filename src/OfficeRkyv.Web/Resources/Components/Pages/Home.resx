@@ -59,12 +59,27 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Title" xml:space="preserve">
-    <value>Home</value>
+    <value>Users</value>
   </data>
   <data name="Heading" xml:space="preserve">
-    <value>Hello, world!</value>
+    <value>Users</value>
   </data>
-  <data name="Welcome" xml:space="preserve">
-    <value>Welcome to your new app.</value>
+  <data name="NewUser" xml:space="preserve">
+    <value>New user</value>
+  </data>
+  <data name="EmptyTitle" xml:space="preserve">
+    <value>No users yet</value>
+  </data>
+  <data name="EmptyText" xml:space="preserve">
+    <value>Create the first user to get started.</value>
+  </data>
+  <data name="ColumnEmail" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="ColumnDisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="LoadFailed" xml:space="preserve">
+    <value>The users could not be loaded. Please try again.</value>
   </data>
 </root>
