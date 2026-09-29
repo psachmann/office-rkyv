@@ -93,7 +93,8 @@ public sealed class WorkspaceFacadeTests
         await Assert.That(await Next(facade.FindArchives.Success)).IsEmpty();
 
         var refetched = Next(facade.FindArchives.Success.Where(list => list.Count == 1));
-        facade.CreateArchive.Execute(new CreateArchiveRequest { OwnerId = Owner.ToString(), Name = "Household" });
+        using var createArchive = facade.CreateCreateArchiveMutation();
+        createArchive.Execute(new CreateArchiveRequest { OwnerId = Owner.ToString(), Name = "Household" });
 
         await Assert.That((await refetched).Single().Name).IsEqualTo("Household");
     }
@@ -109,8 +110,9 @@ public sealed class WorkspaceFacadeTests
         await Next(facade.FindArchives.Success);
         var callsBefore = archives.ListCalls;
 
-        var failed = Next(facade.CreateArchive.Failure);
-        facade.CreateArchive.Execute(new CreateArchiveRequest { OwnerId = Owner.ToString(), Name = " " });
+        using var createArchive = facade.CreateCreateArchiveMutation();
+        var failed = Next(createArchive.Failure);
+        createArchive.Execute(new CreateArchiveRequest { OwnerId = Owner.ToString(), Name = " " });
 
         await Assert.That(((RpcException)await failed).StatusCode).IsEqualTo(StatusCode.InvalidArgument);
         await Task.Delay(200);
@@ -127,10 +129,9 @@ public sealed class WorkspaceFacadeTests
         await Next(documentFacade.FindInbox.Success);
 
         // The list a moment after the delete is still empty; the returned document arrives with the cascade.
-        var deleted = Next(archiveFacade.DeleteArchive.Success);
-        archiveFacade.DeleteArchive.Execute(
-            new DeleteArchiveRequest { ArchiveId = Guid.NewGuid().ToString(), Version = 1 }
-        );
+        using var deleteArchive = archiveFacade.CreateDeleteArchiveMutation();
+        var deleted = Next(deleteArchive.Success);
+        deleteArchive.Execute(new DeleteArchiveRequest { ArchiveId = Guid.NewGuid().ToString(), Version = 1 });
         await deleted;
         documents.Items.Add(
             new DocumentDto
@@ -157,7 +158,8 @@ public sealed class WorkspaceFacadeTests
         await Assert.That(await Next(facade.FindInbox.Success)).IsEmpty();
 
         var refetched = Next(facade.FindInbox.Success.Where(list => list.Count == 1));
-        facade.CreateDocument.Execute(new CreateDocumentRequest { OwnerId = Owner.ToString(), Title = "Invoice" });
+        using var createDocument = facade.CreateCreateDocumentMutation();
+        createDocument.Execute(new CreateDocumentRequest { OwnerId = Owner.ToString(), Title = "Invoice" });
 
         await Assert.That((await refetched).Single().Title).IsEqualTo("Invoice");
     }
@@ -180,8 +182,9 @@ public sealed class WorkspaceFacadeTests
         await Next(archiveFacade.FindArchives.Success);
         var (inbox, contents, archiveList) = (documents.InboxCalls, documents.ContentsCalls, archives.ListCalls);
 
-        var filed = Next(documentFacade.FileDocument.Success);
-        documentFacade.FileDocument.Execute(
+        using var fileDocument = documentFacade.CreateFileDocumentMutation();
+        var filed = Next(fileDocument.Success);
+        fileDocument.Execute(
             new FileDocumentRequest
             {
                 DocumentId = Guid.NewGuid().ToString(),
@@ -211,8 +214,9 @@ public sealed class WorkspaceFacadeTests
         await Next(archiveFacade.FindArchives.Success);
         var (inbox, archiveList) = (documents.InboxCalls, archives.ListCalls);
 
-        var renamed = Next(documentFacade.RenameDocument.Success);
-        documentFacade.RenameDocument.Execute(
+        using var renameDocument = documentFacade.CreateRenameDocumentMutation();
+        var renamed = Next(renameDocument.Success);
+        renameDocument.Execute(
             new RenameDocumentRequest
             {
                 DocumentId = Guid.NewGuid().ToString(),
@@ -238,8 +242,9 @@ public sealed class WorkspaceFacadeTests
         await Next(facade.FindInbox.Success);
         var callsBefore = documents.InboxCalls;
 
-        var failed = Next(facade.FileDocument.Failure);
-        facade.FileDocument.Execute(
+        using var fileDocument = facade.CreateFileDocumentMutation();
+        var failed = Next(fileDocument.Failure);
+        fileDocument.Execute(
             new FileDocumentRequest
             {
                 DocumentId = Guid.NewGuid().ToString(),

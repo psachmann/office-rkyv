@@ -45,14 +45,15 @@ public sealed class UsersFacadeTests
         users.FindAllUsers.SetArgs(Unit.Default);
         await Assert.That(await users.FindAllUsers.Success.FirstAsync().Timeout(Timeout).ToTask()).IsEmpty();
 
-        var created = users.CreateUser.Success.FirstAsync().Timeout(Timeout).ToTask();
+        using var createUser = users.CreateCreateUserMutation();
+        var created = createUser.Success.FirstAsync().Timeout(Timeout).ToTask();
         var refetched = users
             .FindAllUsers.Success.Where(list => list.Count == 1)
             .FirstAsync()
             .Timeout(Timeout)
             .ToTask();
 
-        users.CreateUser.Execute(new CreateUserRequest { Email = "grace@example.com", DisplayName = "Grace" });
+        createUser.Execute(new CreateUserRequest { Email = "grace@example.com", DisplayName = "Grace" });
 
         await Assert.That((await created).Email).IsEqualTo("grace@example.com");
         await Assert.That((await refetched).Single().DisplayName).IsEqualTo("Grace");
@@ -68,8 +69,9 @@ public sealed class UsersFacadeTests
         await users.FindAllUsers.Success.FirstAsync().Timeout(Timeout).ToTask();
         var listCallsBefore = client.ListCalls;
 
-        var failed = users.CreateUser.Failure.FirstAsync().Timeout(Timeout).ToTask();
-        users.CreateUser.Execute(new CreateUserRequest { Email = "dup@example.com", DisplayName = "Dup" });
+        using var createUser = users.CreateCreateUserMutation();
+        var failed = createUser.Failure.FirstAsync().Timeout(Timeout).ToTask();
+        createUser.Execute(new CreateUserRequest { Email = "dup@example.com", DisplayName = "Dup" });
 
         var failure = await failed;
         await Task.Delay(200);
@@ -79,23 +81,23 @@ public sealed class UsersFacadeTests
     }
 
     [Test]
-    public async Task TheMutationState_ReplaysTheLastOutcome_WhichIsWhyTheDialogSkipsIt()
+    public async Task EachMutationStartsIdle_SoAnEarlierFailureIsNotReplayedToTheNextDialog()
     {
         client.CreateFailure = new RpcException(new Status(StatusCode.AlreadyExists, "taken"));
         using var services = CreateServices();
         var users = services.GetRequiredService<UsersFacade>();
 
-        var failed = users.CreateUser.Failure.FirstAsync().Timeout(Timeout).ToTask();
-        users.CreateUser.Execute(new CreateUserRequest { Email = "dup@example.com", DisplayName = "Dup" });
-        await failed;
+        using (var first = users.CreateCreateUserMutation())
+        {
+            var failed = first.Failure.FirstAsync().Timeout(Timeout).ToTask();
+            first.Execute(new CreateUserRequest { Email = "dup@example.com", DisplayName = "Dup" });
+            await failed;
+        }
 
-        // A later subscriber - e.g. the dialog opened again - sees the old failure straight away...
-        var replayed = await users.CreateUser.State.FirstAsync().Timeout(Timeout).ToTask();
-        await Assert.That(replayed.IsFailure).IsTrue();
-
-        // ...and nothing more once that replay is skipped, until it starts an execution itself.
-        var afterSkip = users.CreateUser.State.Skip(1).FirstAsync().Timeout(TimeSpan.FromMilliseconds(300)).ToTask();
-        await Assert.That(async () => await afterSkip).Throws<TimeoutException>();
+        // A dialog opened again gets its own mutation, which has seen nothing: no stale failure, no Skip(1).
+        using var second = users.CreateCreateUserMutation();
+        var replayed = second.Failure.FirstAsync().Timeout(TimeSpan.FromMilliseconds(300)).ToTask();
+        await Assert.That(async () => await replayed).Throws<TimeoutException>();
     }
 
     private sealed class FakeUserClient : UsersService.UsersServiceClient

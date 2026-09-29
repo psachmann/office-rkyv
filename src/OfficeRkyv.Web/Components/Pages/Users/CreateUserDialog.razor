@@ -1,5 +1,5 @@
 @using Grpc.Core
-@using System.Reactive.Linq
+@using System.Reactive.Disposables
 @implements IDisposable
 @inject IStringLocalizer<CreateUserDialog> Localizer
 @inject UsersFacade Users
@@ -53,27 +53,19 @@
 
 @code {
     private readonly CreateUserModel model = new();
-    private IDisposable? subscription;
+    private IMutation<CreateUserRequest, UserDto> createUser = null!;
+    private IDisposable? subscriptions;
     private CreateUserErrors errors = new();
     private bool isBusy;
 
     protected override void OnInitialized()
     {
-        // Skip(1): State replays the facade mutation's last outcome, which may belong to an earlier
-        // opening of this dialog. Only executions started from here should close it or show errors.
-        subscription = Users
-            .CreateUser.State.Skip(1)
-            .Subscribe(state =>
-            {
-                if (state.IsSuccess)
-                {
-                    _ = InvokeAsync(() => DialogService.Close(true));
-                }
-                else if (state.IsFailure)
-                {
-                    _ = InvokeAsync(() => ShowFailure(state.Error!));
-                }
-            });
+        // This dialog's own mutation: it starts idle and only reports executions started from here.
+        createUser = Users.CreateCreateUserMutation();
+        subscriptions = new CompositeDisposable(
+            createUser.Success.Subscribe(result => _ = InvokeAsync(() => DialogService.Close(true))),
+            createUser.Failure.Subscribe(error => _ = InvokeAsync(() => ShowFailure(error)))
+        );
     }
 
     // Only obvious mistakes are stopped here (Radzen's validators); whether the input is really valid,
@@ -82,7 +74,7 @@
     {
         errors = new();
         isBusy = true;
-        Users.CreateUser.Execute(new CreateUserRequest { Email = model.Email, DisplayName = model.DisplayName });
+        createUser.Execute(new CreateUserRequest { Email = model.Email, DisplayName = model.DisplayName });
     }
 
     private void ShowFailure(Exception exception)
@@ -92,7 +84,11 @@
         StateHasChanged();
     }
 
-    public void Dispose() => subscription?.Dispose();
+    public void Dispose()
+    {
+        subscriptions?.Dispose();
+        createUser?.Dispose();
+    }
 
     private sealed class CreateUserModel
     {

@@ -1,0 +1,123 @@
+@using System.Reactive.Disposables
+@implements IDisposable
+@inject IStringLocalizer<DocumentDialog> Localizer
+@inject IStringLocalizer<WorkspaceErrors> ErrorLocalizer
+@inject DocumentsFacade Documents
+@inject IQueryClient QueryClient
+@inject DialogService DialogService
+
+@* Creates a document for OwnerId, or renames Document when one is given. *@
+<RadzenTemplateForm TItem="DocumentModel" Data="@model" Submit="@Submit">
+    <RadzenStack Gap="1rem">
+        @if (errors.General is not null)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" data-testid="document-dialog-error">@ErrorLocalizer[errors.General]</RadzenAlert>
+        }
+
+        <RadzenStack Gap="0.25rem">
+            <RadzenFormField Text="@Localizer["TitleLabel"]" Component="Title">
+                <RadzenTextBox Name="Title" @bind-Value="@model.Title" />
+            </RadzenFormField>
+            <RadzenRequiredValidator Component="Title" Text="@Localizer["TitleRequired"]" Popup="false" />
+            @if (errors.Title is not null)
+            {
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-danger">@ErrorLocalizer[errors.Title]</RadzenText>
+            }
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton
+                ButtonType="ButtonType.Button"
+                ButtonStyle="ButtonStyle.Light"
+                Text="@Localizer["Cancel"]"
+                Disabled="@isBusy"
+                Click="@(() => DialogService.Close())" />
+            <RadzenButton
+                ButtonType="ButtonType.Submit"
+                Text="@(IsRename ? Localizer["RenameSubmit"] : Localizer["CreateSubmit"])"
+                IsBusy="@isBusy"
+                BusyText="@Localizer["Saving"]" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    /// <summary>The user the new document belongs to. Ignored when renaming.</summary>
+    [Parameter] public Guid OwnerId { get; set; }
+
+    /// <summary>The document to rename. Null creates a new one.</summary>
+    [Parameter] public DocumentDto? Document { get; set; }
+
+    private readonly DocumentModel model = new();
+    private readonly CompositeDisposable disposables = [];
+    private IMutation<CreateDocumentRequest, DocumentDto>? createDocument;
+    private IMutation<RenameDocumentRequest, DocumentDto>? renameDocument;
+    private WorkspaceErrors errors = new();
+    private bool isBusy;
+
+    private bool IsRename => Document is not null;
+
+    protected override void OnInitialized()
+    {
+        model.Title = Document?.Title ?? "";
+
+        // This dialog's own mutation: it starts idle and only reports executions started from here.
+        if (Document is null)
+        {
+            createDocument = Documents.CreateCreateDocumentMutation();
+            Track(createDocument);
+        }
+        else
+        {
+            renameDocument = Documents.CreateRenameDocumentMutation();
+            Track(renameDocument);
+        }
+    }
+
+    private void Track<TArgs, TData>(IMutation<TArgs, TData> mutation)
+    {
+        disposables.Add(mutation);
+        disposables.Add(mutation.Success.Subscribe(result => _ = InvokeAsync(() => DialogService.Close(true))));
+        disposables.Add(mutation.Failure.Subscribe(error => _ = InvokeAsync(() => ShowFailure(error))));
+    }
+
+    // Only the obvious mistake is stopped here (Radzen's required validator); whether the input is really
+    // valid is the server's call and comes back through the mutation state.
+    private void Submit()
+    {
+        errors = new();
+        isBusy = true;
+
+        if (Document is { } document)
+        {
+            renameDocument!.Execute(
+                new RenameDocumentRequest { DocumentId = document.Id, Version = document.Version, Title = model.Title }
+            );
+        }
+        else
+        {
+            createDocument!.Execute(new CreateDocumentRequest { OwnerId = OwnerId.ToString(), Title = model.Title });
+        }
+    }
+
+    private void ShowFailure(Exception exception)
+    {
+        errors = WorkspaceErrors.From(exception);
+        isBusy = false;
+
+        // The document changed or is gone: show what is there now, behind the dialog.
+        if (errors.ReloadNeeded)
+        {
+            QueryClient.Invalidate(WorkspaceKeys.Archives, WorkspaceKeys.Inbox, WorkspaceKeys.ArchiveDocuments);
+        }
+
+        StateHasChanged();
+    }
+
+    public void Dispose() => disposables.Dispose();
+
+    private sealed class DocumentModel
+    {
+        public string Title { get; set; } = "";
+    }
+}

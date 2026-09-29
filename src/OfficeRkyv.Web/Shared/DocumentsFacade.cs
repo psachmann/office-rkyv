@@ -3,7 +3,13 @@ using OfficeRkyv.Contracts.Documents;
 
 namespace OfficeRkyv.Web.Shared;
 
-public sealed class DocumentsFacade : IDisposable
+/// <summary>
+/// Queries are shared: one per circuit, so every component showing the same key shares one cache entry.
+/// Mutations are not: a <c>Create…Mutation</c> call returns a fresh instance that the calling component owns
+/// and disposes, so its state only ever reports executions that component started.
+/// </summary>
+public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.DocumentsServiceClient documentService)
+    : IDisposable
 {
     // Any document change can move a document between the inbox and an archive's contents, so every
     // document mutation refreshes both.
@@ -13,9 +19,9 @@ public sealed class DocumentsFacade : IDisposable
     // that archive has to send the new one - so the archive list is refreshed too.
     private static readonly string[] FilingKinds = [.. DocumentKinds, WorkspaceKeys.Archives];
 
-    public DocumentsFacade(IQueryClient queryClient, DocumentsService.DocumentsServiceClient documentService)
-    {
-        FindInbox = queryClient.CreateQuery(
+    /// <summary>The owner's unfiled documents, queried by owner id.</summary>
+    public IQuery<Guid, IReadOnlyList<DocumentDto>> FindInbox { get; } =
+        queryClient.CreateQuery(
             new QueryOptions<Guid, IReadOnlyList<DocumentDto>>
             {
                 KeyFactory = WorkspaceKeys.ForInbox,
@@ -33,7 +39,9 @@ public sealed class DocumentsFacade : IDisposable
             }
         );
 
-        FindArchiveDocuments = queryClient.CreateQuery(
+    /// <summary>The documents in one archive, queried by archive id.</summary>
+    public IQuery<Guid, IReadOnlyList<DocumentDto>> FindArchiveDocuments { get; } =
+        queryClient.CreateQuery(
             new QueryOptions<Guid, IReadOnlyList<DocumentDto>>
             {
                 KeyFactory = WorkspaceKeys.ForArchiveDocuments,
@@ -51,9 +59,8 @@ public sealed class DocumentsFacade : IDisposable
             }
         );
 
-        // Live as long as the facade (one per circuit), so their Success/Failure streams replay the last
-        // outcome to new subscribers - a component should only react to executions it started.
-        CreateDocument = queryClient.CreateMutation(
+    public IMutation<CreateDocumentRequest, DocumentDto> CreateCreateDocumentMutation() =>
+        queryClient.CreateMutation(
             new MutationOptions<CreateDocumentRequest, DocumentDto>
             {
                 Mutator = async (request, ct) =>
@@ -62,7 +69,8 @@ public sealed class DocumentsFacade : IDisposable
             }
         );
 
-        RenameDocument = queryClient.CreateMutation(
+    public IMutation<RenameDocumentRequest, DocumentDto> CreateRenameDocumentMutation() =>
+        queryClient.CreateMutation(
             new MutationOptions<RenameDocumentRequest, DocumentDto>
             {
                 Mutator = async (request, ct) =>
@@ -71,7 +79,8 @@ public sealed class DocumentsFacade : IDisposable
             }
         );
 
-        DeleteDocument = queryClient.CreateMutation(
+    public IMutation<DeleteDocumentRequest, Empty> CreateDeleteDocumentMutation() =>
+        queryClient.CreateMutation(
             new MutationOptions<DeleteDocumentRequest, Empty>
             {
                 Mutator = async (request, ct) => await documentService.DeleteDocumentAsync(request, null, null, ct),
@@ -79,7 +88,8 @@ public sealed class DocumentsFacade : IDisposable
             }
         );
 
-        FileDocument = queryClient.CreateMutation(
+    public IMutation<FileDocumentRequest, DocumentDto> CreateFileDocumentMutation() =>
+        queryClient.CreateMutation(
             new MutationOptions<FileDocumentRequest, DocumentDto>
             {
                 Mutator = async (request, ct) =>
@@ -88,7 +98,8 @@ public sealed class DocumentsFacade : IDisposable
             }
         );
 
-        UnfileDocument = queryClient.CreateMutation(
+    public IMutation<UnfileDocumentRequest, DocumentDto> CreateUnfileDocumentMutation() =>
+        queryClient.CreateMutation(
             new MutationOptions<UnfileDocumentRequest, DocumentDto>
             {
                 Mutator = async (request, ct) =>
@@ -96,32 +107,10 @@ public sealed class DocumentsFacade : IDisposable
                 OnSuccess = (_, _) => queryClient.Invalidate(DocumentKinds),
             }
         );
-    }
-
-    /// <summary>The owner's unfiled documents, queried by owner id.</summary>
-    public IQuery<Guid, IReadOnlyList<DocumentDto>> FindInbox { get; }
-
-    /// <summary>The documents in one archive, queried by archive id.</summary>
-    public IQuery<Guid, IReadOnlyList<DocumentDto>> FindArchiveDocuments { get; }
-
-    public IMutation<CreateDocumentRequest, DocumentDto> CreateDocument { get; }
-
-    public IMutation<RenameDocumentRequest, DocumentDto> RenameDocument { get; }
-
-    public IMutation<DeleteDocumentRequest, Empty> DeleteDocument { get; }
-
-    public IMutation<FileDocumentRequest, DocumentDto> FileDocument { get; }
-
-    public IMutation<UnfileDocumentRequest, DocumentDto> UnfileDocument { get; }
 
     public void Dispose()
     {
         FindInbox.Dispose();
         FindArchiveDocuments.Dispose();
-        CreateDocument.Dispose();
-        RenameDocument.Dispose();
-        DeleteDocument.Dispose();
-        FileDocument.Dispose();
-        UnfileDocument.Dispose();
     }
 }

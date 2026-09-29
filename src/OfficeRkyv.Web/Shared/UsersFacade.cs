@@ -2,6 +2,11 @@ using OfficeRkyv.Contracts.Users;
 
 namespace OfficeRkyv.Web.Shared;
 
+/// <summary>
+/// Queries are shared: one per circuit, so every component showing the same key shares one cache entry.
+/// Mutations are not: a <c>Create…Mutation</c> call returns a fresh instance that the calling component owns
+/// and disposes, so its state only ever reports executions that component started.
+/// </summary>
 public sealed class UsersFacade(IQueryClient queryClient, UsersService.UsersServiceClient userService) : IDisposable
 {
     private static readonly QueryKey UsersKey = ["users"];
@@ -33,9 +38,7 @@ public sealed class UsersFacade(IQueryClient queryClient, UsersService.UsersServ
             }
         );
 
-    // Lives as long as the facade (one per circuit), so its Success/Failure streams replay the last
-    // outcome to new subscribers - a component should only react to executions it started.
-    public IMutation<CreateUserRequest, UserDto> CreateUser { get; } =
+    public IMutation<CreateUserRequest, UserDto> CreateCreateUserMutation() =>
         queryClient.CreateMutation(
             new MutationOptions<CreateUserRequest, UserDto>
             {
@@ -48,6 +51,5 @@ public sealed class UsersFacade(IQueryClient queryClient, UsersService.UsersServ
     {
         FindAllUsers.Dispose();
         FindUserById.Dispose();
-        CreateUser.Dispose();
     }
 }

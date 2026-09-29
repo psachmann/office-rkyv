@@ -3,7 +3,13 @@ using OfficeRkyv.Contracts.Archives;
 
 namespace OfficeRkyv.Web.Shared;
 
-public sealed class ArchivesFacade : IDisposable
+/// <summary>
+/// Queries are shared: one per circuit, so every component showing the same key shares one cache entry.
+/// Mutations are not: a <c>Create…Mutation</c> call returns a fresh instance that the calling component owns
+/// and disposes, so its state only ever reports executions that component started.
+/// </summary>
+public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.ArchivesServiceClient archiveService)
+    : IDisposable
 {
     /// <summary>
     /// Deleting an archive returns its documents to the inbox asynchronously, so the inbox refetch that follows
@@ -12,14 +18,13 @@ public sealed class ArchivesFacade : IDisposable
     /// </summary>
     internal static readonly TimeSpan CascadeSettleDelay = TimeSpan.FromSeconds(1);
 
-    private readonly IQueryClient queryClient;
+    // The delayed refresh belongs to the circuit, not to the mutation: it still runs if the component that
+    // deleted the archive is gone by then, and stops only when the circuit ends.
     private readonly CancellationTokenSource disposed = new();
 
-    public ArchivesFacade(IQueryClient queryClient, ArchivesService.ArchivesServiceClient archiveService)
-    {
-        this.queryClient = queryClient;
-
-        FindArchives = queryClient.CreateQuery(
+    /// <summary>The owner's archives, queried by owner id.</summary>
+    public IQuery<Guid, IReadOnlyList<ArchiveDto>> FindArchives { get; } =
+        queryClient.CreateQuery(
             new QueryOptions<Guid, IReadOnlyList<ArchiveDto>>
             {
                 KeyFactory = WorkspaceKeys.ForArchives,
@@ -37,9 +42,8 @@ public sealed class ArchivesFacade : IDisposable
             }
         );
 
-        // Lives as long as the facade (one per circuit), so its Success/Failure streams replay the last
-        // outcome to new subscribers - a component should only react to executions it started.
-        CreateArchive = queryClient.CreateMutation(
+    public IMutation<CreateArchiveRequest, ArchiveDto> CreateCreateArchiveMutation() =>
+        queryClient.CreateMutation(
             new MutationOptions<CreateArchiveRequest, ArchiveDto>
             {
                 Mutator = async (request, ct) =>
@@ -48,7 +52,8 @@ public sealed class ArchivesFacade : IDisposable
             }
         );
 
-        RenameArchive = queryClient.CreateMutation(
+    public IMutation<RenameArchiveRequest, ArchiveDto> CreateRenameArchiveMutation() =>
+        queryClient.CreateMutation(
             new MutationOptions<RenameArchiveRequest, ArchiveDto>
             {
                 Mutator = async (request, ct) =>
@@ -57,7 +62,8 @@ public sealed class ArchivesFacade : IDisposable
             }
         );
 
-        DeleteArchive = queryClient.CreateMutation(
+    public IMutation<DeleteArchiveRequest, Empty> CreateDeleteArchiveMutation() =>
+        queryClient.CreateMutation(
             new MutationOptions<DeleteArchiveRequest, Empty>
             {
                 Mutator = async (request, ct) => await archiveService.DeleteArchiveAsync(request, null, null, ct),
@@ -69,16 +75,6 @@ public sealed class ArchivesFacade : IDisposable
                 },
             }
         );
-    }
-
-    /// <summary>The owner's archives, queried by owner id.</summary>
-    public IQuery<Guid, IReadOnlyList<ArchiveDto>> FindArchives { get; }
-
-    public IMutation<CreateArchiveRequest, ArchiveDto> CreateArchive { get; }
-
-    public IMutation<RenameArchiveRequest, ArchiveDto> RenameArchive { get; }
-
-    public IMutation<DeleteArchiveRequest, Empty> DeleteArchive { get; }
 
     private async Task InvalidateInboxAgainAsync()
     {
@@ -98,8 +94,5 @@ public sealed class ArchivesFacade : IDisposable
         disposed.Cancel();
         disposed.Dispose();
         FindArchives.Dispose();
-        CreateArchive.Dispose();
-        RenameArchive.Dispose();
-        DeleteArchive.Dispose();
     }
 }

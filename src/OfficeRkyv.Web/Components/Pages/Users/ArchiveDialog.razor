@@ -1,0 +1,123 @@
+@using System.Reactive.Disposables
+@implements IDisposable
+@inject IStringLocalizer<ArchiveDialog> Localizer
+@inject IStringLocalizer<WorkspaceErrors> ErrorLocalizer
+@inject ArchivesFacade Archives
+@inject IQueryClient QueryClient
+@inject DialogService DialogService
+
+@* Creates an archive for OwnerId, or renames Archive when one is given. *@
+<RadzenTemplateForm TItem="ArchiveModel" Data="@model" Submit="@Submit">
+    <RadzenStack Gap="1rem">
+        @if (errors.General is not null)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" data-testid="archive-dialog-error">@ErrorLocalizer[errors.General]</RadzenAlert>
+        }
+
+        <RadzenStack Gap="0.25rem">
+            <RadzenFormField Text="@Localizer["NameLabel"]" Component="Name">
+                <RadzenTextBox Name="Name" @bind-Value="@model.Name" />
+            </RadzenFormField>
+            <RadzenRequiredValidator Component="Name" Text="@Localizer["NameRequired"]" Popup="false" />
+            @if (errors.Name is not null)
+            {
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-danger">@ErrorLocalizer[errors.Name]</RadzenText>
+            }
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton
+                ButtonType="ButtonType.Button"
+                ButtonStyle="ButtonStyle.Light"
+                Text="@Localizer["Cancel"]"
+                Disabled="@isBusy"
+                Click="@(() => DialogService.Close())" />
+            <RadzenButton
+                ButtonType="ButtonType.Submit"
+                Text="@(IsRename ? Localizer["RenameSubmit"] : Localizer["CreateSubmit"])"
+                IsBusy="@isBusy"
+                BusyText="@Localizer["Saving"]" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    /// <summary>The user the new archive belongs to. Ignored when renaming.</summary>
+    [Parameter] public Guid OwnerId { get; set; }
+
+    /// <summary>The archive to rename. Null creates a new one.</summary>
+    [Parameter] public ArchiveDto? Archive { get; set; }
+
+    private readonly ArchiveModel model = new();
+    private readonly CompositeDisposable disposables = [];
+    private IMutation<CreateArchiveRequest, ArchiveDto>? createArchive;
+    private IMutation<RenameArchiveRequest, ArchiveDto>? renameArchive;
+    private WorkspaceErrors errors = new();
+    private bool isBusy;
+
+    private bool IsRename => Archive is not null;
+
+    protected override void OnInitialized()
+    {
+        model.Name = Archive?.Name ?? "";
+
+        // This dialog's own mutation: it starts idle and only reports executions started from here.
+        if (Archive is null)
+        {
+            createArchive = Archives.CreateCreateArchiveMutation();
+            Track(createArchive);
+        }
+        else
+        {
+            renameArchive = Archives.CreateRenameArchiveMutation();
+            Track(renameArchive);
+        }
+    }
+
+    private void Track<TArgs, TData>(IMutation<TArgs, TData> mutation)
+    {
+        disposables.Add(mutation);
+        disposables.Add(mutation.Success.Subscribe(result => _ = InvokeAsync(() => DialogService.Close(true))));
+        disposables.Add(mutation.Failure.Subscribe(error => _ = InvokeAsync(() => ShowFailure(error))));
+    }
+
+    // Only the obvious mistake is stopped here (Radzen's required validator); whether the input is really
+    // valid is the server's call and comes back through the mutation state.
+    private void Submit()
+    {
+        errors = new();
+        isBusy = true;
+
+        if (Archive is { } archive)
+        {
+            renameArchive!.Execute(
+                new RenameArchiveRequest { ArchiveId = archive.Id, Version = archive.Version, Name = model.Name }
+            );
+        }
+        else
+        {
+            createArchive!.Execute(new CreateArchiveRequest { OwnerId = OwnerId.ToString(), Name = model.Name });
+        }
+    }
+
+    private void ShowFailure(Exception exception)
+    {
+        errors = WorkspaceErrors.From(exception);
+        isBusy = false;
+
+        // The archive changed or is gone: show what is there now, behind the dialog.
+        if (errors.ReloadNeeded)
+        {
+            QueryClient.Invalidate(WorkspaceKeys.Archives, WorkspaceKeys.Inbox, WorkspaceKeys.ArchiveDocuments);
+        }
+
+        StateHasChanged();
+    }
+
+    public void Dispose() => disposables.Dispose();
+
+    private sealed class ArchiveModel
+    {
+        public string Name { get; set; } = "";
+    }
+}
