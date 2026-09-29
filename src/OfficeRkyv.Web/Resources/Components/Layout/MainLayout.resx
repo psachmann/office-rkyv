@@ -67,6 +67,9 @@
   <data name="NavGreeter" xml:space="preserve">
     <value>Greeter</value>
   </data>
+  <data name="NavSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
   <data name="NavError" xml:space="preserve">
     <value>Error</value>
   </data>

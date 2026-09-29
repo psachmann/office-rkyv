@@ -1,6 +1,5 @@
 ﻿@inherits LayoutComponentBase
 @inject IHostEnvironment Env
-@inject NavigationManager NavigationManager
 @inject IStringLocalizer<MainLayout> Localizer
 
 @if (Env.IsDevelopment())
@@ -15,42 +14,39 @@
 <CascadingValue Value="@CultureInfo.CurrentUICulture">
     <RadzenLayout>
         <RadzenHeader>
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="0">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
-                    <RadzenSidebarToggle Click="@(() => IsExpanded = !IsExpanded)" />
-                    <RadzenLabel Text="@Localizer["AppTitle"]" />
-                </RadzenStack>
-                <RadzenDropDown
-                    TValue="string"
-                    Data="@SupportedCultures.All"
-                    TextProperty="@nameof(CultureInfo.NativeName)"
-                    ValueProperty="@nameof(CultureInfo.Name)"
-                    @bind-Value="@selectedCulture"
-                    Change="@ChangeCulture"
-                    AllowClear="false"
-                    AllowFiltering="false"
-                    class="rz-mr-4"
-                />
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+                <RadzenSidebarToggle Click="@(() => IsExpanded = !IsExpanded)" />
+                <RadzenLabel Text="@Localizer["AppTitle"]" />
             </RadzenStack>
         </RadzenHeader>
         <RadzenSidebar @bind-Expanded="@IsExpanded">
-            <RadzenPanelMenu>
-                <RadzenPanelMenuItem
-                    Text="@Localizer["NavHome"]"
-                    Icon="home"
-                    Path="/"
-                />
-                <RadzenPanelMenuItem
-                    Text="@Localizer["NavGreeter"]"
-                    Icon="waving_hand"
-                    Path="/greeter"
-                />
-                <RadzenPanelMenuItem
-                    Text="@Localizer["NavError"]"
-                    Icon="home"
-                    Path="/error"
-                />
-            </RadzenPanelMenu>
+            <div class="app-sidebar">
+                <RadzenPanelMenu>
+                    <RadzenPanelMenuItem
+                        Text="@Localizer["NavHome"]"
+                        Icon="home"
+                        Path="/"
+                        Match="NavLinkMatch.All"
+                    />
+                    <RadzenPanelMenuItem
+                        Text="@Localizer["NavGreeter"]"
+                        Icon="waving_hand"
+                        Path="/greeter"
+                    />
+                    <RadzenPanelMenuItem
+                        Text="@Localizer["NavError"]"
+                        Icon="home"
+                        Path="/error"
+                    />
+                </RadzenPanelMenu>
+                <RadzenPanelMenu class="app-sidebar-bottom">
+                    <RadzenPanelMenuItem
+                        Text="@Localizer["NavSettings"]"
+                        Icon="settings"
+                        Path="/settings"
+                    />
+                </RadzenPanelMenu>
+            </div>
         </RadzenSidebar>
         <RadzenBody>
             @Body
@@ -68,14 +64,4 @@
 
 @code {
     public bool IsExpanded { get; set; } = true;
-
-    private string selectedCulture = CultureInfo.CurrentUICulture.Name;
-
-    private void ChangeCulture()
-    {
-        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        var redirectUri = Uri.EscapeDataString("/" + relativePath);
-
-        NavigationManager.NavigateTo($"/culture/set?culture={selectedCulture}&redirectUri={redirectUri}", forceLoad: true);
-    }
 }

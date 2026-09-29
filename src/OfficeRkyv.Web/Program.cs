@@ -32,6 +32,7 @@ builder.Services.AddDotNetQuery(options =>
 builder.Services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddSource(QueryTelemetry.SourceName));
 builder.Services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddMeter(QueryTelemetry.SourceName));
 builder.Services.AddLocalization(options => options.ResourcesPath = SupportedCultures.ResourcesPath);
+builder.Services.AddScoped<AppearanceState>();
 builder.Services.AddScoped<UsersFacade>();
 builder.Services.AddScoped<ArchivesFacade>();
 builder.Services.AddScoped<DocumentsFacade>();

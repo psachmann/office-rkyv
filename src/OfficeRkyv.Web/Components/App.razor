@@ -11,14 +11,22 @@
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="InteractiveServer" />
-    <RadzenTheme Theme="material" />
+    <AppTheme Preference="@preference" />
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes @rendermode="InteractiveServer" Appearance="@preference" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js?v=@(typeof(Radzen.Colors).Assembly.GetName().Version)"></script>
 </body>
 
 </html>
+
+@code {
+    // The appearance the visitor chose, from the cookie the settings page writes. Read here, on the server,
+    // so that the page is rendered in it from its first paint.
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private AppearancePreference preference => Appearance.Parse(HttpContext?.Request.Cookies[Appearance.CookieName]);
+}

@@ -1,6 +1,18 @@
-﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+@inject AppearanceState State
+
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    /// <summary>
+    /// The appearance the page was rendered with, read from the cookie on the server. It starts the circuit's
+    /// AppearanceState, so the settings page shows the right choice however it is reached.
+    /// </summary>
+    [Parameter] public AppearancePreference Appearance { get; set; }
+
+    protected override void OnInitialized() => State.Initialize(Appearance);
+}

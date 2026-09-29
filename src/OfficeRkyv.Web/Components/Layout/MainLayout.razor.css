@@ -39,3 +39,16 @@
   color: inherit;
   margin: 0;
 }
+
+/* The sidebar's content fills its height, so the settings entry can be pushed to the bottom. ::deep because the
+   panel menu is a Radzen component, whose root element does not carry this component's scope attribute. */
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.app-sidebar ::deep .app-sidebar-bottom {
+  margin-top: auto;
+  border-top: 1px solid var(--rz-base-300);
+}

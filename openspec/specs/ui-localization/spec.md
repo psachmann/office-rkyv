@@ -28,7 +28,7 @@ When a culture cookie is present, the system SHALL use it instead of the browser
 - **THEN** the UI renders in the culture named by the cookie
 
 ### Requirement: Persisted Language Selection
-Selecting a language through the language switcher SHALL persist that choice in a cookie, so that subsequent requests use it without depending on the browser's `Accept-Language` header.
+Selecting a language through the language switcher SHALL persist that choice in a cookie, so that subsequent requests use it without depending on the browser's `Accept-Language` header. After the choice is stored, the page the language was changed on SHALL reload in the selected culture.
 
 #### Scenario: User selects a language
 - **WHEN** a user selects a language from the language switcher
@@ -39,12 +39,20 @@ Selecting a language through the language switcher SHALL persist that choice in 
 - **WHEN** a subsequent request is made after a language cookie was set
 - **THEN** the UI renders in the cookie's culture even if the browser's `Accept-Language` header requests a different supported culture
 
+#### Scenario: Changing the language from the settings page
+- **WHEN** a user selects a language on the settings page
+- **THEN** the browser reloads the settings page, rendered in the selected culture
+
 ### Requirement: Language Switcher Is Always Available
-The header SHALL present a control for changing the UI language, regardless of how many languages are currently available.
+The settings page SHALL present a control for changing the UI language, regardless of how many languages are currently available. The header SHALL NOT contain a language control.
 
 #### Scenario: Single supported language
 - **WHEN** only one culture is supported by the system
-- **THEN** the header still shows the language switcher control, listing that one culture as the current selection
+- **THEN** the settings page still shows the language switcher control, listing that one culture as the current selection
+
+#### Scenario: The header has no language control
+- **WHEN** any page is shown
+- **THEN** the header contains no language control, and the language is changed from the settings page
 
 ### Requirement: UI Text Is Sourced From Resources
 All static UI text in the application shell, main layout, reconnect dialog, home page, error page, and not-found page SHALL be sourced from culture-specific resource files rather than hardcoded in markup.

@@ -6,7 +6,7 @@ namespace OfficeRkyv.FunctionalTests;
 
 public class BrowserParallelLimit : IParallelLimit
 {
-    public int Limit => 1;
+    public int Limit => 4;
 }
 
 /// <summary>
