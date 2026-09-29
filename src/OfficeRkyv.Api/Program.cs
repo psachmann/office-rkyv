@@ -1,6 +1,7 @@
 using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Services;
+using OfficeRkyv.Api.Shared;
 using OfficeRkyv.Api.Shared.Errors;
 using OfficeRkyv.Api.Shared.Telemetry;
 using Wolverine;
@@ -20,7 +21,7 @@ builder
             config.GetConnectionString("officerkyv-db")
                 ?? throw new InvalidProgramException("No DB connection string provided")
         );
-        options.Projections.Snapshot<User>(SnapshotLifecycle.Inline);
+        options.AddAggregateSnapshots();
 
         // SQLite allows one writer per file, so time spent queued for that lock is the first thing to
         // watch as load grows. TrackConnections is deliberately left off: Fisher rejects it, because
@@ -48,5 +49,7 @@ var app = builder.Build();
 app.MapDefaultEndpoints();
 app.MapGrpcService<GreeterService>();
 app.MapGrpcService<UsersServiceImpl>();
+app.MapGrpcService<ArchivesServiceImpl>();
+app.MapGrpcService<DocumentsServiceImpl>();
 
 app.Run();

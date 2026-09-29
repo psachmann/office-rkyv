@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+option csharp_namespace = "OfficeRkyv.Contracts.Archives";
+
+package archives;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Resource-oriented archive API. The command/query split is an internal concern of the server.
+service ArchivesService {
+  rpc ListArchives (ListArchivesRequest) returns (ListArchivesResponse);
+  rpc CreateArchive (CreateArchiveRequest) returns (CreateArchiveResponse);
+  rpc RenameArchive (RenameArchiveRequest) returns (RenameArchiveResponse);
+  rpc DeleteArchive (DeleteArchiveRequest) returns (google.protobuf.Empty);
+}
+
+message ArchiveDto {
+  string id = 1;
+  string owner_id = 2;
+  string name = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  int32 version = 6;
+}
+
+// Lists the owner's non-deleted archives; an unknown owner yields an empty list.
+message ListArchivesRequest {
+  string owner_id = 1;
+}
+
+message ListArchivesResponse {
+  repeated ArchiveDto archives = 1;
+}
+
+message CreateArchiveRequest {
+  string owner_id = 1;
+  string name = 2;
+}
+
+// Mutations return the resulting archive so the client can seed its query cache from the response,
+// and so it has the new version to send back on the next write.
+message CreateArchiveResponse {
+  ArchiveDto archive = 1;
+}
+
+message RenameArchiveRequest {
+  string archive_id = 1;
+  int32 version = 2;
+  string name = 3;
+}
+
+message RenameArchiveResponse {
+  ArchiveDto archive = 1;
+}
+
+// Deleting an archive returns its documents to the inbox, asynchronously and shortly afterwards.
+message DeleteArchiveRequest {
+  string archive_id = 1;
+  int32 version = 2;
+}

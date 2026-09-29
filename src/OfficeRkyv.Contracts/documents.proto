@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+option csharp_namespace = "OfficeRkyv.Contracts.Documents";
+
+package documents;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Resource-oriented document API (metadata only). The command/query split is an internal concern of the server.
+service DocumentsService {
+  rpc ListInbox (ListInboxRequest) returns (ListInboxResponse);
+  rpc ListArchiveDocuments (ListArchiveDocumentsRequest) returns (ListArchiveDocumentsResponse);
+  rpc CreateDocument (CreateDocumentRequest) returns (CreateDocumentResponse);
+  rpc RenameDocument (RenameDocumentRequest) returns (RenameDocumentResponse);
+  rpc DeleteDocument (DeleteDocumentRequest) returns (google.protobuf.Empty);
+  rpc FileDocument (FileDocumentRequest) returns (FileDocumentResponse);
+  rpc UnfileDocument (UnfileDocumentRequest) returns (UnfileDocumentResponse);
+}
+
+message DocumentDto {
+  string id = 1;
+  string owner_id = 2;
+  string title = 3;
+  // Unset means the document is in its owner's inbox.
+  optional string archive_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  int32 version = 7;
+}
+
+// Lists the owner's non-deleted documents that are in no archive; an unknown owner yields an empty list.
+message ListInboxRequest {
+  string owner_id = 1;
+}
+
+message ListInboxResponse {
+  repeated DocumentDto documents = 1;
+}
+
+// Lists the non-deleted documents in the archive; an empty, deleted or unknown archive yields an empty list.
+message ListArchiveDocumentsRequest {
+  string archive_id = 1;
+}
+
+message ListArchiveDocumentsResponse {
+  repeated DocumentDto documents = 1;
+}
+
+// A new document always starts in the inbox.
+message CreateDocumentRequest {
+  string owner_id = 1;
+  string title = 2;
+}
+
+// Mutations return the resulting document so the client can seed its query cache from the response,
+// and so it has the new version to send back on the next write.
+message CreateDocumentResponse {
+  DocumentDto document = 1;
+}
+
+message RenameDocumentRequest {
+  string document_id = 1;
+  int32 version = 2;
+  string title = 3;
+}
+
+message RenameDocumentResponse {
+  DocumentDto document = 1;
+}
+
+message DeleteDocumentRequest {
+  string document_id = 1;
+  int32 version = 2;
+}
+
+// Files the document into an archive of the same owner, from the inbox or from another archive.
+message FileDocumentRequest {
+  string document_id = 1;
+  int32 version = 2;
+  string archive_id = 3;
+}
+
+message FileDocumentResponse {
+  DocumentDto document = 1;
+}
+
+// Returns the document to its owner's inbox.
+message UnfileDocumentRequest {
+  string document_id = 1;
+  int32 version = 2;
+}
+
+message UnfileDocumentResponse {
+  DocumentDto document = 1;
+}

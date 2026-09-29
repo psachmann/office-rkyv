@@ -13,6 +13,18 @@ public class UsersServiceImpl(IMessageBus bus) : UsersService.UsersServiceBase
         return users.ToResponse();
     }
 
+    public override async Task<FindUserByIdResponse> FindUserById(
+        FindUserByIdRequest request,
+        ServerCallContext context
+    )
+    {
+        var user = await bus.InvokeAsync<User?>(request.ToQuery(), context.CancellationToken);
+
+        // The handler also returns deleted users (UpdateUser reads its result back through it), but the
+        // API reports a deleted user as not found, like the list does.
+        return (user is { Status: EntityStatus.Active } ? user : null).ToFindByIdResponse();
+    }
+
     public override async Task<FindUserByEmailResponse> FindUserByEmail(
         FindUserByEmailRequest request,
         ServerCallContext context

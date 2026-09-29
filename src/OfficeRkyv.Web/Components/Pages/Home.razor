@@ -28,7 +28,11 @@
                 <RadzenDataGrid TItem="UserDto" Data="@users" AllowSorting="true">
                     <Columns>
                         <RadzenDataGridColumn TItem="UserDto" Property="@nameof(UserDto.Email)" Title="@Localizer["ColumnEmail"]" />
-                        <RadzenDataGridColumn TItem="UserDto" Property="@nameof(UserDto.DisplayName)" Title="@Localizer["ColumnDisplayName"]" />
+                        <RadzenDataGridColumn TItem="UserDto" Property="@nameof(UserDto.DisplayName)" Title="@Localizer["ColumnDisplayName"]">
+                            <Template Context="user">
+                                <RadzenLink Path="@($"/users/{user.Id}")" Text="@user.DisplayName" data-testid="user-link" />
+                            </Template>
+                        </RadzenDataGridColumn>
                     </Columns>
                 </RadzenDataGrid>
             }

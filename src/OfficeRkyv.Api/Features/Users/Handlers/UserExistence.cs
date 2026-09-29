@@ -15,4 +15,19 @@ internal static class UserExistence
             throw new NotFoundException($"User '{userId}' does not exist.");
         }
     }
+
+    /// <summary>
+    /// For work done on behalf of a user, such as creating something they own: the user must exist
+    /// (<see cref="NotFoundException"/>) and must not be deleted (<c>user_deleted</c>).
+    /// </summary>
+    public static async Task RequireActiveAsync(IQuerySession session, Guid userId)
+    {
+        var user =
+            await session.LoadAsync<User>(userId) ?? throw new NotFoundException($"User '{userId}' does not exist.");
+
+        if (user.Status is EntityStatus.Deleted)
+        {
+            throw new InvariantViolationException(InvariantCodes.UserDeleted);
+        }
+    }
 }

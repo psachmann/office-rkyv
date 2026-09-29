@@ -18,6 +18,9 @@ public static class ViolationCodes
 public static class InvariantCodes
 {
     public const string UserDeleted = "user_deleted";
+    public const string ArchiveDeleted = "archive_deleted";
+    public const string DocumentDeleted = "document_deleted";
+    public const string ArchiveOwnerMismatch = "archive_owner_mismatch";
 }
 
 /// <summary>The <c>domain</c> of every <c>google.rpc.ErrorInfo</c> this API sends.</summary>

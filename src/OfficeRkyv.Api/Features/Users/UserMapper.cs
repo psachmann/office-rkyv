@@ -16,6 +16,8 @@ public static partial class UserMapper
 
     public static FindAllUsersQuery ToQuery(this ListUsersRequest request) => new();
 
+    public static FindUserByIdQuery ToQuery(this FindUserByIdRequest request) => new(Guid.Parse(request.UserId));
+
     public static partial FindUserByEmailQuery ToQuery(this FindUserByEmailRequest request);
 
     // NormalizedEmail is a storage concern (the uniqueness key); the contract exposes Email only.
@@ -29,6 +31,8 @@ public static partial class UserMapper
         new() { Users = { users.Select(ToDto) } };
 
     public static FindUserByEmailResponse ToResponse(this User? user) => new() { User = user?.ToDto() };
+
+    public static FindUserByIdResponse ToFindByIdResponse(this User? user) => new() { User = user?.ToDto() };
 
     public static CreateUserResponse ToCreateResponse(this User user) => new() { User = user.ToDto() };
 

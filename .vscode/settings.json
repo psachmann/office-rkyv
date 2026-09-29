@@ -24,7 +24,9 @@
     "rendermode",
     "Rkyv",
     "Sqlite",
-    "stylesheet"
+    "stylesheet",
+    "Unfile",
+    "unfiled"
   ],
   "protobuf.externalLinter.enabled": true,
   "protobuf.externalLinter.linter": "buf",

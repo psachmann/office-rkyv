@@ -3,6 +3,8 @@ using DotNetQuery.Core.Observability;
 using DotNetQuery.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Localization;
 using OfficeRkyv.Contracts;
+using OfficeRkyv.Contracts.Archives;
+using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
 using OfficeRkyv.Web.Components;
 using OfficeRkyv.Web.Localization;
@@ -31,6 +33,8 @@ builder.Services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddSour
 builder.Services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddMeter(QueryTelemetry.SourceName));
 builder.Services.AddLocalization(options => options.ResourcesPath = SupportedCultures.ResourcesPath);
 builder.Services.AddScoped<UsersFacade>();
+builder.Services.AddScoped<ArchivesFacade>();
+builder.Services.AddScoped<DocumentsFacade>();
 
 // "api-svc" is resolved by Aspire service discovery (see AppHost). gRPC only accepts plain
 // http/https here; the "https+http" form throws "No address resolver configured".
@@ -38,6 +42,12 @@ builder.Services.AddScoped<UsersFacade>();
 // the original RpcException (and its status details) as InnerException.
 builder.Services.AddWolverineGrpcClient<Greeter.GreeterClient>(options => options.Address = new Uri("https://api-svc"));
 builder.Services.AddWolverineGrpcClient<UsersService.UsersServiceClient>(options =>
+    options.Address = new Uri("https://api-svc")
+);
+builder.Services.AddWolverineGrpcClient<ArchivesService.ArchivesServiceClient>(options =>
+    options.Address = new Uri("https://api-svc")
+);
+builder.Services.AddWolverineGrpcClient<DocumentsService.DocumentsServiceClient>(options =>
     options.Address = new Uri("https://api-svc")
 );
 
