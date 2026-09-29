@@ -7,11 +7,15 @@ Gives the web UI a landing page where anyone can see who the users are and add a
 ## Requirements
 
 ### Requirement: The landing page lists users
-The web UI's root page (`/`) SHALL show every non-deleted user, displaying each user's email and display name. No sign-in SHALL be required to view it.
+The web UI's root page (`/`) SHALL show every non-deleted user, displaying each user's email and display name. Each listed user SHALL link to that user's workspace at `/users/{id}`. No sign-in SHALL be required to view it.
 
 #### Scenario: Users are listed
 - **WHEN** a visitor opens `/` and users exist
 - **THEN** the page shows one entry per non-deleted user with that user's email and display name
+
+#### Scenario: A listed user opens their workspace
+- **WHEN** a visitor chooses a user in the list
+- **THEN** the browser navigates to that user's workspace at `/users/{id}`
 
 ### Requirement: The landing page has an empty state
 When no users exist, the landing page SHALL show an empty state that explains there are no users yet and offers an action to create the first one, instead of an empty list with no guidance.
