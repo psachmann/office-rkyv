@@ -1,0 +1,40 @@
+@using System.Reactive.Linq
+@using Microsoft.Extensions.Logging
+@using OfficeRkyv.UI.Settings
+@implements IDisposable
+@inject IUserSettingsService SettingsService
+@inject ILogger<Main> Logger
+
+@* The desktop's root: the shared UI's pages and layout, routed as the web host's Routes.razor does. A language
+   change is applied in place: the router is rebuilt through its @key, which renders all text again in the new
+   culture, Radzen's own included. The page loses its component state, as the web host does with its reload. *@
+<Router @key="generation" AppAssembly="typeof(OfficeRkyv.UI.Components.Layout.MainLayout).Assembly" NotFoundPage="typeof(OfficeRkyv.UI.Components.Pages.NotFound)">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(OfficeRkyv.UI.Components.Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>
+
+@code {
+    private int generation;
+    private IDisposable? subscription;
+
+    protected override void OnInitialized() =>
+        // The stream replays the current settings on subscribing: that culture is the one this root already renders with.
+        subscription = SettingsService.Settings
+            .Select(settings => settings.Culture.Name)
+            .DistinctUntilChanged()
+            .Skip(1)
+            .Subscribe(culture =>
+            {
+                Logger.LogInformation("Language: {Culture}, the UI is rebuilt in place", culture);
+
+                _ = InvokeAsync(() =>
+                {
+                    generation++;
+                    StateHasChanged();
+                });
+            });
+
+    public void Dispose() => subscription?.Dispose();
+}

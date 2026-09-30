@@ -1,18 +1,19 @@
-@inject AppearanceState State
+@inject WebUserSettingsService SettingsService
 
-<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+<Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="new[] { typeof(OfficeRkyv.UI.Components.Layout.MainLayout).Assembly }" NotFoundPage="typeof(OfficeRkyv.UI.Components.Pages.NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <RouteView RouteData="routeData" DefaultLayout="typeof(OfficeRkyv.UI.Components.Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
 
 @code {
     /// <summary>
-    /// The appearance the page was rendered with, read from the cookie on the server. It starts the circuit's
-    /// AppearanceState, so the settings page shows the right choice however it is reached.
+    /// The appearance the page was rendered with, read from the cookie on the server. With the culture of the
+    /// request, it starts the circuit's settings, so the settings page shows the right choices however it is
+    /// reached.
     /// </summary>
     [Parameter] public AppearancePreference Appearance { get; set; }
 
-    protected override void OnInitialized() => State.Initialize(Appearance);
+    protected override void OnInitialized() => SettingsService.Initialize(Appearance, CultureInfo.CurrentUICulture);
 }

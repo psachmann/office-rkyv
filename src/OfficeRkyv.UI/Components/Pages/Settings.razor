@@ -1,0 +1,58 @@
+@page "/settings"
+@implements IDisposable
+@inject IStringLocalizer<Settings> Localizer
+@inject IUserSettingsService SettingsService
+
+<PageTitle>@Localizer["Title"]</PageTitle>
+
+<RadzenStack Gap="2rem" class="rz-p-4">
+    <RadzenText TextStyle="TextStyle.H3" data-testid="settings-heading">@Localizer["Heading"]</RadzenText>
+
+    <RadzenStack Gap="0.5rem">
+        <RadzenLabel Text="@Localizer["LanguageLabel"]" Component="Language" />
+        <RadzenDropDown
+            Name="Language"
+            TValue="string"
+            Data="@SupportedCultures.All"
+            TextProperty="@nameof(CultureInfo.NativeName)"
+            ValueProperty="@nameof(CultureInfo.Name)"
+            Value="@SupportedCultures.Match(SettingsService.Current.Culture).Name"
+            ValueChanged="@ChangeCulture"
+            AllowClear="false"
+            AllowFiltering="false"
+            Style="max-width: 20rem"
+            data-testid="language" />
+    </RadzenStack>
+
+    <RadzenStack Gap="0.5rem">
+        <RadzenLabel Text="@Localizer["AppearanceLabel"]" Component="Appearance" />
+        <RadzenSelectBar
+            Name="Appearance"
+            TValue="AppearancePreference"
+            Value="@SettingsService.Current.Appearance"
+            ValueChanged="@ChangeAppearance"
+            data-testid="appearance">
+            <Items>
+                <RadzenSelectBarItem Text="@Localizer["AppearanceSystem"]" Value="AppearancePreference.System" />
+                <RadzenSelectBarItem Text="@Localizer["AppearanceLight"]" Value="AppearancePreference.Light" />
+                <RadzenSelectBarItem Text="@Localizer["AppearanceDark"]" Value="AppearancePreference.Dark" />
+            </Items>
+        </RadzenSelectBar>
+        <RadzenText TextStyle="TextStyle.Caption">@Localizer["AppearanceHint"]</RadzenText>
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    private IDisposable? subscription;
+
+    // Stays in step when the settings change elsewhere, or are only adopted after this page first rendered.
+    // The stream replays the settings in force, so the first emission is a harmless extra render.
+    protected override void OnInitialized() =>
+        subscription = SettingsService.Settings.Subscribe(current => _ = InvokeAsync(StateHasChanged));
+
+    private Task ChangeCulture(string cultureName) => SettingsService.SetCultureAsync(CultureInfo.GetCultureInfo(cultureName));
+
+    private Task ChangeAppearance(AppearancePreference appearance) => SettingsService.SetAppearanceAsync(appearance);
+
+    public void Dispose() => subscription?.Dispose();
+}

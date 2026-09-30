@@ -1,0 +1,67 @@
+﻿@inherits LayoutComponentBase
+@inject IHostEnvironment Env
+@inject IStringLocalizer<MainLayout> Localizer
+
+@if (Env.IsDevelopment())
+{
+    <QueryDevTools />
+}
+
+<QueryRefreshMonitor />
+
+<RadzenComponents />
+
+<CascadingValue Value="@CultureInfo.CurrentUICulture">
+    <RadzenLayout>
+        <RadzenHeader>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+                <RadzenSidebarToggle Click="@(() => IsExpanded = !IsExpanded)" />
+                <RadzenLabel Text="@Localizer["AppTitle"]" />
+            </RadzenStack>
+        </RadzenHeader>
+        <RadzenSidebar @bind-Expanded="@IsExpanded">
+            <div class="app-sidebar">
+                <RadzenPanelMenu>
+                    <RadzenPanelMenuItem
+                        Text="@Localizer["NavHome"]"
+                        Icon="home"
+                        Path="/"
+                        Match="NavLinkMatch.All"
+                    />
+                    <RadzenPanelMenuItem
+                        Text="@Localizer["NavGreeter"]"
+                        Icon="waving_hand"
+                        Path="/greeter"
+                    />
+                    <RadzenPanelMenuItem
+                        Text="@Localizer["NavError"]"
+                        Icon="home"
+                        Path="/error"
+                    />
+                </RadzenPanelMenu>
+                <RadzenPanelMenu class="app-sidebar-bottom">
+                    <RadzenPanelMenuItem
+                        Text="@Localizer["NavSettings"]"
+                        Icon="settings"
+                        Path="/settings"
+                    />
+                </RadzenPanelMenu>
+            </div>
+        </RadzenSidebar>
+        <RadzenBody>
+            @Body
+        </RadzenBody>
+    </RadzenLayout>
+</CascadingValue>
+
+<div id="blazor-error-ui" data-nosnippet>
+    <i class="rzi" aria-hidden="true">error</i>
+    @Localizer["UnhandledError"]
+    <a href="." class="reload">@Localizer["Reload"]</a>
+    <span class="dismiss"><i class="rzi" aria-hidden="true">close</i></span>
+</div>
+
+
+@code {
+    public bool IsExpanded { get; set; } = true;
+}

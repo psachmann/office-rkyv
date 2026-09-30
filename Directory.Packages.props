@@ -23,7 +23,11 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    <!-- Experimental backend, "will change between releases": pinned exactly, bumped deliberately. -->
+    <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4" Version="0.1.0-preview.12.26421.1" />
+    <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4.BlazorWebView" Version="0.1.0-preview.12.26421.1" />
     <PackageVersion Include="Radzen.Blazor" Version="11.5.1" />
+    <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
     <PackageVersion Include="WolverineFx" Version="6.41.0" />
     <PackageVersion Include="WolverineFx.Fisher" Version="6.41.0" />

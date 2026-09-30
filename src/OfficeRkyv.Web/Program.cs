@@ -6,12 +6,13 @@ using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
+using OfficeRkyv.UI;
+using OfficeRkyv.UI.Localization;
+using OfficeRkyv.UI.Settings;
 using OfficeRkyv.Web.Components;
-using OfficeRkyv.Web.Localization;
-using OfficeRkyv.Web.Shared;
+using OfficeRkyv.Web.Settings;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
-using Radzen;
 using Wolverine.Grpc.Client;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,7 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.AddServiceDefaults();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
-builder.Services.AddRadzenComponents();
+builder.Services.AddOfficeRkyvUi();
 builder.Services.AddDotNetQuery(options =>
 {
     options.ExecutionMode = QueryExecutionMode.Ssr;
@@ -31,11 +32,10 @@ builder.Services.AddDotNetQuery(options =>
 // DotNetQuery uses one name for both its ActivitySource and its Meter (see the observability spec).
 builder.Services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddSource(QueryTelemetry.SourceName));
 builder.Services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddMeter(QueryTelemetry.SourceName));
-builder.Services.AddLocalization(options => options.ResourcesPath = SupportedCultures.ResourcesPath);
-builder.Services.AddScoped<AppearanceState>();
-builder.Services.AddScoped<UsersFacade>();
-builder.Services.AddScoped<ArchivesFacade>();
-builder.Services.AddScoped<DocumentsFacade>();
+
+// One instance per circuit, reachable as the concrete type (Routes starts it) and as the interface the pages use.
+builder.Services.AddScoped<WebUserSettingsService>();
+builder.Services.AddScoped<IUserSettingsService>(services => services.GetRequiredService<WebUserSettingsService>());
 
 // "api-svc" is resolved by Aspire service discovery (see AppHost). gRPC only accepts plain
 // http/https here; the "https+http" form throws "No address resolver configured".
@@ -98,6 +98,11 @@ app.MapGet(
 );
 
 app.MapStaticAssets();
-app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+
+// The pages live in the UI library; without its assembly here the first (server-rendered) request would not
+// find them and answer 404.
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(typeof(OfficeRkyv.UI.Components.Layout.MainLayout).Assembly);
 
 app.Run();

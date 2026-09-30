@@ -1,5 +1,3 @@
-extern alias web;
-
 using System.Net;
 using Fisher;
 using FluentValidation;
@@ -23,7 +21,7 @@ using OfficeRkyv.Api.Shared.Errors;
 using OfficeRkyv.Api.Shared.Exceptions;
 using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Users;
-using web::OfficeRkyv.Web.Components.Pages.Users;
+using OfficeRkyv.UI.Components.Pages.Users;
 using Wolverine;
 using Wolverine.Fisher;
 using Wolverine.Grpc.Client;

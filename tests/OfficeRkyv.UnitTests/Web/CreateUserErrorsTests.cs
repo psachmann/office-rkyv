@@ -1,10 +1,8 @@
-extern alias web;
-
 using System.Globalization;
 using System.Resources;
 using Google.Rpc;
 using Grpc.Core;
-using web::OfficeRkyv.Web.Components.Pages.Users;
+using OfficeRkyv.UI.Components.Pages.Users;
 using GrpcStatus = Grpc.Core.Status;
 using ProtoAny = Google.Protobuf.WellKnownTypes.Any;
 
@@ -131,7 +129,7 @@ public sealed class CreateUserErrorsTests
     public async Task EveryKeyItCanProduce_ExistsInTheResourceFile()
     {
         var resources = new ResourceManager(
-            "OfficeRkyv.Web.Resources.Components.Pages.Users.CreateUserDialog",
+            "OfficeRkyv.UI.Resources.Components.Pages.Users.CreateUserDialog",
             typeof(CreateUserErrors).Assembly
         );
 

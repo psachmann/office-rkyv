@@ -9,13 +9,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
-using OfficeRkyv.Api.Features.Archives;
-using OfficeRkyv.Api.Features.Documents;
-using OfficeRkyv.Api.Features.Users;
-using OfficeRkyv.Api.Shared;
-using OfficeRkyv.Api.Shared.Errors;
 using Wolverine;
-using Wolverine.Fisher;
 using Wolverine.Tracking;
 
 namespace OfficeRkyv.UnitTests;
@@ -62,27 +56,10 @@ public sealed class PipelineHost : IAsyncDisposable
         builder.WebHost.UseKestrel(kestrel =>
             kestrel.Listen(IPAddress.Loopback, 0, listen => listen.Protocols = HttpProtocols.Http2)
         );
-        builder
-            .Services.AddFisher(options =>
-            {
-                options.Connection($"Data Source={path}");
-                options.AddAggregateSnapshots();
-            })
-            .ApplyAllDatabaseChangesOnStartup()
-            .IntegrateWithWolverine();
-        builder.Host.UseWolverine(options =>
-        {
-            options.ApplicationAssembly = OfficeRkyvApiLib.Assembly;
-            options.Durability.Mode = DurabilityMode.Solo;
-            options.Policies.AutoApplyTransactions();
-            options.UseApiErrorMapping();
-        });
-        builder.Services.AddGrpc();
+        builder.AddOfficeRkyvApi($"Data Source={path}");
 
         host = builder.Build();
-        host.MapGrpcService<UsersServiceImpl>();
-        host.MapGrpcService<ArchivesServiceImpl>();
-        host.MapGrpcService<DocumentsServiceImpl>();
+        host.MapOfficeRkyvApi();
         await host.StartAsync();
 
         var addresses = host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;

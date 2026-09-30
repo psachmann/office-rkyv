@@ -26,3 +26,7 @@ build $config="Debug":
 # Run all tests in the given configuration (e.g. Debug, Release)
 test $config="Debug":
   dotnet test --configuration {{config}}
+
+# Run the standalone Linux desktop app; enters the `desktop` Nix dev shell, which has GTK4 and WebKitGTK
+desktop:
+  nix develop .#desktop --command env DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT:-Development} dotnet run --project src/OfficeRkyv.Desktop

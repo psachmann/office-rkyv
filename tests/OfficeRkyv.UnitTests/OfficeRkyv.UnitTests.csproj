@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="DotNetQuery.Extensions.DependencyInjection" />
     <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
     <PackageReference Include="TUnit" />
     <PackageReference Include="TUnit.Mocks" />
@@ -12,7 +13,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
+    <ProjectReference Include="..\..\src\OfficeRkyv.Desktop\OfficeRkyv.Desktop.csproj" />
     <ProjectReference Include="..\..\src\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\src\OfficeRkyv.UI\OfficeRkyv.UI.csproj" />
     <ProjectReference Include="..\..\src\OfficeRkyv.Web\OfficeRkyv.Web.csproj" Aliases="web" />
   </ItemGroup>
 </Project>

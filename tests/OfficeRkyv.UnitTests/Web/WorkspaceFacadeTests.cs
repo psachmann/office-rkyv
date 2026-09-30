@@ -1,5 +1,3 @@
-extern alias web;
-
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
@@ -11,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
-using web::OfficeRkyv.Web.Shared;
+using OfficeRkyv.UI.Shared;
 
 namespace OfficeRkyv.UnitTests.Web;
 

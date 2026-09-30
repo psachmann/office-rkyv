@@ -48,7 +48,7 @@ Changing the choice SHALL take effect immediately, without a page reload, and SH
 - **THEN** the appearance control shows the visitor's current choice, or System if none was made
 
 ### Requirement: The appearance choice is remembered
-The system SHALL persist the visitor's appearance choice in a cookie, so that later page loads, including full reloads and later visits from the same browser, render in the chosen appearance from the first paint, without first showing a different appearance. A stored value the system does not recognize SHALL be treated as System.
+The system SHALL persist the visitor's appearance choice per client, so that later page loads, including full reloads, later visits and restarts, render in the chosen appearance from the first paint, without first showing a different appearance. The web UI SHALL keep the choice in a cookie in the visitor's browser. The desktop app SHALL keep it in the user's settings file. A stored value the system does not recognize SHALL be treated as System.
 
 #### Scenario: Reloading keeps a fixed choice
 - **WHEN** a visitor has chosen Dark and then reloads the page
@@ -61,3 +61,7 @@ The system SHALL persist the visitor's appearance choice in a cookie, so that la
 #### Scenario: A tampered cookie falls back to System
 - **WHEN** the appearance cookie holds a value that is not one of the three choices
 - **THEN** the UI follows the operating system's preference, as for System
+
+#### Scenario: The desktop app keeps the choice across restarts
+- **WHEN** a user of the desktop app has chosen Dark and restarts the app
+- **THEN** the app renders in the dark appearance from its first frame, whatever the desktop prefers

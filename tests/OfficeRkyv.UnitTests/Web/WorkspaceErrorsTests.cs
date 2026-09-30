@@ -1,5 +1,3 @@
-extern alias web;
-
 using System.Globalization;
 using System.Resources;
 using Google.Rpc;
@@ -9,7 +7,7 @@ using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
-using web::OfficeRkyv.Web.Components.Pages.Users;
+using OfficeRkyv.UI.Components.Pages.Users;
 using Wolverine.Grpc.Client;
 using GrpcStatus = Grpc.Core.Status;
 using ProtoAny = Google.Protobuf.WellKnownTypes.Any;
@@ -161,7 +159,7 @@ public sealed class WorkspaceErrorsTests
     public async Task EveryKeyItCanProduce_ExistsInTheResourceFile()
     {
         var resources = new ResourceManager(
-            "OfficeRkyv.Web.Resources.Components.Pages.Users.WorkspaceErrors",
+            "OfficeRkyv.UI.Resources.Components.Pages.Users.WorkspaceErrors",
             typeof(WorkspaceErrors).Assembly
         );
 

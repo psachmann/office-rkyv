@@ -15,12 +15,12 @@
         pkgs = import nixpkgs {
           inherit system;
         };
-      in
-      {
-        devShells.default =
-          let
-            dotnet = pkgs.dotnetCorePackages.sdk_10_0;
-          in
+        dotnet = pkgs.dotnetCorePackages.sdk_10_0;
+
+        # The dev shell, plus `runtimeLibs`: native libraries that .NET loads by name at run time, which
+        # nixpkgs has no global path for, so they are put on LD_LIBRARY_PATH explicitly.
+        mkDevShell =
+          runtimeLibs:
           pkgs.mkShell {
             packages = with pkgs; [
               gh
@@ -46,9 +46,8 @@
               openspec.packages.${system}.default
             ];
             DOTNET_ROOT = "${dotnet}/share/dotnet";
-            # .NET (and thus Aspire) loads ICU dynamically; nixpkgs has no
-            # global lib path, so expose it explicitly.
-            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.icu ];
+            # .NET (and thus Aspire) loads ICU dynamically.
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath ([ pkgs.icu ] ++ runtimeLibs);
             # Let OpenSSL-based clients (.NET, Aspire's DCP, curl, ...) trust
             # the ASP.NET Core dev cert that `dotnet dev-certs https --trust`
             # drops into ~/.aspnet/dev-certs/trust.
@@ -56,6 +55,22 @@
               export SSL_CERT_DIR="''${SSL_CERT_DIR:+$SSL_CERT_DIR:}/etc/ssl/certs:$HOME/.aspnet/dev-certs/trust"
             '';
           };
+      in
+      {
+        devShells.default = mkDevShell [ ];
+
+        # For running the desktop app (src/OfficeRkyv.Desktop): `nix develop .#desktop`, or `just desktop`.
+        # Building it needs none of this, only running it does. GirCore loads these by soname, so each
+        # must be listed: without GLib the app exits at once with code 0 and prints nothing, although
+        # GTK depends on it.
+        devShells.desktop = mkDevShell (
+          with pkgs;
+          [
+            gtk4
+            webkitgtk_6_0
+            glib
+          ]
+        );
       }
     );
 }

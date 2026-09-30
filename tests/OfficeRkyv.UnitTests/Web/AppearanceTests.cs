@@ -1,22 +1,16 @@
-extern alias web;
-
-using web::OfficeRkyv.Web.Shared;
+using OfficeRkyv.UI.Shared;
 
 namespace OfficeRkyv.UnitTests.Web;
 
-// Test parameters are strings, not AppearancePreference: TUnit's generated code cannot name a type
-// from the aliased Web assembly.
 public sealed class AppearanceTests
 {
-    private static AppearancePreference Preference(string name) => Enum.Parse<AppearancePreference>(name);
-
     [Test]
-    [Arguments("light", "Light")]
-    [Arguments("dark", "Dark")]
-    [Arguments("system", "System")]
-    public async Task Parse_ReadsEachStoredChoice(string stored, string expected)
+    [Arguments("light", AppearancePreference.Light)]
+    [Arguments("dark", AppearancePreference.Dark)]
+    [Arguments("system", AppearancePreference.System)]
+    public async Task Parse_ReadsEachStoredChoice(string stored, AppearancePreference expected)
     {
-        await Assert.That(Appearance.Parse(stored)).IsEqualTo(Preference(expected));
+        await Assert.That(Appearance.Parse(stored)).IsEqualTo(expected);
     }
 
     [Test]
@@ -32,13 +26,11 @@ public sealed class AppearanceTests
     }
 
     [Test]
-    [Arguments("System")]
-    [Arguments("Light")]
-    [Arguments("Dark")]
-    public async Task ACookieValueWrittenForAChoice_ParsesBackToIt(string name)
+    [Arguments(AppearancePreference.System)]
+    [Arguments(AppearancePreference.Light)]
+    [Arguments(AppearancePreference.Dark)]
+    public async Task ACookieValueWrittenForAChoice_ParsesBackToIt(AppearancePreference preference)
     {
-        var preference = Preference(name);
-
         await Assert.That(Appearance.Parse(Appearance.ToCookieValue(preference))).IsEqualTo(preference);
     }
 

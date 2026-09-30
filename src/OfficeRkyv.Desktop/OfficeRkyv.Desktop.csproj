@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <!-- The standalone Linux desktop app: the shared UI in a BlazorWebView on MAUI's experimental GTK4 backend, with
+       the API running in the same process. It builds without the GTK libraries; only running it needs them
+       (see the `desktop` dev shell). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OfficeRkyv.Desktop</RootNamespace>
+    <ApplicationId>io.github.psachmann.OfficeRkyv</ApplicationId>
+    <ApplicationTitle>Office Rkyv</ApplicationTitle>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="OfficeRkyv.UnitTests" />
+  </ItemGroup>
+  <!-- The Web SDK adds these implicitly; the Razor SDK does not. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="DotNetQuery.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Maui.Platforms.Linux.Gtk4" />
+    <PackageReference Include="Microsoft.Maui.Platforms.Linux.Gtk4.BlazorWebView" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
+    <ProjectReference Include="..\OfficeRkyv.UI\OfficeRkyv.UI.csproj" />
+  </ItemGroup>
+</Project>

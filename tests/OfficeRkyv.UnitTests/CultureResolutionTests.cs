@@ -1,10 +1,8 @@
-extern alias web;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using web::OfficeRkyv.Web.Localization;
+using OfficeRkyv.UI.Localization;
 
 namespace OfficeRkyv.UnitTests;
 

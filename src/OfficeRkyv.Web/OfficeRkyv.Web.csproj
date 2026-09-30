@@ -3,12 +3,9 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="DotNetQuery.Blazor" />
-    <PackageReference Include="DotNetQuery.Blazor.DevTools" />
     <PackageReference Include="DotNetQuery.Core" />
     <PackageReference Include="DotNetQuery.Extensions.DependencyInjection" />
     <PackageReference Include="Grpc.AspNetCore" />
-    <PackageReference Include="Grpc.StatusProto" />
     <PackageReference Include="Radzen.Blazor" />
     <PackageReference Include="WolverineFx.Grpc" />
   </ItemGroup>
@@ -16,9 +13,7 @@
     <ProjectReference Include="..\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="OfficeRkyv.UnitTests" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\OfficeRkyv.Contracts\OfficeRkyv.Contracts.csproj" />
+    <ProjectReference Include="..\OfficeRkyv.UI\OfficeRkyv.UI.csproj" />
   </ItemGroup>
 </Project>

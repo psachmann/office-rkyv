@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <!-- The UI both hosts show: the web host (Blazor Server) and the desktop app (BlazorWebView). Host-specific
+       parts (circuit UI, cookies, the gRPC client addresses) stay in the hosts. -->
+  <PropertyGroup>
+    <RootNamespace>OfficeRkyv.UI</RootNamespace>
+  </PropertyGroup>
+  <!-- The Web SDK adds these implicitly; a Razor class library does not. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="DotNetQuery.Blazor" />
+    <PackageReference Include="DotNetQuery.Blazor.DevTools" />
+    <PackageReference Include="DotNetQuery.Core" />
+    <PackageReference Include="Grpc.StatusProto" />
+    <PackageReference Include="Radzen.Blazor" />
+    <PackageReference Include="System.Reactive" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OfficeRkyv.Contracts\OfficeRkyv.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="OfficeRkyv.UnitTests" />
+  </ItemGroup>
+</Project>

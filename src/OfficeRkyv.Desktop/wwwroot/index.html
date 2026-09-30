@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Office Rkyv</title>
+  <base href="/" />
+  <!-- Painted before the ~760 KB theme stylesheets arrive (about 350 ms), so a dark start is not white first. -->
+  <style>
+    html { background: #f5f5f5; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { html { background: #121212; } }
+  </style>
+  <!-- What the web host's AppTheme renders, for the same two themes. There is no server to render it here, and
+        nothing ever changes these links: the desktop changes the view's own preference instead (see GtkAppearance). -->
+  <link rel="preload" href="_content/Radzen.Blazor/fonts/MaterialSymbolsOutlined.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+  <link data-theme="material" rel="stylesheet" href="_content/Radzen.Blazor/css/material-base.css" media="(prefers-color-scheme: light)" />
+  <link data-theme="material-dark" rel="stylesheet" href="_content/Radzen.Blazor/css/material-dark-base.css" media="(prefers-color-scheme: dark)" />
+  <link rel="stylesheet" href="_content/OfficeRkyv.UI/app.css" />
+  <link rel="stylesheet" href="OfficeRkyv.Desktop.styles.css" />
+</head>
+<body>
+  <div id="app">Loading...</div>
+  <!-- What the view reports for the appearance, so a person can check the GTK bridge from the app's stdout (the
+        console is forwarded in Development). -->
+  <script>
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    const report = () => console.log('prefers-color-scheme: ' + (scheme.matches ? 'dark' : 'light'));
+    scheme.addEventListener('change', report);
+    report();
+  </script>
+  <script src="_framework/blazor.webview.js" autostart="false"></script>
+  <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
+</body>
+</html>
