@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace OfficeRkyv.Desktop;
 
-internal static class DevelopmentConsole
+internal static partial class DevelopmentConsole
 {
     /// <summary>
     /// Sends the WebKit view's console to stdout. The platform view is a <c>Gtk.Box</c> holding the
@@ -12,7 +12,7 @@ internal static class DevelopmentConsole
     {
         if (Find(platformView) is not { } webKit)
         {
-            logger.LogWarning("The WebKit view was not found, so its console is not forwarded.");
+            LogWebKitViewNotFound(logger);
 
             return;
         }
@@ -41,4 +41,10 @@ internal static class DevelopmentConsole
 
         return null;
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "The WebKit view was not found, so its console is not forwarded."
+    )]
+    private static partial void LogWebKitViewNotFound(ILogger logger);
 }

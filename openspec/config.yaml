@@ -1,39 +1,59 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
-
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
-
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
-
+# Shown to the AI in the instructions of every artifact. Keep it to one screen: the map, and pointers
+# to the guideline docs. docs/architecture.md is the long form; change both when the projects change.
 context: |
-  Tech stack: .Net with C#
-  Frontend: Blazor with Radzen Components
-  Backend: Asp .Net Core with Grpc
-  Domain: Paperless office software to save and search any kind of document
-  We are using conventional commits
+  Product: office-rkyv, paperless office software to store and search any kind of document.
+
+  Stack: .NET 10, C#. API: ASP.NET Core gRPC, Wolverine (message handling), Fisher (event store
+  on SQLite), FluentValidation, Mapperly. UI: Blazor with Radzen components, DotNetQuery for data.
+  Tests: TUnit, Playwright, Aspire. Nix dev shell, `just` recipes, CSharpier, conventional commits.
+
+  Projects (src/):
+  - Contracts: the .proto files and the error codes, shared by API and UI.
+  - Api: gRPC services, one folder per feature under Features/. Composed by AddOfficeRkyvApi and
+    MapOfficeRkyvApi for every process that hosts it.
+  - UI: Razor class library with all pages, facades and localization. Knows no host.
+  - Web: Blazor Server host of UI. Also the development and functional-test harness.
+  - Desktop: Linux GTK4 host of UI with the API in the same process. Experimental backend.
+  - ServiceDefaults: OpenTelemetry, health checks, service discovery.
+  - AppHost: Aspire orchestration for development and the functional tests.
+
+  One request: page -> DotNetQuery query or mutation -> facade -> gRPC client -> <Feature>ServiceImpl
+  -> Wolverine -> handler -> Fisher session -> SQLite. Failures become gRPC statuses with a stable
+  error code in one place; the UI maps the code to localized text.
+
+  Guideline docs are the source of truth for conventions. Read the ones a change touches before
+  writing an artifact:
+  - docs/architecture.md: projects, dependencies, hosts, tooling
+  - docs/api.md: feature slices, event sourcing, validation, errors
+  - docs/ui.md: localization, facades, settings, styling
+  - docs/desktop.md: the desktop host and its workarounds
+  - docs/testing.md: the test levels (unit, pipeline, UI logic, functional, by hand)
+  - docs/observability.md: tracing, metrics, logging
+
+# Added to the instructions of the artifact they are keyed by. Each accepts a one-line "none".
+rules:
+  proposal:
+    - Name each guideline doc under docs/ whose conventions this change sets or changes, or state that there is none.
+  specs:
+    - Write each scenario so that one of the test levels in docs/testing.md can verify it.
+  design:
+    - For each decision that needs verification, name the test level from docs/testing.md that covers it.
+    - State the effect on traces, metrics and logs, following docs/observability.md, or state that there is none.
+    - List the guideline docs under docs/ that this change must update, or state that there are none.
+    - Where a decision departs from a guideline doc, say so and say why.
+  tasks:
+    - Name the test level from docs/testing.md in every task that adds or changes tests.
+    - Include a task for each guideline doc the design says must be updated.
+    - For desktop behaviour, which is verified by hand, say what to observe in the app's stdout.
+
+# Advisory guidance for the apply and archive workflows.
+operations:
+  apply:
+    guidance:
+      - Before editing a part of the repo, read the guideline doc that CLAUDE.md lists for it.
+      - If the implementation departs from a guideline doc, update the doc in the same change.
+  archive:
+    guidance:
+      - Before archiving, check that every guideline doc the design lists was updated. The docs state the current convention; the archived design keeps the reasoning.

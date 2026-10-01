@@ -12,6 +12,11 @@ trim_trailing_whitespace = true
 indent_size = 4
 max_line_length = 120
 
+[*.cs]
+# Log messages are declared with the [LoggerMessage] source generator (docs/observability.md). A direct
+# logger.LogXxx(...) call is a warning, which fails the Release build.
+dotnet_diagnostic.CA1848.severity = warning
+
 [*.{config,csproj,props,slnx,targets,xaml,xml}]
 indent_size = 2
 max_line_length = 120

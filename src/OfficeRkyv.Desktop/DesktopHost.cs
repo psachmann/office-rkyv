@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using OfficeRkyv.Desktop.Hosting;
 using OfficeRkyv.Desktop.Settings;
+using OfficeRkyv.UI.Shared;
 
 namespace OfficeRkyv.Desktop;
 
@@ -10,7 +11,7 @@ namespace OfficeRkyv.Desktop;
 /// and the API. The API starts when the window is first created, so only the running (primary) instance ever has
 /// one, and it stops when the application has ended.
 /// </summary>
-internal sealed class DesktopHost
+internal sealed partial class DesktopHost
 {
     private DesktopApi? api;
     private IDisposable? appearance;
@@ -48,12 +49,7 @@ internal sealed class DesktopHost
         var initial = store.Load(CultureInfo.CurrentUICulture);
         CultureApplier.Apply(initial.Culture);
 
-        logger.LogInformation(
-            "Settings: {Appearance}, {Culture} (from {Path})",
-            initial.Appearance,
-            initial.Culture.Name,
-            paths.SettingsPath
-        );
+        LogSettings(logger, initial.Appearance, initial.Culture.Name, paths.SettingsPath);
 
         return Current = new DesktopHost(paths, new DesktopUserSettingsService(store, initial, logger), logger);
     }
@@ -67,11 +63,7 @@ internal sealed class DesktopHost
         }
 
         api = DesktopApi.StartAsync(Paths).GetAwaiter().GetResult();
-        Logger.LogInformation(
-            "API listening on {Address}, data in {Database}",
-            string.Join(", ", api.Addresses),
-            Paths.DatabasePath
-        );
+        LogApiListening(Logger, string.Join(", ", api.Addresses), Paths.DatabasePath);
     }
 
     /// <summary>
@@ -87,10 +79,24 @@ internal sealed class DesktopHost
         {
             api = null;
             await running.DisposeAsync();
-            Logger.LogInformation("API stopped");
+            LogApiStopped(Logger);
         }
 
         appearance?.Dispose();
         Settings.Dispose();
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Settings: {Appearance}, {Culture} (from {Path})")]
+    private static partial void LogSettings(
+        ILogger logger,
+        AppearancePreference appearance,
+        string culture,
+        string path
+    );
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "API listening on {Address}, data in {Database}")]
+    private static partial void LogApiListening(ILogger logger, string address, string database);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "API stopped")]
+    private static partial void LogApiStopped(ILogger logger);
 }

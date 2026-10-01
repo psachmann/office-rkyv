@@ -9,7 +9,7 @@ namespace OfficeRkyv.Desktop;
 /// after it, which removes its socket. Without this the signal ends the process at once, with the socket left
 /// behind and the database not closed.
 /// </summary>
-internal static class SignalHandling
+internal static partial class SignalHandling
 {
     public static IDisposable Register(ILogger logger) =>
         new Registrations([
@@ -27,7 +27,7 @@ internal static class SignalHandling
         }
 
         context.Cancel = true;
-        logger.LogInformation("{Signal}: closing the window", context.Signal);
+        LogClosingOnSignal(logger, context.Signal);
 
         // The callback runs on a thread of its own, and GTK may only be used from its main thread. The backend
         // ends its loop when the last window is closed; `Application.Quit()` does not (spike, question 2).
@@ -50,4 +50,7 @@ internal static class SignalHandling
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Signal}: closing the window")]
+    private static partial void LogClosingOnSignal(ILogger logger, PosixSignal signal);
 }

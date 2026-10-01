@@ -12,7 +12,7 @@ namespace OfficeRkyv.Web.Settings;
 /// The web host's settings, one per circuit. The appearance lives in a cookie: the server reads it for the
 /// first paint (see <c>App.razor</c>), and a change is applied to the page and written back through JS. The
 /// language lives in the culture cookie, which only a fresh circuit honours, so changing it reloads the page
-/// through <c>/culture/set</c> (see CLAUDE.md).
+/// through <c>/culture/set</c> (see docs/ui.md).
 /// </summary>
 public sealed class WebUserSettingsService(IJSRuntime js, NavigationManager navigation)
     : IUserSettingsService,

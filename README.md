@@ -25,3 +25,14 @@ It is built on .NET MAUI's experimental GTK4 backend (`Microsoft.Maui.Platforms.
 - **One instance:** starting it again opens another window in the running app, which shares its API and data; no second API starts. After a crash, the next start removes the stale socket on its own.
 - **Quitting:** closing the window, SIGTERM and SIGINT all end the app and stop the API cleanly.
 - `DOTNET_ENVIRONMENT=Development` (what `just desktop` sets unless you override it) also logs the API and the page's console to the terminal, and enables the WebView's developer tools.
+
+## Documentation
+
+The conventions of the codebase are in [docs/](docs/), one topic per file:
+
+- [architecture.md](docs/architecture.md): the projects, how a request travels, the two hosts, the tooling. Start here.
+- [api.md](docs/api.md): feature slices, event sourcing, validation, error codes.
+- [ui.md](docs/ui.md): localization, facades, user settings, styling.
+- [desktop.md](docs/desktop.md): the desktop host and its workarounds.
+- [testing.md](docs/testing.md): the test levels and which to pick.
+- [observability.md](docs/observability.md): tracing, metrics, logging.

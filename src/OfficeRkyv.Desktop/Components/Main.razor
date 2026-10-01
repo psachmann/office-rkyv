@@ -27,7 +27,7 @@
             .Skip(1)
             .Subscribe(culture =>
             {
-                Logger.LogInformation("Language: {Culture}, the UI is rebuilt in place", culture);
+                LogLanguageChanged(Logger, culture);
 
                 _ = InvokeAsync(() =>
                 {

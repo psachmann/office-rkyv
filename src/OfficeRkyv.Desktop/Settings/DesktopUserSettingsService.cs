@@ -13,7 +13,7 @@ namespace OfficeRkyv.Desktop.Settings;
 /// appearance does to the window is done through GTK by <see cref="GtkAppearance"/>, and what a new language does
 /// to the UI by the root component, both by watching <see cref="Settings"/>.
 /// </summary>
-public sealed class DesktopUserSettingsService : IUserSettingsService, IDisposable
+public sealed partial class DesktopUserSettingsService : IUserSettingsService, IDisposable
 {
     private readonly BehaviorSubject<UserSettings> settings;
     private readonly DesktopSettingsStore store;
@@ -52,7 +52,7 @@ public sealed class DesktopUserSettingsService : IUserSettingsService, IDisposab
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            logger.LogWarning(exception, "The settings could not be saved; they apply until the app closes.");
+            LogSettingsNotSaved(logger, exception);
         }
 
         if (!next.Culture.Equals(Current.Culture))
@@ -77,4 +77,10 @@ public sealed class DesktopUserSettingsService : IUserSettingsService, IDisposab
         settings.OnCompleted();
         settings.Dispose();
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "The settings could not be saved; they apply until the app closes."
+    )]
+    private static partial void LogSettingsNotSaved(ILogger logger, Exception exception);
 }

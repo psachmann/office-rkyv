@@ -13,7 +13,7 @@ namespace OfficeRkyv.Api.Shared.Errors;
 /// SQL, paths or other internals, so it never reaches a client. Clients explain refusals from the status
 /// code and <see cref="ErrorInfo.Reason"/>, never from these messages.
 /// </summary>
-internal sealed class ErrorStatusProvider(ILogger<ErrorStatusProvider> logger) : IGrpcStatusDetailsProvider
+internal sealed partial class ErrorStatusProvider(ILogger<ErrorStatusProvider> logger) : IGrpcStatusDetailsProvider
 {
     public RpcStatus? BuildStatus(Exception exception, ServerCallContext context) =>
         exception switch
@@ -52,10 +52,13 @@ internal sealed class ErrorStatusProvider(ILogger<ErrorStatusProvider> logger) :
 
     private RpcStatus Unexpected(Exception exception, ServerCallContext context)
     {
-        logger.LogError(exception, "Unhandled exception in gRPC call {Method}", context.Method);
+        LogUnhandledException(logger, exception, context.Method);
 
         return Plain(StatusCode.Internal, "An unexpected error occurred.");
     }
 
     private static RpcStatus Plain(StatusCode code, string message) => new() { Code = (int)code, Message = message };
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Unhandled exception in gRPC call {Method}")]
+    private static partial void LogUnhandledException(ILogger logger, Exception exception, string method);
 }

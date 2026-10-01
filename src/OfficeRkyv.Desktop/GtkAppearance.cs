@@ -17,7 +17,7 @@ namespace OfficeRkyv.Desktop;
 /// The MAUI backend writes the same setting from its own theme (always light) while it builds the app and each
 /// window, so the setting is also watched and put back whenever it differs from what the choice calls for.
 /// </remarks>
-internal static class GtkAppearance
+internal static partial class GtkAppearance
 {
     private const string DesktopColorScheme = "gtk-interface-color-scheme";
     private const string PreferDarkTheme = "gtk-application-prefer-dark-theme";
@@ -61,7 +61,7 @@ internal static class GtkAppearance
                 }
 
                 gtk.GtkApplicationPreferDarkTheme = preferDark;
-                logger.LogInformation("Appearance: the view prefers {Scheme}", preferDark ? "dark" : "light");
+                LogViewPrefers(logger, preferDark ? "dark" : "light");
             });
     }
 
@@ -72,4 +72,7 @@ internal static class GtkAppearance
             AppearancePreference.Dark => true,
             _ => desktopPrefersDark,
         };
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Appearance: the view prefers {Scheme}")]
+    private static partial void LogViewPrefers(ILogger logger, string scheme);
 }

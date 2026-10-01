@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OfficeRkyv.UI.Localization;
 using OfficeRkyv.UI.Settings;
 using OfficeRkyv.UI.Shared;
@@ -11,8 +12,10 @@ namespace OfficeRkyv.Desktop.Settings;
 /// The user's settings file in the config directory: <c>{ "appearance": "system|light|dark", "culture": "en" }</c>.
 /// Whatever is in it, the app starts: a missing, unreadable or invalid file is the same as no choice made.
 /// </summary>
-public sealed class DesktopSettingsStore(string path, ILogger? logger = null)
+public sealed partial class DesktopSettingsStore(string path, ILogger? logger = null)
 {
+    private readonly ILogger logger = logger ?? NullLogger.Instance;
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>
@@ -51,11 +54,17 @@ public sealed class DesktopSettingsStore(string path, ILogger? logger = null)
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
         {
-            logger?.LogWarning(exception, "The settings file {Path} cannot be read; starting with the defaults.", path);
+            LogSettingsFileUnreadable(logger, exception, path);
 
             return null;
         }
     }
 
     private sealed record StoredSettings(string? Appearance, string? Culture);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "The settings file {Path} cannot be read; starting with the defaults."
+    )]
+    private static partial void LogSettingsFileUnreadable(ILogger logger, Exception exception, string path);
 }
