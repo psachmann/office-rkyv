@@ -102,6 +102,11 @@ public class WorkspaceTests(AspireFixture<Projects.OfficeRkyv_AppHost> fixture) 
 
         await Workspace.RenameArchiveAsync("Taxes", "Taxes 2026");
         await Expect(Workspace.ArchiveEntry("Taxes 2026")).ToBeVisibleAsync();
+        await Expect(Workspace.ArchiveEntry("Taxes 2026")).ToHaveAttributeAsync("aria-current", "page");
+        await Expect(Workspace.Selection).ToHaveTextAsync("Taxes 2026");
+
+        // The document is in the inbox, which the renamed archive being selected no longer shows.
+        await Workspace.InboxEntry.ClickAsync();
 
         await Workspace.RenameDocumentAsync("Invoice March", "Invoice April");
         await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
@@ -174,5 +179,75 @@ public class WorkspaceTests(AspireFixture<Projects.OfficeRkyv_AppHost> fixture) 
         await Workspace.Dialog.GetByRole(AriaRole.Button, new() { Name = "Cancel" }).ClickAsync();
         await Expect(Workspace.DocumentRow("Newer title")).ToBeVisibleAsync();
         await Expect(Workspace.DocumentRow("Late title")).ToBeHiddenAsync();
+    }
+
+    [Test]
+    public async Task TheEntries_AreInTheSidebarAboveSettings_AndThePageHoldsNoOtherNavigation()
+    {
+        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Gina {Guid.NewGuid():n}");
+        await Workspace.CreateArchiveAsync("Household");
+
+        await Expect(Workspace.Sidebar.GetByTestId("nav-inbox")).ToBeVisibleAsync();
+        await Expect(Workspace.Sidebar.GetByTestId("nav-inbox-count")).ToHaveTextAsync("0");
+        await Expect(Workspace.Sidebar.GetByTestId("nav-archive").Filter(new() { HasText = "Household" }))
+            .ToBeVisibleAsync();
+
+        var body = Page.Locator(".rz-body");
+        await Expect(body.GetByRole(AriaRole.Navigation)).ToHaveCountAsync(0);
+        await Expect(body.GetByTestId("nav-inbox")).ToHaveCountAsync(0);
+        await Expect(body.GetByTestId("nav-archive")).ToHaveCountAsync(0);
+
+        var household = await Workspace.ArchiveEntry("Household").BoundingBoxAsync();
+        var settings = await new SettingsPage(Page).SidebarEntry("Settings").BoundingBoxAsync();
+        await Assert.That(household!.Y + household.Height).IsLessThanOrEqualTo(settings!.Y);
+    }
+
+    [Test]
+    public async Task LeavingTheWorkspace_ForTheLandingPageOrSettings_LeavesNoEntriesInTheSidebar()
+    {
+        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Hank {Guid.NewGuid():n}");
+        await Workspace.CreateArchiveAsync("Household");
+        await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(2);
+
+        var settings = new SettingsPage(Page);
+        await settings.SidebarEntry("Home").ClickAsync();
+        await Expect(Page.GetByRole(AriaRole.Heading, new() { Name = "Users" })).ToBeVisibleAsync();
+        await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(0);
+
+        await Page.GoBackAsync();
+        await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(2);
+
+        await settings.SidebarEntry("Settings").ClickAsync();
+        await Expect(settings.Heading).ToBeVisibleAsync();
+        await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(0);
+    }
+
+    [Test]
+    public async Task AnUnknownUser_ShowsNoEntriesInTheSidebar()
+    {
+        await Page.GotoAsync($"{BaseAddress}users/{Guid.NewGuid()}");
+
+        await Expect(Workspace.NotFound).ToBeVisibleAsync();
+        await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(0);
+        await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "New archive" })).ToHaveCountAsync(0);
+    }
+
+    [Test]
+    public async Task ArchiveActions_AreOfferedOnlyWhileAnArchiveIsSelected()
+    {
+        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Iris {Guid.NewGuid():n}");
+        await Workspace.CreateArchiveAsync("Taxes");
+
+        await Expect(Workspace.InboxEntry).ToHaveAttributeAsync("aria-current", "page");
+        await Expect(Workspace.RenameArchiveButton("Taxes")).ToHaveCountAsync(0);
+        await Expect(Workspace.DeleteArchiveButton("Taxes")).ToHaveCountAsync(0);
+
+        await Workspace.ArchiveEntry("Taxes").ClickAsync();
+        await Expect(Workspace.RenameArchiveButton("Taxes")).ToBeVisibleAsync();
+        await Expect(Workspace.DeleteArchiveButton("Taxes")).ToBeVisibleAsync();
+
+        await Workspace.InboxEntry.ClickAsync();
+        await Expect(Workspace.RenameArchiveButton("Taxes")).ToHaveCountAsync(0);
+        await Expect(Workspace.DeleteArchiveButton("Taxes")).ToHaveCountAsync(0);
     }
 }

@@ -48,8 +48,8 @@ public class SettingsTests(AspireFixture<Projects.OfficeRkyv_AppHost> fixture) :
         // Pinned to the bottom: below the other entries, and level with the bottom of the sidebar.
         var sidebar = await Settings.Sidebar.BoundingBoxAsync();
         var settings = await Settings.SidebarEntry("Settings").BoundingBoxAsync();
-        var error = await Settings.SidebarEntry("Error").BoundingBoxAsync();
-        await Assert.That(settings!.Y).IsGreaterThan(error!.Y + error.Height);
+        var home = await Settings.SidebarEntry("Home").BoundingBoxAsync();
+        await Assert.That(settings!.Y).IsGreaterThan(home!.Y + home.Height);
         await Assert.That(sidebar!.Y + sidebar.Height - (settings.Y + settings.Height)).IsLessThan(24);
     }
 

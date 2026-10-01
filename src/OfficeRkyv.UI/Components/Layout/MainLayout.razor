@@ -28,17 +28,8 @@
                         Path="/"
                         Match="NavLinkMatch.All"
                     />
-                    <RadzenPanelMenuItem
-                        Text="@Localizer["NavGreeter"]"
-                        Icon="waving_hand"
-                        Path="/greeter"
-                    />
-                    <RadzenPanelMenuItem
-                        Text="@Localizer["NavError"]"
-                        Icon="home"
-                        Path="/error"
-                    />
                 </RadzenPanelMenu>
+                <SectionOutlet SectionId="WorkspaceNavigationSection" />
                 <RadzenPanelMenu class="app-sidebar-bottom">
                     <RadzenPanelMenuItem
                         Text="@Localizer["NavSettings"]"
@@ -63,5 +54,8 @@
 
 
 @code {
+    /// <summary>Where a page puts its own navigation entries in the sidebar, between the top menu and Settings.</summary>
+    public static readonly object WorkspaceNavigationSection = new();
+
     public bool IsExpanded { get; set; } = true;
 }

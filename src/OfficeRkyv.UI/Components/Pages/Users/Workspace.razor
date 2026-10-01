@@ -28,6 +28,10 @@
             }
             else
             {
+                <SectionContent SectionId="MainLayout.WorkspaceNavigationSection">
+                    @WorkspaceNavigation
+                </SectionContent>
+
                 <RadzenText TextStyle="TextStyle.H3" data-testid="workspace-heading">@found.User.DisplayName</RadzenText>
 
                 @if (errorKey is not null)
@@ -39,69 +43,45 @@
                     <Content Context="inbox">
                         <Transition Query="@Archives.FindArchives">
                             <Content Context="archives">
-                                <div class="workspace">
-                                    <nav class="workspace-nav" aria-label="@Localizer["NavLabel"]">
-                                        <div class="workspace-entry @(ArchiveId is null ? "workspace-entry-selected" : null)">
-                                            <a href="@InboxPath" data-testid="nav-inbox" aria-current="@(ArchiveId is null ? "page" : null)">
-                                                <span>@Localizer["NavInbox"]</span>
-                                                <span class="workspace-count" data-testid="nav-inbox-count">@inbox.Count</span>
-                                            </a>
-                                        </div>
-
-                                        <div class="workspace-section">
-                                            <RadzenText TextStyle="TextStyle.Overline">@Localizer["NavArchives"]</RadzenText>
-                                            <RadzenButton Icon="create_new_folder" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
-                                                          Text="@Localizer["NewArchive"]" Click="@OpenCreateArchiveDialog" data-testid="new-archive" />
-                                        </div>
-
-                                        @if (archives.Count == 0)
-                                        {
-                                            <RadzenText TextStyle="TextStyle.Caption" data-testid="no-archives">@Localizer["NoArchives"]</RadzenText>
-                                        }
-
-                                        @foreach (var archive in archives)
-                                        {
-                                            var selected = IsSelected(archive);
-                                            <div class="workspace-entry @(selected ? "workspace-entry-selected" : null)">
-                                                <a href="@ArchivePath(archive)" data-testid="nav-archive" aria-current="@(selected ? "page" : null)">
-                                                    <span>@archive.Name</span>
-                                                </a>
-                                                <RadzenButton Icon="edit" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text"
-                                                              Click="@(() => OpenRenameArchiveDialog(archive))"
-                                                              aria-label="@Localizer["RenameArchiveAria", archive.Name]" />
-                                                <RadzenButton Icon="delete" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text"
-                                                              Click="@(() => DeleteArchive(archive))"
-                                                              aria-label="@Localizer["DeleteArchiveAria", archive.Name]" />
-                                            </div>
-                                        }
-                                    </nav>
-
-                                    <section class="workspace-main">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-                                            <RadzenText TextStyle="TextStyle.H5" data-testid="workspace-selection">@(SelectedArchive(archives)?.Name ?? Localizer["NavInbox"])</RadzenText>
-                                            <RadzenButton Icon="note_add" Text="@Localizer["NewDocument"]" Click="@OpenCreateDocumentDialog" data-testid="new-document" />
+                                @{
+                                    var selectedArchive = SelectedArchive(archives);
+                                }
+                                <RadzenStack Gap="1rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem">
+                                            <RadzenText TextStyle="TextStyle.H5" class="rz-m-0" data-testid="workspace-selection">@(selectedArchive?.Name ?? Localizer["NavInbox"])</RadzenText>
+                                            @if (selectedArchive is not null)
+                                            {
+                                                <RadzenButton Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text"
+                                                              Click="@(() => OpenRenameArchiveDialog(selectedArchive))"
+                                                              aria-label="@Localizer["RenameArchiveAria", selectedArchive.Name]" />
+                                                <RadzenButton Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text"
+                                                              Click="@(() => DeleteArchive(selectedArchive))"
+                                                              aria-label="@Localizer["DeleteArchiveAria", selectedArchive.Name]" />
+                                            }
                                         </RadzenStack>
+                                        <RadzenButton Icon="note_add" Text="@Localizer["NewDocument"]" Click="@OpenCreateDocumentDialog" data-testid="new-document" />
+                                    </RadzenStack>
 
-                                        @if (ArchiveId is null)
-                                        {
-                                            @DocumentList(inbox, Localizer["EmptyInboxTitle"], Localizer["EmptyInboxText"])
-                                        }
-                                        else
-                                        {
-                                            <Transition Query="@Documents.FindArchiveDocuments">
-                                                <Content Context="contents">
-                                                    @DocumentList(contents, Localizer["EmptyArchiveTitle"], Localizer["EmptyArchiveText"])
-                                                </Content>
-                                                <Loading>
-                                                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
-                                                </Loading>
-                                                <Failure>
-                                                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
-                                                </Failure>
-                                            </Transition>
-                                        }
-                                    </section>
-                                </div>
+                                    @if (ArchiveId is null)
+                                    {
+                                        @DocumentList(inbox, Localizer["EmptyInboxTitle"], Localizer["EmptyInboxText"])
+                                    }
+                                    else
+                                    {
+                                        <Transition Query="@Documents.FindArchiveDocuments">
+                                            <Content Context="contents">
+                                                @DocumentList(contents, Localizer["EmptyArchiveTitle"], Localizer["EmptyArchiveText"])
+                                            </Content>
+                                            <Loading>
+                                                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                                            </Loading>
+                                            <Failure>
+                                                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
+                                            </Failure>
+                                        </Transition>
+                                    }
+                                </RadzenStack>
                             </Content>
                             <Loading>
                                 <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
@@ -133,13 +113,12 @@
     // The value the "File into..." menu uses for the inbox; archive entries carry their archive id.
     private const string InboxMenuValue = "inbox";
 
-    private readonly List<IDisposable> subscriptions = [];
+    private readonly CompositeDisposable disposables = [];
     private IMutation<FileDocumentRequest, DocumentDto> fileDocument = null!;
     private IMutation<UnfileDocumentRequest, DocumentDto> unfileDocument = null!;
     private IMutation<DeleteDocumentRequest, Google.Protobuf.WellKnownTypes.Empty> deleteDocument = null!;
     private IMutation<DeleteArchiveRequest, Google.Protobuf.WellKnownTypes.Empty> deleteArchive = null!;
     private IReadOnlyList<ArchiveDto> archiveSnapshot = [];
-    private Guid? archiveBeingDeleted;
     private string? errorKey;
 
     [Parameter] public Guid UserId { get; set; }
@@ -150,8 +129,6 @@
     private string InboxPath => $"/users/{UserId}";
 
     private string ArchivePath(ArchiveDto archive) => $"/users/{UserId}/archives/{archive.Id}";
-
-    private bool IsSelected(ArchiveDto archive) => ArchiveId is { } id && archive.Id == id.ToString();
 
     private ArchiveDto? SelectedArchive(IReadOnlyList<ArchiveDto> archives) =>
         ArchiveId is { } id ? archives.FirstOrDefault(archive => archive.Id == id.ToString()) : null;
@@ -166,7 +143,7 @@
 
         // The list of archives decides whether the selected one still exists: it may have been deleted
         // somewhere else, and the page then falls back to the inbox instead of showing a phantom archive.
-        subscriptions.Add(Archives.FindArchives.Success.Subscribe(archives => _ = InvokeAsync(() => OnArchivesLoaded(archives))));
+        disposables.Add(Archives.FindArchives.Success.Subscribe(archives => _ = InvokeAsync(() => OnArchivesLoaded(archives))));
     }
 
     protected override void OnParametersSet()
@@ -184,9 +161,9 @@
     // Disposed with the page, together with the subscriptions to it.
     private IMutation<TArgs, TData> Track<TArgs, TData>(IMutation<TArgs, TData> mutation, Action onSuccess)
     {
-        subscriptions.Add(mutation);
-        subscriptions.Add(mutation.Success.Subscribe(result => _ = InvokeAsync(onSuccess)));
-        subscriptions.Add(mutation.Failure.Subscribe(error => _ = InvokeAsync(() => ShowFailure(error))));
+        disposables.Add(mutation);
+        disposables.Add(mutation.Success.Subscribe(result => _ = InvokeAsync(onSuccess)));
+        disposables.Add(mutation.Failure.Subscribe(error => _ = InvokeAsync(() => ShowFailure(error))));
 
         return mutation;
     }
@@ -213,7 +190,8 @@
     {
         errorKey = null;
 
-        if (ArchiveId == archiveBeingDeleted)
+        // Only the selected archive can be deleted, so it was the one being shown.
+        if (ArchiveId is not null)
         {
             Navigation.NavigateTo(InboxPath);
         }
@@ -332,10 +310,63 @@
         if (confirmed == true)
         {
             errorKey = null;
-            archiveBeingDeleted = Guid.Parse(archive.Id);
             deleteArchive.Execute(new DeleteArchiveRequest { ArchiveId = archive.Id, Version = archive.Version });
         }
     }
+
+    // Rendered into the layout's sidebar, so everything it calls stays on this page. The inbox and the archives are
+    // two menus around the "Archives" heading, as a heading with a button cannot be an entry of a menu.
+    private RenderFragment WorkspaceNavigation =>
+        @<nav aria-label="@Localizer["NavLabel"]">
+            <RadzenPanelMenu>
+                <RadzenPanelMenuItem Path="@InboxPath" Match="NavLinkMatch.All">
+                    <Template>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-w-100">
+                            <span class="rz-navigation-item-text" data-testid="nav-inbox">@Localizer["NavInbox"]</span>
+                            <Transition Query="@Documents.FindInbox">
+                                <Content Context="inbox">
+                                    <RadzenBadge Text="@inbox.Count.ToString()" data-testid="nav-inbox-count" />
+                                </Content>
+                            </Transition>
+                        </RadzenStack>
+                    </Template>
+                </RadzenPanelMenuItem>
+            </RadzenPanelMenu>
+
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-pt-4 rz-px-4">
+                <RadzenText TextStyle="TextStyle.Overline" class="rz-m-0">@Localizer["NavArchives"]</RadzenText>
+                <RadzenButton Icon="create_new_folder" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                              Text="@Localizer["NewArchive"]" Click="@OpenCreateArchiveDialog" data-testid="new-archive" />
+            </RadzenStack>
+
+            <Transition Query="@Archives.FindArchives">
+                <Content Context="archives">
+                    @if (archives.Count == 0)
+                    {
+                        <RadzenText TextStyle="TextStyle.Caption" class="rz-px-4" data-testid="no-archives">@Localizer["NoArchives"]</RadzenText>
+                    }
+                    else
+                    {
+                        <RadzenPanelMenu>
+                            @foreach (var archive in archives)
+                            {
+                                <RadzenPanelMenuItem Path="@ArchivePath(archive)">
+                                    <Template>
+                                        <span class="rz-navigation-item-text" data-testid="nav-archive">@archive.Name</span>
+                                    </Template>
+                                </RadzenPanelMenuItem>
+                            }
+                        </RadzenPanelMenu>
+                    }
+                </Content>
+                <Loading>
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" class="rz-mx-4" />
+                </Loading>
+                <Failure>
+                    <RadzenText TextStyle="TextStyle.Caption" class="rz-px-4" data-testid="archives-load-failed">@Localizer["LoadFailed"]</RadzenText>
+                </Failure>
+            </Transition>
+        </nav>;
 
     private RenderFragment DocumentList(IReadOnlyList<DocumentDto> documents, string emptyTitle, string emptyText) =>
         @<div>
@@ -371,11 +402,5 @@
             }
         </div>;
 
-    public void Dispose()
-    {
-        foreach (var subscription in subscriptions)
-        {
-            subscription.Dispose();
-        }
-    }
+    public void Dispose() => disposables.Dispose();
 }
