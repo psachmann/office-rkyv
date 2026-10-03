@@ -1,7 +1,6 @@
 using OfficeRkyv.Api.Features.Archives;
 using OfficeRkyv.Api.Features.Documents;
 using OfficeRkyv.Api.Features.Users;
-using OfficeRkyv.Api.Services;
 using OfficeRkyv.Api.Shared;
 using OfficeRkyv.Api.Shared.Errors;
 using Wolverine;
@@ -54,7 +53,6 @@ public static class OfficeRkyvApiExtensions
     /// <summary>Maps the API's gRPC services.</summary>
     public static IEndpointRouteBuilder MapOfficeRkyvApi(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGrpcService<GreeterService>();
         endpoints.MapGrpcService<UsersServiceImpl>();
         endpoints.MapGrpcService<ArchivesServiceImpl>();
         endpoints.MapGrpcService<DocumentsServiceImpl>();

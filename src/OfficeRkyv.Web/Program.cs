@@ -41,7 +41,6 @@ builder.Services.AddScoped<IUserSettingsService>(services => services.GetRequire
 // http/https here; the "https+http" form throws "No address resolver configured".
 // Wolverine's typed clients wrap AddGrpcClient; a failed call surfaces as a typed .NET exception with
 // the original RpcException (and its status details) as InnerException.
-builder.Services.AddWolverineGrpcClient<Greeter.GreeterClient>(options => options.Address = new Uri("https://api-svc"));
 builder.Services.AddWolverineGrpcClient<UsersService.UsersServiceClient>(options =>
     options.Address = new Uri("https://api-svc")
 );

@@ -71,12 +71,11 @@ public sealed class DesktopApi : IAsyncDisposable
     }
 
     /// <summary>
-    /// Registers the four gRPC clients the UI's facades use, pointed at the socket. "http://localhost" only
+    /// Registers the gRPC clients the UI's facades use, pointed at the socket. "http://localhost" only
     /// names the authority; the handler decides where the bytes go.
     /// </summary>
     public static IServiceCollection AddSocketClients(IServiceCollection services, string socketPath)
     {
-        AddClient<Greeter.GreeterClient>(services, socketPath);
         AddClient<UsersService.UsersServiceClient>(services, socketPath);
         AddClient<ArchivesService.ArchivesServiceClient>(services, socketPath);
         AddClient<DocumentsService.DocumentsServiceClient>(services, socketPath);
