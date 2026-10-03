@@ -1,0 +1,35 @@
+{
+  "mcpServers": {
+    "aspire": {
+      "command": "dotnet",
+      "args": [
+        "aspire",
+        "agent",
+        "mcp"
+      ]
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "playwright": {
+      "command": "nix",
+      "args": [
+        "shell",
+        "nixpkgs#nodejs",
+        "--command",
+        "npx",
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--isolated",
+        "--executable-path",
+        "/run/current-system/sw/bin/chromium"
+      ]
+    }
+  }
+}

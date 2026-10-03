@@ -12,3 +12,6 @@ coverage/
 # DocFx excludes
 docs/_site/
 docs/api/
+
+# Playwright MCP page snapshots
+.playwright-mcp/
