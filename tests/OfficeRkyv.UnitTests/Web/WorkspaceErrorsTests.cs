@@ -159,7 +159,7 @@ public sealed class WorkspaceErrorsTests
     public async Task EveryKeyItCanProduce_ExistsInTheResourceFile()
     {
         var resources = new ResourceManager(
-            "OfficeRkyv.UI.Resources.Components.Pages.Users.WorkspaceErrors",
+            "OfficeRkyv.UI.Localization.Resources.Components.Pages.Users.WorkspaceErrors",
             typeof(WorkspaceErrors).Assembly
         );
 

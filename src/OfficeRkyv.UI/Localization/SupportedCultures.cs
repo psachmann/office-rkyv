@@ -11,7 +11,7 @@ namespace OfficeRkyv.UI.Localization;
 /// </summary>
 public static class SupportedCultures
 {
-    public static readonly string ResourcesPath = "Resources";
+    public static readonly string ResourcesPath = "Localization/Resources";
 
     public static readonly CultureInfo[] All = [new CultureInfo("en")];
 

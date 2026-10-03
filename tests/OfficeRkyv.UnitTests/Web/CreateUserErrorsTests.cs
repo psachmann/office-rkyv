@@ -129,7 +129,7 @@ public sealed class CreateUserErrorsTests
     public async Task EveryKeyItCanProduce_ExistsInTheResourceFile()
     {
         var resources = new ResourceManager(
-            "OfficeRkyv.UI.Resources.Components.Pages.Users.CreateUserDialog",
+            "OfficeRkyv.UI.Localization.Resources.Components.Pages.Users.CreateUserDialog",
             typeof(CreateUserErrors).Assembly
         );
 
