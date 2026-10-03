@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="Heading" xml:space="preserve">
+    <value>Fehler.</value>
+  </data>
+  <data name="GenericErrorMessage" xml:space="preserve">
+    <value>Bei der Verarbeitung deiner Anfrage ist ein Fehler aufgetreten.</value>
+  </data>
+  <data name="RequestIdLabel" xml:space="preserve">
+    <value>Anfrage-ID:</value>
+  </data>
+  <data name="CopyRequestIdTooltip" xml:space="preserve">
+    <value>Anfrage-ID in die Zwischenablage kopieren</value>
+  </data>
+  <data name="DevModeHeading" xml:space="preserve">
+    <value>Entwicklungsmodus</value>
+  </data>
+  <data name="DevModeDescription" xml:space="preserve">
+    <value>Wenn du zur Umgebung &lt;strong&gt;Development&lt;/strong&gt; wechselst, werden detailliertere Informationen zum aufgetretenen Fehler angezeigt.</value>
+  </data>
+  <data name="DevModeWarning" xml:space="preserve">
+    <value>&lt;strong&gt;Die Umgebung Development sollte nicht für bereitgestellte Anwendungen aktiviert werden.&lt;/strong&gt; Sie kann dazu führen, dass den Benutzern vertrauliche Informationen aus Ausnahmen angezeigt werden. Zum lokalen Debuggen aktivierst du die Umgebung &lt;strong&gt;Development&lt;/strong&gt;, indem du die Umgebungsvariable &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; auf &lt;strong&gt;Development&lt;/strong&gt; setzt und die Anwendung neu startest.</value>
+  </data>
+  <data name="CopiedSummary" xml:space="preserve">
+    <value>Kopiert</value>
+  </data>
+  <data name="CopiedDetail" xml:space="preserve">
+    <value>Anfrage-ID in die Zwischenablage kopiert.</value>
+  </data>
+  <data name="CopyFailedSummary" xml:space="preserve">
+    <value>Kopieren fehlgeschlagen</value>
+  </data>
+  <data name="CopyFailedDetail" xml:space="preserve">
+    <value>Die Anfrage-ID konnte nicht in die Zwischenablage kopiert werden.</value>
+  </data>
+</root>

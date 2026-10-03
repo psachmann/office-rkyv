@@ -47,6 +47,35 @@ public class CultureResolutionTests
     }
 
     [Test]
+    [Arguments("de-DE,de;q=0.9,en;q=0.5")]
+    [Arguments("de-AT")]
+    [Arguments("de-CH,fr;q=0.8")]
+    [Arguments("de")]
+    public async Task NoCookieAndAGermanAcceptLanguage_ResolvesToGerman(string acceptLanguage)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers.AcceptLanguage = acceptLanguage;
+
+        var resolved = await ResolveCultureAsync(context);
+
+        await Assert.That(resolved).IsEqualTo("de");
+    }
+
+    [Test]
+    public async Task AGermanCookie_OverridesAnEnglishAcceptLanguage()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers.AcceptLanguage = "en-US,en;q=0.9";
+        context.Request.Headers.Cookie =
+            $"{CookieRequestCultureProvider.DefaultCookieName}="
+            + Uri.EscapeDataString(CookieRequestCultureProvider.MakeCookieValue(new RequestCulture("de")));
+
+        var resolved = await ResolveCultureAsync(context);
+
+        await Assert.That(resolved).IsEqualTo("de");
+    }
+
+    [Test]
     public async Task NoCookieNoHeader_ResolvesToDefault()
     {
         var context = new DefaultHttpContext();

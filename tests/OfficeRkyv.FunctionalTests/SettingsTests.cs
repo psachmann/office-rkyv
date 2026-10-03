@@ -68,11 +68,27 @@ public class SettingsTests(AspireFixture<Projects.OfficeRkyv_AppHost> fixture) :
     }
 
     [Test]
+    public async Task ChoosingALanguage_ReloadsTheSettingsPageInThatLanguage()
+    {
+        await Settings.OpenAsync(BaseAddress);
+        await Expect(Settings.Heading).ToHaveTextAsync("Settings");
+
+        await Settings.ChooseLanguageAsync("Deutsch", "Einstellungen");
+
+        await Expect(Settings.LanguageControl).ToContainTextAsync("Deutsch");
+        await Expect(Page.GetByText("Sprache", new() { Exact = true })).ToBeVisibleAsync();
+
+        await Settings.ChooseLanguageAsync("English", "Settings");
+
+        await Expect(Settings.LanguageControl).ToContainTextAsync("English");
+        await Expect(Page.GetByText("Language", new() { Exact = true })).ToBeVisibleAsync();
+    }
+
+    [Test]
     public async Task ChoosingALanguage_ReturnsToTheSettingsPage()
     {
-        // The dropdown only offers English today, and choosing the language already in use does not change the
-        // value, so the reload cannot be triggered from the page yet. What the page's choice leads to can be:
-        // the culture endpoint stores the choice and sends the browser back where it came from.
+        // What the language list leads to, without the page in between (that journey is the test above): the
+        // culture endpoint stores the choice and sends the browser back where it came from.
         // Its own request context: the app's development certificate is self-signed, which the browser context is
         // set up to accept and a plain API request is not.
         await using var api = await Playwright.APIRequest.NewContextAsync(new() { IgnoreHTTPSErrors = true });

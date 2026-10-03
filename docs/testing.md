@@ -6,7 +6,7 @@ The test levels this project has, what each one runs, and which to pick. Read it
 
 | Level | Project | What runs | Examples |
 |---|---|---|---|
-| Unit | `tests/OfficeRkyv.UnitTests` | Pure logic. No host, no store, no network. | `EmailAddressTests`, `CreateUserCommandValidatorTests`, `DesktopPathsTests` |
+| Unit | `tests/OfficeRkyv.UnitTests` | Pure logic. No host, no store, no network. | `EmailAddressTests`, `CreateUserCommandValidatorTests`, `DesktopPathsTests`, `TranslationCompletenessTests` |
 | Pipeline | `tests/OfficeRkyv.UnitTests` | The real Wolverine pipeline over a real Fisher store in a temporary SQLite file, with the gRPC services served over the wire. | `ArchivePipelineTests`, `UserPipelineTests`, `ApiTelemetryTests` |
 | UI logic | `tests/OfficeRkyv.UnitTests` | Facades, error mapping and settings services, with fake gRPC clients and no browser. | `WorkspaceFacadeTests`, `CreateUserErrorsTests`, `WebUserSettingsServiceTests` |
 | Functional | `tests/OfficeRkyv.FunctionalTests` | Playwright against the whole app, started through the Aspire AppHost. | `WorkspaceTests`, `LandingPageTests`, `SettingsTests` |

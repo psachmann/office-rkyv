@@ -20,6 +20,9 @@ public sealed class SettingsPage(IPage page)
     /// <summary>Any dropdown in the header; the language control used to live there.</summary>
     public ILocator HeaderDropdowns => page.Locator(".rz-header .rz-dropdown");
 
+    /// <summary>One entry of the language dropdown's list, by the language's own name ("Deutsch").</summary>
+    public ILocator LanguageOption(string name) => page.Locator(".rz-dropdown-item").Filter(new() { HasText = name });
+
     public ILocator Sidebar => page.Locator(".rz-sidebar");
 
     public ILocator SidebarEntry(string name) => Sidebar.GetByRole(AriaRole.Link, new() { Name = name, Exact = true });
@@ -57,6 +60,33 @@ public sealed class SettingsPage(IPage page)
         }
 
         throw new TimeoutException($"Choosing the appearance \"{name}\" never took effect.");
+    }
+
+    /// <summary>
+    /// Opens the language list and picks <paramref name="name"/>, which reloads the page in that language. Before
+    /// the circuit connects the list does not open, so the attempt is repeated until the page's heading shows the
+    /// text it has in the new language.
+    /// </summary>
+    public async Task ChooseLanguageAsync(string name, string headingInThatLanguage)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            try
+            {
+                await LanguageControl.ClickAsync();
+                await LanguageOption(name).ClickAsync(new() { Timeout = 2000 });
+                await Expect(Heading).ToHaveTextAsync(headingInThatLanguage, new() { Timeout = 5000 });
+
+                return;
+            }
+            catch (PlaywrightException)
+            {
+                // Not interactive yet, or the list was left open: close it and try again.
+                await page.Keyboard.PressAsync("Escape");
+            }
+        }
+
+        throw new TimeoutException($"Choosing the language \"{name}\" never reloaded the page.");
     }
 
     /// <summary>

@@ -10,6 +10,11 @@ public class SupportedCulturesMatchTests
     [Arguments("EN", "en")]
     [Arguments("en-US", "en")]
     [Arguments("en-GB", "en")]
+    [Arguments("de", "de")]
+    [Arguments("DE", "de")]
+    [Arguments("de-DE", "de")]
+    [Arguments("de-AT", "de")]
+    [Arguments("de-CH", "de")]
     public async Task ASupportedCultureOrItsRegionalVariant_MatchesTheSupportedCulture(
         string requested,
         string expected
@@ -21,9 +26,8 @@ public class SupportedCulturesMatchTests
     }
 
     [Test]
-    [Arguments("de-DE")]
-    [Arguments("de")]
     [Arguments("fr-FR")]
+    [Arguments("fr")]
     [Arguments("ja-JP")]
     public async Task AnUnsupportedLanguage_MatchesTheDefault(string requested)
     {

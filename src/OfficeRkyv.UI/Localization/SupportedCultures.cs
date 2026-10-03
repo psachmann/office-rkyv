@@ -13,7 +13,7 @@ public static class SupportedCultures
 {
     public static readonly string ResourcesPath = "Localization/Resources";
 
-    public static readonly CultureInfo[] All = [new CultureInfo("en")];
+    public static readonly CultureInfo[] All = [new CultureInfo("en"), new CultureInfo("de")];
 
     public static readonly CultureInfo Default = All[0];
 

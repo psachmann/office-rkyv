@@ -72,7 +72,7 @@ public sealed class DesktopSettingsStoreTests : IDisposable
     }
 
     [Test]
-    [Arguments("de")]
+    [Arguments("fr")]
     [Arguments("xx-not-a-culture")]
     [Arguments("")]
     public async Task AStoredCultureThatIsNotSupported_FallsBackToTheOperatingSystemsLanguage_ButTheAppearanceIsKept(
@@ -88,12 +88,44 @@ public sealed class DesktopSettingsStoreTests : IDisposable
     }
 
     [Test]
-    [Arguments("de-DE")]
+    [Arguments("ja-JP")]
     [Arguments("fr-FR")]
     [Arguments("")]
     public async Task AnOperatingSystemLanguageThatIsNotSupported_ResolvesToEnglish(string osCulture)
     {
         var settings = Store.Load(CultureInfo.GetCultureInfo(osCulture));
+
+        await Assert.That(settings.Culture.Name).IsEqualTo("en");
+    }
+
+    [Test]
+    [Arguments("de-DE")]
+    [Arguments("de-AT")]
+    [Arguments("de")]
+    public async Task AGermanOperatingSystem_ResolvesToGerman_WhenNothingIsStored(string osCulture)
+    {
+        var settings = Store.Load(CultureInfo.GetCultureInfo(osCulture));
+
+        await Assert.That(settings.Culture.Name).IsEqualTo("de");
+    }
+
+    [Test]
+    public async Task AStoredGermanChoice_IsKept_UnderAnEnglishOperatingSystem()
+    {
+        WriteFile("""{ "appearance": "dark", "culture": "de" }""");
+
+        var settings = Store.Load(EnglishOs);
+
+        await Assert.That(settings.Appearance).IsEqualTo(AppearancePreference.Dark);
+        await Assert.That(settings.Culture.Name).IsEqualTo("de");
+    }
+
+    [Test]
+    public async Task AStoredEnglishChoice_IsKept_UnderAGermanOperatingSystem()
+    {
+        WriteFile("""{ "appearance": "light", "culture": "en" }""");
+
+        var settings = Store.Load(CultureInfo.GetCultureInfo("de-DE"));
 
         await Assert.That(settings.Culture.Name).IsEqualTo("en");
     }

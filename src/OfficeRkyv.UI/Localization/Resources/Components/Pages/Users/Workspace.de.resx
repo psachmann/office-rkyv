@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>Arbeitsbereich</value>
+  </data>
+  <data name="NotFoundTitle" xml:space="preserve">
+    <value>Benutzer nicht gefunden</value>
+  </data>
+  <data name="NotFoundText" xml:space="preserve">
+    <value>Es gibt keinen Benutzer mit dieser ID, oder der Benutzer wurde gelöscht.</value>
+  </data>
+  <data name="BackToUsers" xml:space="preserve">
+    <value>Zurück zu den Benutzern</value>
+  </data>
+  <data name="LoadFailed" xml:space="preserve">
+    <value>Der Arbeitsbereich konnte nicht geladen werden. Bitte versuche es erneut.</value>
+  </data>
+  <data name="NavLabel" xml:space="preserve">
+    <value>Eingang und Archive</value>
+  </data>
+  <data name="NavInbox" xml:space="preserve">
+    <value>Eingang</value>
+  </data>
+  <data name="NavArchives" xml:space="preserve">
+    <value>Archive</value>
+  </data>
+  <data name="NoArchives" xml:space="preserve">
+    <value>Noch keine Archive.</value>
+  </data>
+  <data name="NewArchive" xml:space="preserve">
+    <value>Neues Archiv</value>
+  </data>
+  <data name="NewDocument" xml:space="preserve">
+    <value>Neues Dokument</value>
+  </data>
+  <data name="RenameArchive" xml:space="preserve">
+    <value>Archiv umbenennen</value>
+  </data>
+  <data name="RenameDocument" xml:space="preserve">
+    <value>Dokument umbenennen</value>
+  </data>
+  <data name="RenameArchiveAria" xml:space="preserve">
+    <value>Archiv {0} umbenennen</value>
+  </data>
+  <data name="DeleteArchiveAria" xml:space="preserve">
+    <value>Archiv {0} löschen</value>
+  </data>
+  <data name="ColumnTitle" xml:space="preserve">
+    <value>Titel</value>
+  </data>
+  <data name="Rename" xml:space="preserve">
+    <value>Umbenennen</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="FileInto" xml:space="preserve">
+    <value>Ablegen in...</value>
+  </data>
+  <data name="FileIntoInbox" xml:space="preserve">
+    <value>Eingang</value>
+  </data>
+  <data name="NoOtherArchives" xml:space="preserve">
+    <value>Keine anderen Archive</value>
+  </data>
+  <data name="EmptyInboxTitle" xml:space="preserve">
+    <value>Der Eingang ist leer</value>
+  </data>
+  <data name="EmptyInboxText" xml:space="preserve">
+    <value>Neue Dokumente landen hier, bis du sie in einem Archiv ablegst.</value>
+  </data>
+  <data name="EmptyArchiveTitle" xml:space="preserve">
+    <value>Dieses Archiv ist leer</value>
+  </data>
+  <data name="EmptyArchiveText" xml:space="preserve">
+    <value>Lege Dokumente aus dem Eingang oder aus einem anderen Archiv hier ab.</value>
+  </data>
+  <data name="DeleteDocumentTitle" xml:space="preserve">
+    <value>Dokument löschen</value>
+  </data>
+  <data name="DeleteDocumentConfirm" xml:space="preserve">
+    <value>Dokument „{0}“ löschen? Das kann nicht rückgängig gemacht werden.</value>
+  </data>
+  <data name="DeleteArchiveTitle" xml:space="preserve">
+    <value>Archiv löschen</value>
+  </data>
+  <data name="DeleteArchiveConfirm" xml:space="preserve">
+    <value>Archiv „{0}“ löschen? Seine Dokumente kommen zurück in den Eingang.</value>
+  </data>
+  <data name="ConfirmDelete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="ConfirmCancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+</root>

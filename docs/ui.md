@@ -9,11 +9,36 @@ The Blazor UI (a shared Razor class library, `src/OfficeRkyv.UI`, used by the we
 ### Adding a new localized string
 
 1. Find (or create) the resource file for the component that owns the text, in the project that owns the component: `Localization/Resources/<path mirroring the component's folder>/<ComponentName>.resx`. E.g. `src/OfficeRkyv.UI/Components/Pages/Home.razor` → `src/OfficeRkyv.UI/Localization/Resources/Components/Pages/Home.resx`. Web-host-only components (`ReconnectModal`, `Error`) keep theirs in `src/OfficeRkyv.Web/Localization/Resources/…`. This is the zero-config convention `ResourceManagerStringLocalizerFactory` follows for `AddLocalization(o => o.ResourcesPath = "Localization/Resources")` — no extra plumbing needed, it's just file placement.
-2. Add the key/value to that `.resx`.
+2. Add the key/value to that `.resx` and to its translation next to it (`<ComponentName>.de.resx`).
 3. Inject `@inject IStringLocalizer<ComponentName> Localizer` in the component (or the equivalent constructor injection in C#) and reference the string as `@Localizer["Key"]`.
 4. If the string needs inline HTML formatting (e.g. a `<strong>` mid-sentence), store the markup in the resource value and render with `@((MarkupString)Localizer["Key"].Value)` — see `Error.razor` for an example. Only do this for our own trusted, app-authored resource strings, never for anything derived from user input.
 
-Only English (`en`) ships today. `OfficeRkyv.UI.Localization.SupportedCultures` is the single source of truth for which cultures are supported — it drives both `RequestLocalizationOptions` and the language switcher on the settings page (`Settings.razor`), so they can never disagree. Adding a second language is: drop in the new culture's `.resx` files (same names, `.{culture}.resx` suffix) and add the culture to `SupportedCultures.All`.
+English (`en`, the default and the neutral resources) and German (`de`) ship. `OfficeRkyv.UI.Localization.SupportedCultures` is the single source of truth for which cultures are supported — it drives both `RequestLocalizationOptions` and the language switcher on the settings page (`Settings.razor`), so they can never disagree. Adding a language is: drop in the new culture's `.resx` files (same names, `.{culture}.resx` suffix) and add the culture to `SupportedCultures.All`. Use the neutral culture (`de`, not `de-DE`): matching only walks up from a regional variant to its parent, so `de-AT` and `de-CH` find `de`, but a regional culture would never be found from the neutral one.
+
+A text missing from a translation silently falls back to English, so the unit test `TranslationCompletenessTests` compares the compiled resources of `OfficeRkyv.UI` and `OfficeRkyv.Web` for every culture in `SupportedCultures.All`: each resource needs a translation file with exactly the English keys and the same `{0}`-style placeholders. A new text therefore needs an entry in the English file and in every translation file in the same change.
+
+### German wording
+
+- Address the reader with "du", always in lower case ("du", "dein"), and write instructions as du-imperatives ("Gib einen Namen ein."). The standard retry sentence is "Bitte versuche es erneut."
+- Put names inside running text in German quotation marks: „{0}“.
+- "Office Rkyv" is not translated.
+- Use these terms, so the same thing is called the same everywhere:
+
+| English | German |
+|---|---|
+| Inbox | Eingang |
+| Archive | Archiv |
+| Document | Dokument |
+| User | Benutzer |
+| Workspace | Arbeitsbereich |
+| File into... | Ablegen in... |
+| Home | Startseite |
+| Settings | Einstellungen |
+| Appearance | Darstellung |
+| Language | Sprache |
+| Email | E-Mail |
+| Display name | Anzeigename |
+| Rename / Delete / Cancel | Umbenennen / Löschen / Abbrechen |
 
 ### Culture resolution order (web host)
 
