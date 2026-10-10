@@ -11,9 +11,12 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
+using OfficeRkyv.Api.Features.Documents;
 using OfficeRkyv.Api.Features.Users;
+using OfficeRkyv.Api.Shared.Blobs;
 using OfficeRkyv.Api.Shared.Errors;
 using OfficeRkyv.Api.Shared.Telemetry;
+using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -64,6 +67,7 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
             {
                 options.Connection($"Data Source={path}");
                 options.Projections.Snapshot<User>(SnapshotLifecycle.Inline);
+                options.Projections.Snapshot<Document>(SnapshotLifecycle.Inline);
                 options.OpenTelemetry.TrackWriteLockContention();
             })
             .ApplyAllDatabaseChangesOnStartup()
@@ -77,8 +81,14 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         });
         builder.Services.AddGrpc();
 
+        // What an upload needs besides the store: where the content goes, and the component that stores it.
+        builder.Services.AddOptions<FileStorageOptions>();
+        builder.Services.AddSingleton<IBlobStore>(new FileSystemBlobStore(path + ".blobs"));
+        builder.Services.AddSingleton<DocumentIngest>();
+
         host = builder.Build();
         host.MapGrpcService<UsersServiceImpl>();
+        host.MapGrpcService<DocumentsServiceImpl>();
         await host.StartAsync();
 
         var addresses = host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;
@@ -128,6 +138,37 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         // Guards against a vacuous pass: with no store spans there would be nothing to leak from.
         await Assert.That(storeSpans.Count).IsGreaterThan(0);
         await Assert.That(leaked.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Upload_LeavesNeitherTheFileNameNorTheTitleOnAnySpan()
+    {
+        const string fileName = "diagnosis-results.pdf";
+        const string title = "Confidential diagnosis";
+        var user = (
+            await Client.CreateUserAsync(new CreateUserRequest { Email = "ada@example.com", DisplayName = "Ada" })
+        ).User;
+        var documents = new DocumentsService.DocumentsServiceClient(channel);
+
+        var document = await TestDocuments.UploadAsync(
+            documents,
+            user.Id,
+            fileName,
+            TestDocuments.Bytes(2_000),
+            title: title
+        );
+        var spans = await WaitForServerSpans(2);
+
+        // The upload is traced like any call: a server span, with the command and the append below it.
+        var server = ServerSpanFor(spans, "UploadDocument");
+        var below = spans.Where(span => IsDescendantOf(spans, span, server)).ToList();
+        var leaked = spans
+            .Where(span => Everything(span).Any(text => text.Contains(fileName) || text.Contains(title)))
+            .ToList();
+
+        await Assert.That(below.Any(span => span.Source.Name == FisherSource)).IsTrue();
+        await Assert.That(leaked.Count).IsEqualTo(0);
+        await Assert.That(document.Title).IsEqualTo(title);
     }
 
     [Test]
@@ -200,5 +241,10 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         await host.StopAsync();
         await host.DisposeAsync();
         File.Delete(path);
+
+        if (Directory.Exists(path + ".blobs"))
+        {
+            Directory.Delete(path + ".blobs", recursive: true);
+        }
     }
 }

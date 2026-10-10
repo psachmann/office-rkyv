@@ -7,11 +7,13 @@ package documents;
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
-// Resource-oriented document API (metadata only). The command/query split is an internal concern of the server.
+// Resource-oriented document API: a document is one immutable file and its metadata. The command/query split
+// is an internal concern of the server.
 service DocumentsService {
   rpc ListInbox (ListInboxRequest) returns (ListInboxResponse);
   rpc ListArchiveDocuments (ListArchiveDocumentsRequest) returns (ListArchiveDocumentsResponse);
-  rpc CreateDocument (CreateDocumentRequest) returns (CreateDocumentResponse);
+  rpc UploadDocument (stream UploadDocumentRequest) returns (UploadDocumentResponse);
+  rpc DownloadDocument (DownloadDocumentRequest) returns (stream DownloadDocumentResponse);
   rpc RenameDocument (RenameDocumentRequest) returns (RenameDocumentResponse);
   rpc DeleteDocument (DeleteDocumentRequest) returns (google.protobuf.Empty);
   rpc FileDocument (FileDocumentRequest) returns (FileDocumentResponse);
@@ -27,6 +29,13 @@ message DocumentDto {
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
   int32 version = 7;
+  // The file, fixed at creation. The content itself is fetched with DownloadDocument.
+  string file_name = 8;
+  string content_type = 9;
+  // In bytes.
+  int64 size = 10;
+  // SHA-256 of the content, lowercase hex.
+  string sha256 = 11;
 }
 
 // Lists the owner's non-deleted documents that are in no archive; an unknown owner yields an empty list.
@@ -47,17 +56,8 @@ message ListArchiveDocumentsResponse {
   repeated DocumentDto documents = 1;
 }
 
-// A new document always starts in the inbox.
-message CreateDocumentRequest {
-  string owner_id = 1;
-  string title = 2;
-}
-
 // Mutations return the resulting document so the client can seed its query cache from the response,
 // and so it has the new version to send back on the next write.
-message CreateDocumentResponse {
-  DocumentDto document = 1;
-}
 
 message RenameDocumentRequest {
   string document_id = 1;
@@ -93,4 +93,34 @@ message UnfileDocumentRequest {
 
 message UnfileDocumentResponse {
   DocumentDto document = 1;
+}
+
+// A new document always starts in the inbox. An upload is one header followed by the content in chunks, in
+// chunks well below the message size limit; the header must come first. The response is the created document.
+message UploadDocumentRequest {
+  oneof payload {
+    UploadDocumentHeader header = 1;
+    bytes chunk = 2;
+  }
+}
+
+message UploadDocumentHeader {
+  string owner_id = 1;
+  string file_name = 2;
+  // As the client declared it; empty means none was declared.
+  string content_type = 3;
+  // Unset means the server derives the title from the file name.
+  optional string title = 4;
+}
+
+message UploadDocumentResponse {
+  DocumentDto document = 1;
+}
+
+message DownloadDocumentRequest {
+  string document_id = 1;
+}
+
+message DownloadDocumentResponse {
+  bytes chunk = 1;
 }

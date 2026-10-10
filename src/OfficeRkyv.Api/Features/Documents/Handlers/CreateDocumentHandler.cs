@@ -12,7 +12,16 @@ public static class CreateDocumentHandler
     {
         await UserExistence.RequireActiveAsync(session, command.OwnerId);
 
-        var stream = session.Events.StartStream<Document>(new DocumentCreated(command.OwnerId, command.Title.Trim()));
+        var stream = session.Events.StartStream<Document>(
+            new DocumentCreated(
+                command.OwnerId,
+                command.Title.Trim(),
+                command.FileName.Trim(),
+                command.ContentType.Trim(),
+                command.Size,
+                command.Sha256
+            )
+        );
         await session.SaveChangesAsync();
 
         // Inline projection: the snapshot was written in that same transaction.

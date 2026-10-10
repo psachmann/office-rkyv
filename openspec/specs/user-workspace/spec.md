@@ -50,11 +50,21 @@ If the inbox or the archives cannot be loaded, the sidebar SHALL NOT present tha
 - **THEN** the sidebar shows no inbox or archive entries
 
 ### Requirement: Documents can be created from the workspace
-The workspace SHALL offer a new-document action that asks for a title. A created document SHALL go to the inbox, whichever entry is selected, and SHALL appear there without a manual page reload. The form SHALL flag a missing title before submitting. The server's validation remains the authority.
+The workspace SHALL offer a new-document action that asks for one or more files and does not ask for a title. Each chosen file SHALL be uploaded as its own document, titled from its file name. The action SHALL show each file with its state: waiting, uploading with its progress, done, or refused with a localized reason. A file that is refused SHALL NOT prevent the other files from being uploaded.
+
+A created document SHALL go to the inbox, whichever entry is selected, and SHALL appear there without a manual page reload. The action SHALL flag a file larger than the size limit before sending it. The server's validation remains the authority.
 
 #### Scenario: Creating a document
-- **WHEN** a visitor creates a document titled `Invoice March`
-- **THEN** it appears in the inbox and the inbox count increases by one, without a page reload
+- **WHEN** a visitor chooses the file `Invoice March.pdf` in the new-document action
+- **THEN** a document titled `Invoice March` appears in the inbox and the inbox count increases by one, without a page reload
+
+#### Scenario: Uploading several files
+- **WHEN** a visitor chooses the files `invoice.pdf` and `lease.pdf` in the new-document action
+- **THEN** both are shown as done, and the inbox lists the documents `invoice` and `lease`
+
+#### Scenario: A refused file does not stop the others
+- **WHEN** a visitor chooses an empty file and the file `lease.pdf` in the new-document action
+- **THEN** the empty file is shown as refused with the localized message for an empty file, and `lease` appears in the inbox
 
 ### Requirement: Documents can be filed from the workspace
 Each listed document SHALL offer a "File into..." choice listing the user's archives other than the one it's in. When the document is in an archive, the choice SHALL also offer the inbox. Choosing an entry SHALL file or unfile the document, and the lists SHALL update without a manual page reload.
@@ -105,3 +115,9 @@ When the server refuses a workspace action, the workspace SHALL show a localized
 #### Scenario: Filing into an archive deleted elsewhere
 - **WHEN** a visitor files a document into an archive that another client deleted in the meantime
 - **THEN** the workspace shows the localized message for a deleted archive and the archive disappears from the navigation list
+### Requirement: Documents can be downloaded from the workspace
+Each listed document SHALL offer a download action that hands the document's file to the visitor under its original file name, with the content exactly as it was uploaded. In the web UI the file SHALL arrive as a browser download.
+
+#### Scenario: Downloading a document
+- **WHEN** a visitor uploads `invoice.pdf` and then chooses the download action of that document
+- **THEN** the browser receives a download named `invoice.pdf` whose content equals the uploaded file

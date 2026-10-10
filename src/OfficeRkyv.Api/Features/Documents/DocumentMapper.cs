@@ -11,9 +11,6 @@ public static partial class DocumentMapper
     public static FindArchiveDocumentsQuery ToQuery(this ListArchiveDocumentsRequest request) =>
         new(Guid.Parse(request.ArchiveId));
 
-    public static CreateDocumentCommand ToCommand(this CreateDocumentRequest request) =>
-        new(Guid.Parse(request.OwnerId), request.Title);
-
     public static RenameDocumentCommand ToCommand(this RenameDocumentRequest request) =>
         new(Guid.Parse(request.DocumentId), request.Version, request.Title);
 
@@ -53,7 +50,7 @@ public static partial class DocumentMapper
     public static ListArchiveDocumentsResponse ToArchiveDocumentsResponse(this IEnumerable<Document> documents) =>
         new() { Documents = { documents.Select(ToDto) } };
 
-    public static CreateDocumentResponse ToCreateResponse(this Document document) =>
+    public static UploadDocumentResponse ToUploadResponse(this Document document) =>
         new() { Document = document.ToDto() };
 
     public static RenameDocumentResponse ToRenameResponse(this Document document) =>

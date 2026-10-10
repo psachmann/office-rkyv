@@ -1,0 +1,147 @@
+@implements IDisposable
+@inject IStringLocalizer<UploadDocumentsDialog> Localizer
+@inject IStringLocalizer<WorkspaceErrors> ErrorLocalizer
+@inject DocumentsFacade Documents
+@inject DialogService DialogService
+
+@* Uploads each chosen file as its own document in OwnerId's inbox, one after another. A refused file does not
+   stop the ones after it: every file shows its own state. *@
+<RadzenStack Gap="1rem">
+    <RadzenText TextStyle="TextStyle.Body2">@Localizer["Hint"]</RadzenText>
+
+    <InputFile OnChange="@OnFilesChosen" multiple disabled="@isUploading" aria-label="@Localizer["ChooseFiles"]" />
+
+    @if (items.Count > 0)
+    {
+        <RadzenStack Gap="0.75rem" data-testid="upload-items">
+            @foreach (var item in items)
+            {
+                <RadzenStack Gap="0.25rem" data-testid="upload-item">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                        <RadzenText TextStyle="TextStyle.Body1" class="rz-m-0">@item.Name</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption" class="@(item.State == UploadState.Refused ? "rz-color-danger" : null)" data-testid="upload-state">
+                            @StateText(item)
+                        </RadzenText>
+                    </RadzenStack>
+                    @if (item.State == UploadState.Uploading)
+                    {
+                        <RadzenProgressBar Value="@item.Percent" ShowValue="false" />
+                    }
+                </RadzenStack>
+            }
+        </RadzenStack>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+        <RadzenButton ButtonType="ButtonType.Button" ButtonStyle="ButtonStyle.Light"
+                      Text="@Localizer["Close"]" Disabled="@isUploading"
+                      Click="@(() => DialogService.Close(true))" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    private readonly List<UploadItem> items = [];
+    private readonly CancellationTokenSource cancellation = new();
+    private bool isUploading;
+
+    /// <summary>The user the new documents belong to.</summary>
+    [Parameter] public Guid OwnerId { get; set; }
+
+    private async Task OnFilesChosen(InputFileChangeEventArgs args)
+    {
+        var batch = args.GetMultipleFiles(maximumFileCount: 1000).Select(file => new UploadItem(file)).ToList();
+        items.AddRange(batch);
+        isUploading = true;
+
+        foreach (var item in batch)
+        {
+            await UploadAsync(item);
+        }
+
+        isUploading = false;
+    }
+
+    private async Task UploadAsync(UploadItem item)
+    {
+        // A quick answer for the obvious case; the server's limit is the authority.
+        if (item.File.Size > FileLimits.DefaultMaxFileSizeBytes)
+        {
+            item.Refuse("ContentTooLarge");
+            return;
+        }
+
+        item.State = UploadState.Uploading;
+        StateHasChanged();
+
+        try
+        {
+            await using var content = item.File.OpenReadStream(FileLimits.DefaultMaxFileSizeBytes, cancellation.Token);
+
+            await Documents.UploadAsync(
+                OwnerId,
+                item.File.Name,
+                item.File.ContentType,
+                content,
+                sent =>
+                {
+                    item.Sent = sent;
+                    _ = InvokeAsync(StateHasChanged);
+                },
+                cancellation.Token
+            );
+
+            item.State = UploadState.Done;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            var errors = WorkspaceErrors.From(exception);
+            item.Refuse(errors.File ?? errors.General ?? "ActionFailed");
+        }
+
+        StateHasChanged();
+    }
+
+    private string StateText(UploadItem item) =>
+        item.State switch
+        {
+            UploadState.Waiting => Localizer["Waiting"],
+            UploadState.Uploading => Localizer["Uploading"],
+            UploadState.Done => Localizer["Done"],
+            _ => ErrorLocalizer[item.ErrorKey ?? "ActionFailed"],
+        };
+
+    public void Dispose()
+    {
+        cancellation.Cancel();
+        cancellation.Dispose();
+    }
+
+    private enum UploadState
+    {
+        Waiting,
+        Uploading,
+        Done,
+        Refused,
+    }
+
+    private sealed class UploadItem(IBrowserFile file)
+    {
+        public IBrowserFile File { get; } = file;
+
+        public string Name => File.Name;
+
+        public UploadState State { get; set; } = UploadState.Waiting;
+
+        public long Sent { get; set; }
+
+        public string? ErrorKey { get; private set; }
+
+        public double Percent => File.Size == 0 ? 0 : 100.0 * Sent / File.Size;
+
+        public void Refuse(string errorKey)
+        {
+            State = UploadState.Refused;
+            ErrorKey = errorKey;
+        }
+    }
+}

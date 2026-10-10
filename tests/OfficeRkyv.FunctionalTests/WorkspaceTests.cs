@@ -88,9 +88,9 @@ public class WorkspaceTests(AppHostFixture fixture) : PageTest
         await Workspace.Dialog.GetByRole(AriaRole.Button, new() { Name = "Create archive" }).ClickAsync();
         await Expect(Workspace.ArchiveEntry("Household")).ToBeVisibleAsync();
 
-        await Page.GetByRole(AriaRole.Button, new() { Name = "New document" }).ClickAsync();
-        await Workspace.Dialog.GetByRole(AriaRole.Button, new() { Name = "Create document" }).ClickAsync();
-        await Expect(Workspace.Dialog.GetByText("Enter a title.")).ToBeVisibleAsync();
+        // A document needs a file: the server refuses an empty one, and the dialog says so in the user's language.
+        await Workspace.UploadAsync(new WorkspacePage.UploadFile("empty.txt", [], "text/plain"));
+        await Expect(Workspace.UploadState("empty.txt")).ToHaveTextAsync("This file is empty.");
     }
 
     [Test]
@@ -220,6 +220,72 @@ public class WorkspaceTests(AppHostFixture fixture) : PageTest
         await settings.SidebarEntry("Settings").ClickAsync();
         await Expect(settings.Heading).ToBeVisibleAsync();
         await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(0);
+    }
+
+    [Test]
+    public async Task UploadingAFile_CreatesADocumentTitledFromItsName_InTheInbox()
+    {
+        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Ulla {Guid.NewGuid():n}");
+
+        await Workspace.UploadAsync(new WorkspacePage.UploadFile("Invoice March.pdf", [1, 2, 3, 4, 5]));
+
+        await Expect(Workspace.UploadState("Invoice March.pdf")).ToHaveTextAsync("Done");
+        await Workspace.CloseUploadDialogAsync();
+        await Expect(Workspace.DocumentRow("Invoice March")).ToBeVisibleAsync();
+        await Expect(Workspace.InboxCount).ToHaveTextAsync("1");
+    }
+
+    [Test]
+    public async Task UploadingSeveralFiles_CreatesOneDocumentForEach()
+    {
+        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Vera {Guid.NewGuid():n}");
+
+        await Workspace.UploadAsync(
+            new WorkspacePage.UploadFile("invoice.pdf", [1, 2, 3]),
+            new WorkspacePage.UploadFile("lease.pdf", [4, 5, 6])
+        );
+
+        await Expect(Workspace.UploadState("invoice.pdf")).ToHaveTextAsync("Done");
+        await Expect(Workspace.UploadState("lease.pdf")).ToHaveTextAsync("Done");
+        await Workspace.CloseUploadDialogAsync();
+        await Expect(Workspace.DocumentRow("invoice")).ToBeVisibleAsync();
+        await Expect(Workspace.DocumentRow("lease")).ToBeVisibleAsync();
+        await Expect(Workspace.InboxCount).ToHaveTextAsync("2");
+    }
+
+    [Test]
+    public async Task ARefusedFile_IsShownAsRefused_AndDoesNotStopTheOthers()
+    {
+        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Wilma {Guid.NewGuid():n}");
+
+        await Workspace.UploadAsync(
+            new WorkspacePage.UploadFile("empty.txt", [], "text/plain"),
+            new WorkspacePage.UploadFile("lease.pdf", [4, 5, 6])
+        );
+
+        await Expect(Workspace.UploadState("empty.txt")).ToHaveTextAsync("This file is empty.");
+        await Expect(Workspace.UploadState("lease.pdf")).ToHaveTextAsync("Done");
+        await Workspace.CloseUploadDialogAsync();
+        await Expect(Workspace.DocumentRow("lease")).ToBeVisibleAsync();
+        await Expect(Workspace.InboxCount).ToHaveTextAsync("1");
+    }
+
+    [Test]
+    public async Task DownloadingADocument_DeliversTheFileUnderItsNameWithItsContent()
+    {
+        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Xena {Guid.NewGuid():n}");
+        // Larger than one 64 KB chunk, and not made of one repeated byte.
+        var content = new byte[200_000];
+        new Random(42).NextBytes(content);
+        await Workspace.UploadAsync(new WorkspacePage.UploadFile("scan.pdf", content));
+        await Expect(Workspace.UploadState("scan.pdf")).ToHaveTextAsync("Done");
+        await Workspace.CloseUploadDialogAsync();
+
+        var download = await Workspace.DownloadAsync("scan");
+
+        await Assert.That(download.SuggestedFilename).IsEqualTo("scan.pdf");
+        var path = await download.PathAsync() ?? throw new InvalidOperationException("The download has no file.");
+        await Assert.That(await File.ReadAllBytesAsync(path)).IsEquivalentTo(content);
     }
 
     [Test]

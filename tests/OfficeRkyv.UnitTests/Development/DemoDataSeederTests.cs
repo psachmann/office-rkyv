@@ -1,8 +1,10 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OfficeRkyv.Api.Development;
 using OfficeRkyv.Api.Features.Archives;
 using OfficeRkyv.Api.Features.Documents;
 using OfficeRkyv.Api.Features.Users;
+using OfficeRkyv.Contracts.Documents;
 using Wolverine;
 
 namespace OfficeRkyv.UnitTests.Development;
@@ -20,8 +22,8 @@ public sealed class DemoDataSeederTests : IAsyncDisposable
     [Before(Test)]
     public async Task SetUp() => pipeline = await PipelineHost.StartAsync();
 
-    private static DemoDataSeeder SeederWith(CapturingLogger logger, DemoData? data = null) =>
-        new(logger, data ?? DemoData.Default);
+    private DemoDataSeeder SeederWith(CapturingLogger logger, DemoData? data = null) =>
+        new(logger, data ?? DemoData.Default, pipeline.Host.Services.GetRequiredService<DocumentIngest>());
 
     private async Task<IReadOnlyList<User>> Users() =>
         await Bus.InvokeAsync<IReadOnlyList<User>>(new FindAllUsersQuery());
@@ -121,6 +123,28 @@ public sealed class DemoDataSeederTests : IAsyncDisposable
             .That((await Contents(archive)).Select(document => document.Title))
             .IsEquivalentTo(["Rental contract"]);
         await Assert.That(await Inbox(user)).Count().IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task EverySeededDocument_HasItsSampleFile_ThatCanBeDownloaded()
+    {
+        await SeederWith(new CapturingLogger()).SeedAsync(Bus);
+        var user = (await Users()).Single();
+        var client = new DocumentsService.DocumentsServiceClient(pipeline.Channel);
+        var inbox = await Inbox(user);
+
+        foreach (var document in inbox)
+        {
+            var sample = DemoData.Default.Documents.Single(demo => demo.Title == document.Title);
+            var original = await File.ReadAllBytesAsync(Path.Combine(DemoData.SampleDirectory, sample.FileName));
+            var downloaded = await TestDocuments.DownloadAsync(client, document.Id.ToString());
+
+            await Assert.That(document.ContentType).IsEqualTo("application/pdf");
+            await Assert.That(document.Size).IsEqualTo(original.Length);
+            await Assert.That(downloaded).IsEquivalentTo(original);
+        }
+
+        await Assert.That(inbox).Count().IsEqualTo(3);
     }
 
     [Test]

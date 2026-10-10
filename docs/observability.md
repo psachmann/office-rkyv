@@ -28,8 +28,8 @@ The web side (the query spans, and one trace id from the UI through the API) is 
 - **Expected refusals are not logged.** A validation failure, a missing resource and a refused business rule are answers, not faults. `UseApiErrorMapping` filters Wolverine's gRPC interceptor to Error for that reason, and `ErrorStatusProvider` logs only what nothing else claimed.
 - **Levels:**
   - Information: the life of a host.
-  - Warning: a fault the app continues after, such as an unreadable settings file.
-  - Error: an unexpected failure, with the exception.
+  - Warning: a fault the app continues after, such as an unreadable settings file, or unfinished upload files found and removed from the blob store's `tmp` folder at start.
+  - Error: an unexpected failure, with the exception; for a download whose content is missing from the blob store, the document's id.
 - **Every message is a `[LoggerMessage]` method.** Never call `logger.LogInformation(...)` and its siblings directly. The analyzer rule CA1848 is a warning (`.editorconfig`), and a warning fails the Release build that the pre-push hook runs.
 
 ### Writing a log message
@@ -61,13 +61,15 @@ internal sealed partial class ErrorStatusProvider(ILogger<ErrorStatusProvider> l
 ## What must never appear in a span or a log
 
 - Document contents.
+- The name of a document's file and the title of a document, which say as much as the content does.
 - Personal data, such as an email address or a display name.
 - Bound parameter values of a database statement.
 - An exception's message in anything sent to a client. It may be logged with the exception at Error; it never goes into a gRPC status (see [api.md](api.md#failures)).
 
-Identify things by id. The spec requires the first three for event-store spans, and the telemetry test checks it; for logs it is a rule a reviewer checks.
+Identify things by id (a document by its id, file content by its hash). The spec requires the first three for event-store spans, and the telemetry test checks it; for logs it is a rule a reviewer checks.
 
 ## Decided in
 
 - [add-library-telemetry](../openspec/changes/archive/2026-09-28-add-library-telemetry/design.md) (D1 to D5): per-service registration, constants and strings, the API's one extension, the write-lock metrics, the in-memory exporter test.
 - [structured-error-codes](../openspec/changes/archive/2026-09-28-structured-error-codes/design.md) (D1): unexpected failures logged at Error, expected refusals not logged.
+- [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (Telemetry and logs): no new source or meter for file transfer, and the file name and title kept out of spans and logs.

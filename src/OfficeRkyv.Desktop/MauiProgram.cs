@@ -5,8 +5,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Platforms.Linux.Gtk4.BlazorWebView;
 using Microsoft.Maui.Platforms.Linux.Gtk4.Hosting;
+using OfficeRkyv.Desktop.Files;
 using OfficeRkyv.Desktop.Hosting;
 using OfficeRkyv.UI;
+using OfficeRkyv.UI.Files;
 using OfficeRkyv.UI.Settings;
 
 namespace OfficeRkyv.Desktop;
@@ -47,6 +49,7 @@ public static class MauiProgram
         // settings, and the environment the shared layout asks for.
         DesktopApi.AddSocketClients(builder.Services, host.Paths.SocketPath);
         builder.Services.AddSingleton<IUserSettingsService>(host.Settings);
+        builder.Services.AddSingleton<IFileSaver>(new DesktopFileSaver(host.Logger));
         builder.Services.AddSingleton<IHostEnvironment, DesktopHostEnvironment>();
 
         return builder.Build();

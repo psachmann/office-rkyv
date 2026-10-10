@@ -64,9 +64,6 @@
   <data name="TitleRequired" xml:space="preserve">
     <value>Gib einen Titel ein.</value>
   </data>
-  <data name="CreateSubmit" xml:space="preserve">
-    <value>Dokument anlegen</value>
-  </data>
   <data name="RenameSubmit" xml:space="preserve">
     <value>Dokument umbenennen</value>
   </data>

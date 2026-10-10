@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
+using OfficeRkyv.Api.Shared.Blobs;
 using Wolverine;
 using Wolverine.Tracking;
 
@@ -22,6 +23,12 @@ namespace OfficeRkyv.UnitTests;
 public sealed class PipelineHost : IAsyncDisposable
 {
     private readonly string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():n}.db");
+
+    /// <summary>
+    /// Where this host keeps file content: beside the database and named after it, as the API server derives it,
+    /// and deleted with it.
+    /// </summary>
+    public string BlobDirectory => path + ".blobs";
     private WebApplication host = null!;
 
     private PipelineHost() { }
@@ -50,24 +57,36 @@ public sealed class PipelineHost : IAsyncDisposable
 
     /// <param name="environmentName">The host environment; the default is what the test run itself reports.</param>
     /// <param name="configure">Runs after the API composition, for a host-specific addition such as the seed.</param>
+    /// <param name="maxFileSizeBytes">The largest accepted file; a test that needs a limit it can reach sets it.</param>
     public static async Task<PipelineHost> StartAsync(
         string? environmentName = null,
-        Action<WebApplicationBuilder>? configure = null
+        Action<WebApplicationBuilder>? configure = null,
+        long? maxFileSizeBytes = null
     )
     {
         var pipeline = new PipelineHost();
-        await pipeline.StartCoreAsync(environmentName, configure);
+        await pipeline.StartCoreAsync(environmentName, configure, maxFileSizeBytes);
 
         return pipeline;
     }
 
-    private async Task StartCoreAsync(string? environmentName, Action<WebApplicationBuilder>? configure)
+    private async Task StartCoreAsync(
+        string? environmentName,
+        Action<WebApplicationBuilder>? configure,
+        long? maxFileSizeBytes
+    )
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environmentName });
         builder.WebHost.UseKestrel(kestrel =>
             kestrel.Listen(IPAddress.Loopback, 0, listen => listen.Protocols = HttpProtocols.Http2)
         );
-        builder.AddOfficeRkyvApi($"Data Source={path}");
+        builder.AddOfficeRkyvApi($"Data Source={path}", BlobDirectory);
+
+        if (maxFileSizeBytes is { } limit)
+        {
+            builder.Services.Configure<FileStorageOptions>(options => options.MaxFileSizeBytes = limit);
+        }
+
         configure?.Invoke(builder);
 
         host = builder.Build();
@@ -87,5 +106,10 @@ public sealed class PipelineHost : IAsyncDisposable
         await host.StopAsync();
         await host.DisposeAsync();
         File.Delete(path);
+
+        if (Directory.Exists(BlobDirectory))
+        {
+            Directory.Delete(BlobDirectory, recursive: true);
+        }
     }
 }

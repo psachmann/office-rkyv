@@ -19,7 +19,7 @@ just desktop            # enters `nix develop .#desktop` (GTK4, WebKitGTK and GL
 
 It is built on .NET MAUI's experimental GTK4 backend (`Microsoft.Maui.Platforms.Linux.Gtk4`, a preview that Microsoft does not support), so expect rough edges. Only running it needs the `desktop` dev shell; building it does not.
 
-- **Data:** `$XDG_DATA_HOME/office-rkyv/office-rkyv.db` (by default `~/.local/share/office-rkyv/`). Unlike the web app's per-run database, this is your only copy.
+- **Data:** `$XDG_DATA_HOME/office-rkyv/office-rkyv.db` (by default `~/.local/share/office-rkyv/`), and beside it `blobs/`, where the content of every uploaded file is kept under the SHA-256 of its bytes. Unlike the web app's per-run database, this is your only copy. The database and `blobs/` belong together: back them up together, because a database restored without its `blobs/` lists documents whose files are gone.
 - **Settings:** `$XDG_CONFIG_HOME/office-rkyv/settings.json` (by default `~/.config/office-rkyv/`), holding the appearance (`system`, `light` or `dark`) and the language. Without a file the appearance follows the desktop and the language follows the system locale.
 - **API socket:** `$XDG_RUNTIME_DIR/office-rkyv/api.sock`, in a directory only you can open. The API is reachable only through it, and only inside the app.
 - **One instance:** starting it again opens another window in the running app, which shares its API and data; no second API starts. After a crash, the next start removes the stale socket on its own.

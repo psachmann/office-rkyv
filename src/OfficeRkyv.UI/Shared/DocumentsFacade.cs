@@ -1,4 +1,7 @@
+using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
+using Grpc.Core;
+using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Documents;
 
 namespace OfficeRkyv.UI.Shared;
@@ -59,14 +62,80 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
             }
         );
 
-    public IMutation<CreateDocumentRequest, DocumentDto> CreateCreateDocumentMutation() =>
-        queryClient.CreateMutation(
-            new MutationOptions<CreateDocumentRequest, DocumentDto>
+    /// <summary>
+    /// Uploads one file as a new document and returns it. This is a method and not a mutation because a
+    /// mutation has no progress to report: <paramref name="onProgress"/> gets the number of bytes sent so far.
+    /// A refusal is thrown as the typed client throws every refusal, so <c>WorkspaceErrors</c> explains it.
+    /// </summary>
+    /// <remarks>
+    /// The server may refuse while the content is still being sent (too large): the next write then fails
+    /// because the call is over, and the call's own result says why, so that is what is thrown.
+    /// </remarks>
+    public async Task<DocumentDto> UploadAsync(
+        Guid ownerId,
+        string fileName,
+        string? contentType,
+        Stream content,
+        Action<long>? onProgress = null,
+        CancellationToken cancellation = default
+    )
+    {
+        using var call = documentService.UploadDocument(cancellationToken: cancellation);
+
+        try
+        {
+            await call.RequestStream.WriteAsync(
+                new UploadDocumentRequest
+                {
+                    Header = new UploadDocumentHeader
+                    {
+                        OwnerId = ownerId.ToString(),
+                        FileName = fileName,
+                        ContentType = contentType ?? "",
+                    },
+                },
+                cancellation
+            );
+
+            var buffer = new byte[FileLimits.ChunkSize];
+            long sent = 0;
+            int read;
+
+            while ((read = await content.ReadAsync(buffer, cancellation)) > 0)
             {
-                Mutator = async (request, ct) =>
-                    (await documentService.CreateDocumentAsync(request, null, null, ct)).Document,
-                OnSuccess = (_, _) => queryClient.Invalidate(DocumentKinds),
+                await call.RequestStream.WriteAsync(
+                    new UploadDocumentRequest { Chunk = ByteString.CopyFrom(buffer, 0, read) },
+                    cancellation
+                );
+                sent += read;
+                onProgress?.Invoke(sent);
             }
+
+            await call.RequestStream.CompleteAsync();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or RpcException)
+        {
+            // The server ended the call before the content was all sent; its answer is the real error.
+        }
+
+        var response = await call.ResponseAsync.WaitAsync(cancellation);
+        queryClient.Invalidate(DocumentKinds);
+
+        return response.Document;
+    }
+
+    /// <summary>
+    /// Opens the document's file for reading. A refusal (unknown or deleted document) is thrown here, before
+    /// anything is saved. The caller disposes the stream.
+    /// </summary>
+    public async Task<Stream> OpenDownloadAsync(DocumentDto document, CancellationToken cancellation = default) =>
+        await DownloadStream.OpenAsync(
+            documentService.DownloadDocument(
+                new DownloadDocumentRequest { DocumentId = document.Id },
+                cancellationToken: cancellation
+            ),
+            document.Size,
+            cancellation
         );
 
     public IMutation<RenameDocumentRequest, DocumentDto> CreateRenameDocumentMutation() =>

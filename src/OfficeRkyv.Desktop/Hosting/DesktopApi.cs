@@ -61,7 +61,7 @@ public sealed class DesktopApi : IAsyncDisposable
         // window running with no API behind it. The desktop process owns the signals instead.
         builder.Services.AddSingleton<IHostLifetime, NoSignalLifetime>();
 
-        builder.AddOfficeRkyvApi($"Data Source={paths.DatabasePath}");
+        builder.AddOfficeRkyvApi($"Data Source={paths.DatabasePath}", paths.BlobDirectory);
 
         var app = builder.Build();
         app.MapOfficeRkyvApi();

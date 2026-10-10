@@ -64,11 +64,11 @@ public sealed class ArchiveDeletionRaceTests : IAsyncDisposable
             // Members make the delete's member query take a while, so the filing can land inside it.
             for (var member = 0; member < MembersPerRound; member++)
             {
-                var pre = await Bus.InvokeAsync<Document>(new CreateDocumentCommand(alice.Id, $"Member {member}"));
+                var pre = await Bus.InvokeAsync<Document>(TestDocuments.Command(alice.Id, $"Member {member}"));
                 await Bus.InvokeAsync<Document>(new FileDocumentCommand(pre.Id, pre.Version, archive.Id));
             }
 
-            var racer = await Bus.InvokeAsync<Document>(new CreateDocumentCommand(alice.Id, "Racer"));
+            var racer = await Bus.InvokeAsync<Document>(TestDocuments.Command(alice.Id, "Racer"));
             var current = await Load<Archive>(archive.Id);
             using var start = new ManualResetEventSlim();
 

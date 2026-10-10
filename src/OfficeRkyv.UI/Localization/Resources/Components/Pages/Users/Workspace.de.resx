@@ -151,4 +151,16 @@
   <data name="ConfirmCancel" xml:space="preserve">
     <value>Abbrechen</value>
   </data>
+  <data name="ColumnFile" xml:space="preserve">
+    <value>Datei</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Herunterladen</value>
+  </data>
+  <data name="DownloadAria" xml:space="preserve">
+    <value>{0} herunterladen</value>
+  </data>
+  <data name="SavedTo" xml:space="preserve">
+    <value>Gespeichert unter {0}</value>
+  </data>
 </root>

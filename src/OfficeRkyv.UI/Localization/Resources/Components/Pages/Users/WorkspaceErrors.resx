@@ -94,4 +94,16 @@
   <data name="FieldInvalid" xml:space="preserve">
     <value>This value is not valid.</value>
   </data>
+  <data name="ContentRequired" xml:space="preserve">
+    <value>This file is empty.</value>
+  </data>
+  <data name="ContentTooLarge" xml:space="preserve">
+    <value>This file is too large to upload.</value>
+  </data>
+  <data name="FileNameRequired" xml:space="preserve">
+    <value>This file has no name.</value>
+  </data>
+  <data name="FileNameTooLong" xml:space="preserve">
+    <value>This file name is too long.</value>
+  </data>
 </root>

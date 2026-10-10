@@ -64,9 +64,6 @@
   <data name="TitleRequired" xml:space="preserve">
     <value>Enter a title.</value>
   </data>
-  <data name="CreateSubmit" xml:space="preserve">
-    <value>Create document</value>
-  </data>
   <data name="RenameSubmit" xml:space="preserve">
     <value>Rename document</value>
   </data>

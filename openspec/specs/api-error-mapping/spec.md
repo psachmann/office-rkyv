@@ -8,9 +8,10 @@ Defines how the gRPC API reports failures, so every client can tell invalid inpu
 
 ### Requirement: Invalid input is reported as InvalidArgument with field details
 When a request is rejected because its input violates validation rules, the API SHALL respond with the gRPC status `INVALID_ARGUMENT` and SHALL attach standard structured error details (`google.rpc.BadRequest`) listing one field violation per violated rule. Each field violation SHALL name the request field it concerns, using the field's name as it appears in the gRPC contract, and SHALL carry a stable, machine-readable code for the violated rule in its `reason`. The codes are:
-- `required`: the field is empty after trimming surrounding whitespace
+- `required`: the field is empty after trimming surrounding whitespace, or, for file content, has no bytes
 - `invalid_format`: the field's value does not have the required shape
 - `too_long`: the field's value exceeds its maximum length
+- `too_large`: the field's content exceeds its maximum size in bytes
 
 A field violation's `description` SHALL be developer-facing text only; clients SHALL NOT depend on its content.
 
@@ -25,6 +26,10 @@ A field violation's `description` SHALL be developer-facing text only; clients S
 #### Scenario: An empty field is reported only as required
 - **WHEN** a client creates a user with an empty email
 - **THEN** the only field violation for `email` has reason `required`
+
+#### Scenario: An oversized file is reported as too large
+- **WHEN** a client uploads a file larger than the size limit
+- **THEN** the response status is `INVALID_ARGUMENT` and its details contain a field violation for `content` with reason `too_large`
 
 ### Requirement: Conflicts with existing data are reported as AlreadyExists
 When a request is refused because it would claim a unique value already held by another resource, the API SHALL respond with the gRPC status `ALREADY_EXISTS`.
@@ -74,11 +79,19 @@ Any failure not covered by another mapping SHALL be reported with the gRPC statu
 - **THEN** the response status is `INTERNAL`, its message contains none of the original error's text, and the original error is logged server-side
 
 ### Requirement: Mapping applies to every gRPC service
-The failure mapping SHALL apply uniformly to all gRPC services the API hosts, without each service implementing it.
+The failure mapping SHALL apply uniformly to all gRPC services the API hosts, without each service implementing it. It SHALL apply to calls that stream a request or a response in the same way as to calls that do not.
 
 #### Scenario: Consistent mapping across services
 - **WHEN** a failure of a mapped kind occurs in any hosted gRPC service
 - **THEN** the response uses the same status code the mapping defines
+
+#### Scenario: A refused streaming upload carries its details
+- **WHEN** a client streams an upload that is refused as invalid input
+- **THEN** the call ends with the status `INVALID_ARGUMENT` and the same structured field violations a non-streaming call would carry
+
+#### Scenario: A refused streaming download carries its status
+- **WHEN** a client requests the download of a document id that was never created
+- **THEN** the call ends with the status `NOT_FOUND` and delivers no content
 
 ### Requirement: Error responses carry no end-user text
 The API SHALL NOT rely on any status message or error-detail text to convey user-facing wording. Every refusal a client may need to explain to an end user SHALL be identifiable by gRPC status code plus, where defined, a stable reason code, so that clients produce all user-facing text from their own localized resources. Status messages SHALL be generic and SHALL NOT vary with the client's language.

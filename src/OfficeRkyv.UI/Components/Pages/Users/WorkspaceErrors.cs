@@ -11,6 +11,7 @@ namespace OfficeRkyv.UI.Components.Pages.Users;
 /// </summary>
 /// <param name="Name">Under the name field of an archive dialog.</param>
 /// <param name="Title">Under the title field of a document dialog.</param>
+/// <param name="File">Under a file of the upload dialog: what is wrong with its content or its name.</param>
 /// <param name="General">For everything that is not about one field.</param>
 /// <param name="ReloadNeeded">
 /// The refusal means what the UI shows is out of date (the item changed or is gone), so the affected
@@ -19,6 +20,7 @@ namespace OfficeRkyv.UI.Components.Pages.Users;
 internal sealed record WorkspaceErrors(
     string? Name = null,
     string? Title = null,
+    string? File = null,
     string? General = null,
     bool ReloadNeeded = false
 )
@@ -69,6 +71,7 @@ internal sealed record WorkspaceErrors(
 
         string? name = null;
         string? title = null;
+        string? file = null;
         string? general = null;
 
         // First violation per field wins; a dialog has room for one message under each field.
@@ -82,6 +85,12 @@ internal sealed record WorkspaceErrors(
                 case "title":
                     title ??= Key("Title", violation.Reason);
                     break;
+                case "content":
+                    file ??= Key("Content", violation.Reason);
+                    break;
+                case "file_name":
+                    file ??= Key("FileName", violation.Reason);
+                    break;
                 default:
                     // A field the dialog does not have: better a general message than a silent failure.
                     general ??= ActionFailed;
@@ -89,7 +98,7 @@ internal sealed record WorkspaceErrors(
             }
         }
 
-        return new(name, title, general);
+        return new(name, title, file, general);
     }
 
     // (field, code) -> resource key. An unknown code degrades to a generic "invalid" text.
@@ -98,6 +107,7 @@ internal sealed record WorkspaceErrors(
         {
             ViolationCodes.Required => $"{field}Required",
             ViolationCodes.TooLong => $"{field}TooLong",
+            ViolationCodes.TooLarge => $"{field}TooLarge",
             _ => "FieldInvalid",
         };
 }

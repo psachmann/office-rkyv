@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\OfficeRkyv.Contracts\OfficeRkyv.Contracts.csproj" />
     <ProjectReference Include="..\OfficeRkyv.ServiceDefaults\OfficeRkyv.ServiceDefaults.csproj" />
   </ItemGroup>
 
@@ -21,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OfficeRkyv.Contracts\OfficeRkyv.Contracts.csproj" />
+    <!-- The development seed's sample files; they travel with the API's output, where DemoData finds them. -->
+    <None Update="Data\*.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

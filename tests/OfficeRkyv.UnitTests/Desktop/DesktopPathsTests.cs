@@ -17,6 +17,7 @@ public class DesktopPathsTests
         await Assert.That(paths.DataDirectory).IsEqualTo("/home/ada/.local/share/office-rkyv");
         await Assert.That(paths.ConfigDirectory).IsEqualTo("/home/ada/.config/office-rkyv");
         await Assert.That(paths.DatabasePath).IsEqualTo("/home/ada/.local/share/office-rkyv/office-rkyv.db");
+        await Assert.That(paths.BlobDirectory).IsEqualTo("/home/ada/.local/share/office-rkyv/blobs");
         await Assert.That(paths.SettingsPath).IsEqualTo("/home/ada/.config/office-rkyv/settings.json");
     }
 
@@ -33,6 +34,7 @@ public class DesktopPathsTests
         );
 
         await Assert.That(paths.DatabasePath).IsEqualTo("/srv/data/office-rkyv/office-rkyv.db");
+        await Assert.That(paths.BlobDirectory).IsEqualTo("/srv/data/office-rkyv/blobs");
         await Assert.That(paths.SettingsPath).IsEqualTo("/srv/config/office-rkyv/settings.json");
         await Assert.That(paths.SocketPath).IsEqualTo("/run/user/1000/office-rkyv/api.sock");
     }

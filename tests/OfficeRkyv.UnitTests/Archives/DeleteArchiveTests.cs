@@ -24,7 +24,7 @@ public sealed class DeleteArchiveTests : IAsyncDisposable
         Bus.InvokeAsync<Archive>(new CreateArchiveCommand(owner.Id, name));
 
     private Task<Document> CreateDocument(User owner, string title = "Invoice") =>
-        Bus.InvokeAsync<Document>(new CreateDocumentCommand(owner.Id, title));
+        Bus.InvokeAsync<Document>(TestDocuments.Command(owner.Id, title));
 
     private async Task<Document> Reload(Document document)
     {

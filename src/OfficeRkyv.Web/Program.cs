@@ -7,9 +7,11 @@ using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
 using OfficeRkyv.UI;
+using OfficeRkyv.UI.Files;
 using OfficeRkyv.UI.Localization;
 using OfficeRkyv.UI.Settings;
 using OfficeRkyv.Web.Components;
+using OfficeRkyv.Web.Files;
 using OfficeRkyv.Web.Settings;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -36,6 +38,9 @@ builder.Services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddMeter
 // One instance per circuit, reachable as the concrete type (Routes starts it) and as the interface the pages use.
 builder.Services.AddScoped<WebUserSettingsService>();
 builder.Services.AddScoped<IUserSettingsService>(services => services.GetRequiredService<WebUserSettingsService>());
+
+// Hands a downloaded file to the browser.
+builder.Services.AddScoped<IFileSaver, WebFileSaver>();
 
 // "api-svc" is resolved by Aspire service discovery (see AppHost). gRPC only accepts plain
 // http/https here; the "https+http" form throws "No address resolver configured".

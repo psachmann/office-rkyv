@@ -1,7 +1,17 @@
 namespace OfficeRkyv.Api.Features.Documents;
 
 // Payload-only events: Fisher supplies the envelope (stream id, version, timestamp, metadata).
-public sealed record DocumentCreated(Guid OwnerId, string Title);
+
+// The file is part of the creation fact and no later event changes it, so a document always has exactly one
+// file. Only facts about the content are recorded; the bytes live in the blob store under Sha256.
+public sealed record DocumentCreated(
+    Guid OwnerId,
+    string Title,
+    string FileName,
+    string ContentType,
+    long Size,
+    string Sha256
+);
 
 public sealed record DocumentRenamed(string Title);
 

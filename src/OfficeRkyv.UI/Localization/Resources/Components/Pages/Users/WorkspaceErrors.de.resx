@@ -94,4 +94,16 @@
   <data name="FieldInvalid" xml:space="preserve">
     <value>Dieser Wert ist ungültig.</value>
   </data>
+  <data name="ContentRequired" xml:space="preserve">
+    <value>Diese Datei ist leer.</value>
+  </data>
+  <data name="ContentTooLarge" xml:space="preserve">
+    <value>Diese Datei ist zu groß zum Hochladen.</value>
+  </data>
+  <data name="FileNameRequired" xml:space="preserve">
+    <value>Diese Datei hat keinen Namen.</value>
+  </data>
+  <data name="FileNameTooLong" xml:space="preserve">
+    <value>Dieser Dateiname ist zu lang.</value>
+  </data>
 </root>

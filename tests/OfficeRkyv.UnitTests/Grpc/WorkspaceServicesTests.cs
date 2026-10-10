@@ -30,8 +30,8 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
     private async Task<ArchiveDto> CreateArchive(UserDto owner, string name = "Taxes") =>
         (await Archives.CreateArchiveAsync(new CreateArchiveRequest { OwnerId = owner.Id, Name = name })).Archive;
 
-    private async Task<DocumentDto> CreateDocument(UserDto owner, string title = "Invoice") =>
-        (await Documents.CreateDocumentAsync(new CreateDocumentRequest { OwnerId = owner.Id, Title = title })).Document;
+    private Task<DocumentDto> CreateDocument(UserDto owner, string title = "Invoice") =>
+        TestDocuments.UploadAsync(Documents, owner.Id, $"{title}.pdf", TestDocuments.Bytes(10), title: title);
 
     // ---- users: find by id ----
 
@@ -282,7 +282,7 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var failure = await GrpcFailure.Of(async () =>
-            await Documents.CreateDocumentAsync(new CreateDocumentRequest { OwnerId = alice.Id, Title = "" })
+            await TestDocuments.UploadAsync(Documents, alice.Id, "a.pdf", TestDocuments.Bytes(3), title: "")
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);

@@ -2,7 +2,16 @@ namespace OfficeRkyv.Api.Features.Documents;
 
 // DocumentId matches the {AggregateName}Id convention the decider workflow uses to find the stream;
 // Version is the expected version, echoed back by the client.
-public sealed record CreateDocumentCommand(Guid OwnerId, string Title);
+// Created by an upload, after the content has been stored: the file facts describe bytes that are already in
+// the blob store under Sha256.
+public sealed record CreateDocumentCommand(
+    Guid OwnerId,
+    string Title,
+    string FileName,
+    string ContentType,
+    long Size,
+    string Sha256
+);
 
 public sealed record RenameDocumentCommand(Guid DocumentId, int Version, string Title);
 

@@ -49,6 +49,19 @@ public sealed class WorkspaceErrorsTests
         }.ToRpcException();
 
     [Test]
+    [Arguments("content", ViolationCodes.TooLarge, "ContentTooLarge")]
+    [Arguments("content", ViolationCodes.Required, "ContentRequired")]
+    [Arguments("file_name", ViolationCodes.Required, "FileNameRequired")]
+    [Arguments("file_name", ViolationCodes.TooLong, "FileNameTooLong")]
+    [Arguments("content", "a_rule_added_later", "FieldInvalid")]
+    public async Task AFileViolation_IsShownUnderTheFile_ByItsCode(string field, string code, string key)
+    {
+        var errors = WorkspaceErrors.From(InvalidArgument((field, code)));
+
+        await Assert.That(errors).IsEqualTo(new WorkspaceErrors(File: key));
+    }
+
+    [Test]
     public async Task AStaleWrite_IsTheChangedElsewhereMessage_AndAsksForAReload()
     {
         var errors = WorkspaceErrors.From(new RpcException(new GrpcStatus(StatusCode.Aborted, "server text")));
@@ -266,9 +279,13 @@ public sealed class WorkspaceErrorsOverTheWireTests : IAsyncDisposable
     public async Task AStaleWrite_ReachesTheUiAsChangedElsewhere()
     {
         var alice = await CreateUser();
-        var created = (
-            await Documents.CreateDocumentAsync(new CreateDocumentRequest { OwnerId = alice.Id, Title = "Invoice" })
-        ).Document;
+        var created = await TestDocuments.UploadAsync(
+            Documents,
+            alice.Id,
+            "Invoice.pdf",
+            TestDocuments.Bytes(10),
+            title: "Invoice"
+        );
         await Documents.RenameDocumentAsync(
             new RenameDocumentRequest
             {
@@ -296,9 +313,13 @@ public sealed class WorkspaceErrorsOverTheWireTests : IAsyncDisposable
     public async Task AnUnknownArchive_ReachesTheUiAsNotFound()
     {
         var alice = await CreateUser();
-        var document = (
-            await Documents.CreateDocumentAsync(new CreateDocumentRequest { OwnerId = alice.Id, Title = "Invoice" })
-        ).Document;
+        var document = await TestDocuments.UploadAsync(
+            Documents,
+            alice.Id,
+            "Invoice.pdf",
+            TestDocuments.Bytes(10),
+            title: "Invoice"
+        );
 
         var errors = await ErrorOf(async () =>
             await Documents.FileDocumentAsync(
@@ -321,9 +342,13 @@ public sealed class WorkspaceErrorsOverTheWireTests : IAsyncDisposable
         var archive = (
             await Archives.CreateArchiveAsync(new CreateArchiveRequest { OwnerId = alice.Id, Name = "Taxes" })
         ).Archive;
-        var document = (
-            await Documents.CreateDocumentAsync(new CreateDocumentRequest { OwnerId = alice.Id, Title = "Invoice" })
-        ).Document;
+        var document = await TestDocuments.UploadAsync(
+            Documents,
+            alice.Id,
+            "Invoice.pdf",
+            TestDocuments.Bytes(10),
+            title: "Invoice"
+        );
         await Archives.DeleteArchiveAsync(
             new DeleteArchiveRequest { ArchiveId = archive.Id, Version = archive.Version }
         );
@@ -350,9 +375,13 @@ public sealed class WorkspaceErrorsOverTheWireTests : IAsyncDisposable
         var bobsArchive = (
             await Archives.CreateArchiveAsync(new CreateArchiveRequest { OwnerId = bob.Id, Name = "Work" })
         ).Archive;
-        var document = (
-            await Documents.CreateDocumentAsync(new CreateDocumentRequest { OwnerId = alice.Id, Title = "Invoice" })
-        ).Document;
+        var document = await TestDocuments.UploadAsync(
+            Documents,
+            alice.Id,
+            "Invoice.pdf",
+            TestDocuments.Bytes(10),
+            title: "Invoice"
+        );
 
         var errors = await ErrorOf(async () =>
             await Documents.FileDocumentAsync(
@@ -375,10 +404,20 @@ public sealed class WorkspaceErrorsOverTheWireTests : IAsyncDisposable
         await Users.DeleteUserAsync(new DeleteUserRequest { UserId = alice.Id, Version = alice.Version });
 
         var errors = await ErrorOf(async () =>
-            await Documents.CreateDocumentAsync(new CreateDocumentRequest { OwnerId = alice.Id, Title = "Invoice" })
+            await TestDocuments.UploadAsync(Documents, alice.Id, "Invoice.pdf", TestDocuments.Bytes(10))
         );
 
         await Assert.That(errors).IsEqualTo(new WorkspaceErrors(General: "UserDeleted"));
+    }
+
+    [Test]
+    public async Task AnEmptyFile_ReachesTheUiAsAFileMessage()
+    {
+        var alice = await CreateUser();
+
+        var errors = await ErrorOf(async () => await TestDocuments.UploadAsync(Documents, alice.Id, "empty.txt", []));
+
+        await Assert.That(errors).IsEqualTo(new WorkspaceErrors(File: "ContentRequired"));
     }
 
     [Test]
@@ -387,7 +426,7 @@ public sealed class WorkspaceErrorsOverTheWireTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var title = await ErrorOf(async () =>
-            await Documents.CreateDocumentAsync(new CreateDocumentRequest { OwnerId = alice.Id, Title = " " })
+            await TestDocuments.UploadAsync(Documents, alice.Id, "a.pdf", TestDocuments.Bytes(3), title: " ")
         );
         var name = await ErrorOf(async () =>
             await Archives.CreateArchiveAsync(

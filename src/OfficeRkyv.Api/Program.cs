@@ -1,14 +1,21 @@
 using OfficeRkyv.Api;
 using OfficeRkyv.Api.Development;
+using OfficeRkyv.Api.Shared.Blobs;
 using OfficeRkyv.Api.Shared.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString =
+    builder.Configuration.GetConnectionString("officerkyv-db")
+    ?? throw new InvalidProgramException("No DB connection string provided");
+
 // Add services to the container.
 builder.AddServiceDefaults();
 builder.AddOfficeRkyvApi(
-    builder.Configuration.GetConnectionString("officerkyv-db")
-        ?? throw new InvalidProgramException("No DB connection string provided"),
+    connectionString,
+    // Beside the database file unless configured, so that content has the database's lifetime: the AppHost
+    // gives the API a new temporary database on every run.
+    BlobDirectory.For(connectionString, builder.Configuration[FileStorageOptions.BlobDirectorySetting]),
     // SQLite allows one writer per file, so time spent queued for that lock is the first thing to
     // watch as load grows. TrackConnections is deliberately left off: Fisher rejects it, because
     // Microsoft.Data.Sqlite pools connections process-wide and not per store.

@@ -20,6 +20,14 @@ Each is verified and explained in the archived spike, `openspec/changes/archive/
 - **A crash leaves the socket behind:** `DesktopApi.ClaimSocket` connects to it first, deletes it if nothing answers, and refuses to start if something does.
 - **No `.razor.css` in the desktop project** (it breaks `BlazorWebView`'s static assets); if one is ever needed, see the spike's `MauiCss` removal. Scoped CSS of the UI library is fine: the host's `<Host>.styles.css` imports it.
 
+## Saving a downloaded file
+
+`DesktopFileSaver` implements `IFileSaver` (see [ui.md](ui.md#files-upload-and-download)). It opens GTK's save dialog (`Gtk.FileDialog`) with the file name proposed and writes the stream to the path chosen; a dismissed dialog writes nothing and is not an error. File content itself is kept in `blobs/` in the data directory, beside the database.
+
+- **The dialog is the experimental backend's.** If it cannot be shown at all, the file is saved into the user's Downloads directory under `DownloadPaths.Unique` (an existing file is never overwritten: `name (1).ext`) and the page tells the user where, as it does after the dialog. The fallback is logged as a Warning.
+- **The dialog needs a GSettings schema, and its absence kills the process.** GTK's file dialog reads `org.gtk.gtk4.Settings.FileChooser`. Where no schema is installed (on NixOS, nothing puts GTK's on `XDG_DATA_DIRS` by itself) GLib does not throw, it aborts: `GLib-GIO-ERROR: No GSettings schemas are installed on the system` and exit code 134, which no `catch` sees. Two things answer it, and neither should be removed alone: the `desktop` dev shell adds GTK's and `gsettings-desktop-schemas`' schema directories to `XDG_DATA_DIRS` (`flake.nix`), and `DesktopFileSaver` looks the schema up before opening the dialog and takes the Downloads fallback, with a Warning, when it is missing.
+- **Not verified automatically.** Playwright cannot drive WebKitGTK, so a save is checked by hand; the name rules are unit-tested (`DownloadPaths`).
+
 ## Logging
 
 The desktop host has no generic host for its own startup, so `DesktopHost.Initialize` creates one console logger (category `OfficeRkyv.Desktop`) and hands it to the parts that log. Outside Development it logs warnings and above; in Development it logs information too, which is the evidence a manual check relies on. The messages follow the convention in [observability.md](observability.md#logging).
@@ -28,3 +36,4 @@ The desktop host has no generic host for its own startup, so `DesktopHost.Initia
 
 - [linux-desktop-app-spike](../openspec/changes/archive/2026-09-30-linux-desktop-app-spike/design.md) (Spike results): what was tried on a real desktop, and what each workaround answers.
 - [add-linux-desktop-app](../openspec/changes/archive/2026-09-30-add-linux-desktop-app/design.md) (D1, D3, D6, D8): the project layout, the API in the process, the host, and why the desktop is checked by hand.
+- [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D12): saving a downloaded file as the host's job, and the fallback.

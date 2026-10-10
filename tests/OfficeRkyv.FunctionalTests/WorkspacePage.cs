@@ -46,7 +46,13 @@ public sealed class WorkspacePage(IPage page)
 
     private ILocator SidebarLink(ILocator inside) => Sidebar.GetByRole(AriaRole.Link).Filter(new() { Has = inside });
 
-    public ILocator DocumentRow(string title) => page.GetByTestId("document-row").Filter(new() { HasText = title });
+    /// <summary>
+    /// The row of the document with exactly this title. The file name is shown in the row too, and it keeps
+    /// the name the file was uploaded with when the title is renamed, so a text match on the row would find both.
+    /// </summary>
+    public ILocator DocumentRow(string title) =>
+        page.GetByTestId("document-row")
+            .Filter(new() { Has = page.Locator("td").GetByText(title, new() { Exact = true }) });
 
     /// <summary>Creates a user on the landing page and opens their workspace from the user list.</summary>
     public async Task OpenNewUsersWorkspaceAsync(string baseAddress, string displayName)
@@ -69,13 +75,63 @@ public sealed class WorkspacePage(IPage page)
         await Expect(Dialog).ToBeHiddenAsync();
     }
 
-    public async Task CreateDocumentAsync(string title)
+    /// <summary>One chosen file: its name, its bytes and the type the browser would declare for it.</summary>
+    public sealed record UploadFile(string Name, byte[] Content, string MimeType = "application/pdf");
+
+    /// <summary>The files of the open upload dialog, each with its state.</summary>
+    public ILocator UploadItems => Dialog.GetByTestId("upload-item");
+
+    /// <summary>The state text of one file in the open upload dialog, found by the file's name.</summary>
+    public ILocator UploadState(string fileName) =>
+        UploadItems.Filter(new() { HasText = fileName }).GetByTestId("upload-state");
+
+    /// <summary>
+    /// Opens the new-document action, chooses the files and waits until each has been uploaded or refused.
+    /// The dialog stays open, so a test can look at what each file's state says.
+    /// </summary>
+    public async Task UploadAsync(params UploadFile[] files)
     {
         await page.GetByRole(AriaRole.Button, new() { Name = "New document" }).ClickAsync();
-        await Dialog.GetByLabel("Title").FillAsync(title);
-        await Dialog.GetByRole(AriaRole.Button, new() { Name = "Create document" }).ClickAsync();
+        await Dialog
+            .GetByLabel("Choose files")
+            .SetInputFilesAsync(
+                files
+                    .Select(file => new FilePayload
+                    {
+                        Name = file.Name,
+                        MimeType = file.MimeType,
+                        Buffer = file.Content,
+                    })
+                    .ToArray()
+            );
+
+        // The dialog cannot be closed while a file is still going up.
+        await Expect(CloseUploadButton).ToBeEnabledAsync();
+    }
+
+    private ILocator CloseUploadButton => Dialog.Locator("button").Filter(new() { HasTextString = "Close" });
+
+    public async Task CloseUploadDialogAsync()
+    {
+        await CloseUploadButton.ClickAsync();
         await Expect(Dialog).ToBeHiddenAsync();
     }
+
+    /// <summary>
+    /// Gives the inbox a document with this title: a small file of that name is uploaded, and the server
+    /// titles it from the file name.
+    /// </summary>
+    public async Task CreateDocumentAsync(string title)
+    {
+        await UploadAsync(new UploadFile($"{title}.pdf", System.Text.Encoding.UTF8.GetBytes($"%PDF-1.4 {title}")));
+        await CloseUploadDialogAsync();
+    }
+
+    /// <summary>Chooses a document's download action and returns the download the browser received.</summary>
+    public Task<IDownload> DownloadAsync(string title) =>
+        page.RunAndWaitForDownloadAsync(async () =>
+            await DocumentRow(title).GetByRole(AriaRole.Button, new() { Name = "Download" }).ClickAsync()
+        );
 
     /// <summary>Opens a document's "File into..." choice and picks an entry from it.</summary>
     public async Task FileDocumentIntoAsync(string title, string target)

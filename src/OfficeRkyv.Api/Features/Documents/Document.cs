@@ -1,9 +1,10 @@
 namespace OfficeRkyv.Api.Features.Documents;
 
 /// <summary>
-/// A document's metadata (no file content yet), owned by one user and in at most one archive. The archive
-/// slot lives here, on the document's own stream, so "at most one archive" holds by construction. A
-/// document with no archive is in its owner's inbox.
+/// One file and its metadata, owned by one user and in at most one archive. The file is fixed at creation and
+/// only described here (name, type, size, hash); its bytes are in the blob store. The archive slot lives here,
+/// on the document's own stream, so "at most one archive" holds by construction. A document with no archive
+/// is in its owner's inbox.
 /// </summary>
 public sealed record Document : EntityBase
 {
@@ -18,12 +19,30 @@ public sealed record Document : EntityBase
     [JsonInclude]
     public Guid? ArchiveId { get; private set; }
 
+    // The file, fixed at creation; no event changes it.
+    [JsonInclude]
+    public string FileName { get; private set; } = string.Empty;
+
+    [JsonInclude]
+    public string ContentType { get; private set; } = string.Empty;
+
+    [JsonInclude]
+    public long Size { get; private set; }
+
+    // Lowercase hex SHA-256 of the content: the key of its bytes in the blob store.
+    [JsonInclude]
+    public string Sha256 { get; private set; } = string.Empty;
+
     public static Document Create(IEvent<DocumentCreated> @event) =>
         new()
         {
             Id = @event.StreamId,
             OwnerId = @event.Data.OwnerId,
             Title = @event.Data.Title,
+            FileName = @event.Data.FileName,
+            ContentType = @event.Data.ContentType,
+            Size = @event.Data.Size,
+            Sha256 = @event.Data.Sha256,
             Status = EntityStatus.Active,
             CreatedAt = @event.Timestamp,
             UpdatedAt = @event.Timestamp,

@@ -12,7 +12,7 @@ namespace OfficeRkyv.Api.Development;
 /// user exists nothing is added, so an API restart on the same database neither duplicates the demo data nor
 /// brings back what the developer deleted. A failure is logged and never thrown.
 /// </remarks>
-public sealed partial class DemoDataSeeder(ILogger<DemoDataSeeder> logger, DemoData data)
+public sealed partial class DemoDataSeeder(ILogger<DemoDataSeeder> logger, DemoData data, DocumentIngest ingest)
 {
     public async Task SeedAsync(IMessageBus bus, CancellationToken cancellation = default)
     {
@@ -28,9 +28,17 @@ public sealed partial class DemoDataSeeder(ILogger<DemoDataSeeder> logger, DemoD
             var user = await bus.InvokeAsync<User>(new CreateUserCommand(data.Email, data.DisplayName), cancellation);
             await bus.InvokeAsync<Archive>(new CreateArchiveCommand(user.Id, data.ArchiveName), cancellation);
 
-            foreach (var title in data.DocumentTitles)
+            foreach (var document in data.Documents)
             {
-                await bus.InvokeAsync<Document>(new CreateDocumentCommand(user.Id, title), cancellation);
+                await using var file = File.OpenRead(Path.Combine(DemoData.SampleDirectory, document.FileName));
+
+                // The title is sent explicitly: it is what the demo calls the file, not the file's own name.
+                await ingest.IngestAsync(
+                    bus,
+                    new UploadHeader(user.Id, document.FileName, "application/pdf", document.Title),
+                    DocumentIngest.ChunksOf(file, cancellation),
+                    cancellation
+                );
             }
 
             LogSeeded(logger, data.Email);

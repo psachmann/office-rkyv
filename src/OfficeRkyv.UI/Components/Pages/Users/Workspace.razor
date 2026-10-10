@@ -1,3 +1,4 @@
+@using OfficeRkyv.UI.Files
 @page "/users/{UserId:guid}"
 @page "/users/{UserId:guid}/archives/{ArchiveId:guid}"
 @implements IDisposable
@@ -7,6 +8,8 @@
 @inject ArchivesFacade Archives
 @inject DocumentsFacade Documents
 @inject IQueryClient QueryClient
+@inject IFileSaver FileSaver
+@inject NotificationService NotificationService
 @inject DialogService DialogService
 @inject ContextMenuService ContextMenuService
 @inject NavigationManager Navigation
@@ -214,9 +217,9 @@
     }
 
     private Task OpenCreateDocumentDialog() =>
-        DialogService.OpenAsync<DocumentDialog>(
+        DialogService.OpenAsync<UploadDocumentsDialog>(
             Localizer["NewDocument"],
-            new Dictionary<string, object?> { [nameof(DocumentDialog.OwnerId)] = UserId },
+            new Dictionary<string, object?> { [nameof(UploadDocumentsDialog.OwnerId)] = UserId },
             new DialogOptions { Width = "28rem" }
         );
 
@@ -281,6 +284,31 @@
             fileDocument.Execute(
                 new FileDocumentRequest { DocumentId = document.Id, Version = document.Version, ArchiveId = target }
             );
+        }
+    }
+
+    // The refusal (unknown or deleted document) is thrown by opening the stream, so it is shown like every other
+    // refusal on this page and nothing has been handed to the host yet.
+    private async Task DownloadDocument(DocumentDto document)
+    {
+        errorKey = null;
+
+        try
+        {
+            await using var content = await Documents.OpenDownloadAsync(document);
+            var saved = await FileSaver.SaveAsync(document.FileName, document.ContentType, content);
+
+            // The host says where the file went when it can: the desktop does, a browser has its own list.
+            if (saved.Location is { } location)
+            {
+                NotificationService.Notify(
+                    new NotificationMessage { Severity = NotificationSeverity.Success, Summary = Localizer["SavedTo", location] }
+                );
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            ShowFailure(exception);
         }
     }
 
@@ -385,9 +413,17 @@
                                 RowRender="@(args => args.Attributes["data-testid"] = "document-row")">
                     <Columns>
                         <RadzenDataGridColumn TItem="DocumentDto" Property="@nameof(DocumentDto.Title)" Title="@Localizer["ColumnTitle"]" />
+                        <RadzenDataGridColumn TItem="DocumentDto" Property="@nameof(DocumentDto.FileName)" Title="@Localizer["ColumnFile"]">
+                            <Template Context="document">
+                                <span data-testid="document-file">@document.FileName (@FileSize.Format(document.Size))</span>
+                            </Template>
+                        </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="DocumentDto" Title="" Sortable="false" Filterable="false" TextAlign="TextAlign.Right">
                             <Template Context="document">
                                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
+                                    <RadzenButton Text="@Localizer["Download"]" Icon="download" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                                  Click="@(() => DownloadDocument(document))"
+                                                  aria-label="@Localizer["DownloadAria", document.Title]" />
                                     <RadzenButton Text="@Localizer["Rename"]" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
                                                   Click="@(() => OpenRenameDocumentDialog(document))" />
                                     <RadzenButton Text="@Localizer["FileInto"]" Icon="drive_file_move" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"

@@ -3,9 +3,11 @@ using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using DotNetQuery.Core;
 using DotNetQuery.Extensions.DependencyInjection;
+using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
+using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
@@ -148,18 +150,78 @@ public sealed class WorkspaceFacadeTests
     // ---- documents ----
 
     [Test]
-    public async Task ASuccessfulDocumentCreate_RefetchesTheInbox()
+    public async Task ASuccessfulUpload_SendsTheHeaderThenTheContent_AndRefetchesTheInbox()
     {
         using var services = CreateServices();
         var facade = services.GetRequiredService<DocumentsFacade>();
         facade.FindInbox.SetArgs(Owner);
         await Assert.That(await Next(facade.FindInbox.Success)).IsEmpty();
+        var content = TestDocuments.Bytes(FileLimits.ChunkSize * 2 + 100);
+        var progress = new List<long>();
 
         var refetched = Next(facade.FindInbox.Success.Where(list => list.Count == 1));
-        using var createDocument = facade.CreateCreateDocumentMutation();
-        createDocument.Execute(new CreateDocumentRequest { OwnerId = Owner.ToString(), Title = "Invoice" });
+        using var stream = new MemoryStream(content);
+        var created = await facade.UploadAsync(Owner, "Invoice March.pdf", "application/pdf", stream, progress.Add);
 
-        await Assert.That((await refetched).Single().Title).IsEqualTo("Invoice");
+        await Assert.That((await refetched).Single().Id).IsEqualTo(created.Id);
+        await Assert.That(documents.UploadedHeader!.OwnerId).IsEqualTo(Owner.ToString());
+        await Assert.That(documents.UploadedHeader.FileName).IsEqualTo("Invoice March.pdf");
+        await Assert.That(documents.UploadedHeader.HasTitle).IsFalse();
+        await Assert.That(documents.UploadedContent.ToArray()).IsEquivalentTo(content);
+        await Assert
+            .That(progress)
+            .IsEquivalentTo([(long)FileLimits.ChunkSize, FileLimits.ChunkSize * 2L, content.Length]);
+    }
+
+    [Test]
+    public async Task ARefusedUpload_ThrowsTheServersRefusal_AndRefetchesNothing()
+    {
+        documents.MutationFailure = new RpcException(new Status(StatusCode.InvalidArgument, "too large"));
+        using var services = CreateServices();
+        var facade = services.GetRequiredService<DocumentsFacade>();
+        using var watchInbox = Watch(facade.FindInbox);
+        facade.FindInbox.SetArgs(Owner);
+        await Next(facade.FindInbox.Success);
+        var before = documents.InboxCalls;
+
+        using var stream = new MemoryStream(TestDocuments.Bytes(FileLimits.ChunkSize * 3));
+        var failure = await Assert
+            .That(async () => await facade.UploadAsync(Owner, "big.pdf", null, stream))
+            .Throws<RpcException>();
+
+        await Assert.That(failure!.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
+        await Assert.That(documents.InboxCalls).IsEqualTo(before);
+    }
+
+    [Test]
+    public async Task ADownload_DeliversTheServersContent_AsOneForwardOnlyStream()
+    {
+        var content = TestDocuments.Bytes(FileLimits.ChunkSize + 7);
+        documents.DownloadContent = content;
+        using var services = CreateServices();
+        var facade = services.GetRequiredService<DocumentsFacade>();
+        var document = new DocumentDto { Id = Guid.NewGuid().ToString(), Size = content.Length };
+
+        await using var download = await facade.OpenDownloadAsync(document);
+        using var received = new MemoryStream();
+        await download.CopyToAsync(received);
+
+        await Assert.That(received.ToArray()).IsEquivalentTo(content);
+        await Assert.That(download.CanSeek).IsFalse();
+    }
+
+    [Test]
+    public async Task ARefusedDownload_IsThrownWhenOpening_NotWhileSaving()
+    {
+        documents.MutationFailure = new RpcException(new Status(StatusCode.NotFound, "gone"));
+        using var services = CreateServices();
+        var facade = services.GetRequiredService<DocumentsFacade>();
+
+        var failure = await Assert
+            .That(async () => await facade.OpenDownloadAsync(new DocumentDto { Id = Guid.NewGuid().ToString() }))
+            .Throws<RpcException>();
+
+        await Assert.That(failure!.StatusCode).IsEqualTo(StatusCode.NotFound);
     }
 
     [Test]
@@ -354,20 +416,117 @@ public sealed class WorkspaceFacadeTests
             return Call(Task.FromResult(new ListArchiveDocumentsResponse()));
         }
 
-        public override AsyncUnaryCall<CreateDocumentResponse> CreateDocumentAsync(
-            CreateDocumentRequest request,
+        public UploadDocumentHeader? UploadedHeader { get; private set; }
+        public MemoryStream UploadedContent { get; } = new();
+        public byte[] DownloadContent { get; set; } = [];
+
+        // Records what the client streams, and answers when it completes - or, with a failure set, as soon as
+        // the first message arrives, like a server that refuses an upload while it is still being sent.
+        public override AsyncClientStreamingCall<UploadDocumentRequest, UploadDocumentResponse> UploadDocument(
             CallOptions options
         )
         {
-            var document = new DocumentDto
-            {
-                Id = Guid.NewGuid().ToString(),
-                OwnerId = request.OwnerId,
-                Title = request.Title,
-            };
-            Items.Add(document);
+            var response = new TaskCompletionSource<UploadDocumentResponse>();
+            var writer = new RecordingWriter(
+                message =>
+                {
+                    if (message.PayloadCase == UploadDocumentRequest.PayloadOneofCase.Header)
+                    {
+                        UploadedHeader = message.Header;
 
-            return Call(Task.FromResult(new CreateDocumentResponse { Document = document }));
+                        if (MutationFailure is not null)
+                        {
+                            response.TrySetException(MutationFailure);
+                        }
+                    }
+                    else
+                    {
+                        message.Chunk.WriteTo(UploadedContent);
+                    }
+                },
+                () =>
+                {
+                    var document = new DocumentDto
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        OwnerId = UploadedHeader!.OwnerId,
+                        Title = UploadedHeader.FileName,
+                        FileName = UploadedHeader.FileName,
+                        Size = UploadedContent.Length,
+                    };
+                    Items.Add(document);
+                    response.TrySetResult(new UploadDocumentResponse { Document = document });
+                },
+                isOver: () => response.Task.IsCompleted
+            );
+
+            return new AsyncClientStreamingCall<UploadDocumentRequest, UploadDocumentResponse>(
+                writer,
+                response.Task,
+                Task.FromResult(new Metadata()),
+                () => Status.DefaultSuccess,
+                () => new Metadata(),
+                () => { }
+            );
+        }
+
+        public override AsyncServerStreamingCall<DownloadDocumentResponse> DownloadDocument(
+            DownloadDocumentRequest request,
+            CallOptions options
+        )
+        {
+            var chunks = MutationFailure is not null
+                ? throw MutationFailure
+                : DownloadContent
+                    .Chunk(FileLimits.ChunkSize)
+                    .Select(chunk => new DownloadDocumentResponse { Chunk = ByteString.CopyFrom(chunk) })
+                    .ToList();
+
+            return new AsyncServerStreamingCall<DownloadDocumentResponse>(
+                new ListReader<DownloadDocumentResponse>(chunks),
+                Task.FromResult(new Metadata()),
+                () => Status.DefaultSuccess,
+                () => new Metadata(),
+                () => { }
+            );
+        }
+
+        private sealed class RecordingWriter(
+            Action<UploadDocumentRequest> onMessage,
+            Action onComplete,
+            Func<bool> isOver
+        ) : IClientStreamWriter<UploadDocumentRequest>
+        {
+            public WriteOptions? WriteOptions { get; set; }
+
+            public Task WriteAsync(UploadDocumentRequest message)
+            {
+                // A call the server has already answered cannot take more, as with the real client.
+                if (isOver())
+                {
+                    return Task.FromException(new InvalidOperationException("The call is complete."));
+                }
+
+                onMessage(message);
+
+                return Task.CompletedTask;
+            }
+
+            public Task CompleteAsync()
+            {
+                onComplete();
+
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class ListReader<T>(IReadOnlyList<T> items) : IAsyncStreamReader<T>
+        {
+            private int index = -1;
+
+            public T Current => items[index];
+
+            public Task<bool> MoveNext(CancellationToken cancellationToken) => Task.FromResult(++index < items.Count);
         }
 
         public override AsyncUnaryCall<RenameDocumentResponse> RenameDocumentAsync(

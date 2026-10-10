@@ -1,8 +1,8 @@
 namespace OfficeRkyv.Desktop.Hosting;
 
 /// <summary>
-/// Where the desktop app keeps things, by the XDG base directory rules: data (the database), config (the
-/// settings file) and the runtime directory (the API's socket). A variable that is unset, empty or not an
+/// Where the desktop app keeps things, by the XDG base directory rules: data (the database and the content of
+/// every uploaded file), config (the settings file) and the runtime directory (the API's socket). A variable that is unset, empty or not an
 /// absolute path is ignored, as the specification says.
 /// </summary>
 public sealed record DesktopPaths(string DataDirectory, string ConfigDirectory, string RuntimeDirectory)
@@ -10,6 +10,9 @@ public sealed record DesktopPaths(string DataDirectory, string ConfigDirectory, 
     private const string AppDirectory = "office-rkyv";
 
     public string DatabasePath => Path.Combine(DataDirectory, "office-rkyv.db");
+
+    /// <summary>The content of uploaded files, beside the database: the two are one user's data.</summary>
+    public string BlobDirectory => Path.Combine(DataDirectory, "blobs");
 
     public string SettingsPath => Path.Combine(ConfigDirectory, "settings.json");
 

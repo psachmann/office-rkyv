@@ -28,7 +28,7 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         Bus.InvokeAsync<Archive>(new CreateArchiveCommand(owner.Id, name));
 
     private Task<Document> CreateDocument(User owner, string title = "Invoice") =>
-        Bus.InvokeAsync<Document>(new CreateDocumentCommand(owner.Id, title));
+        Bus.InvokeAsync<Document>(TestDocuments.Command(owner.Id, title));
 
     private async Task<Document> Reload(Document document)
     {
@@ -115,7 +115,7 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
     public async Task Create_ForAnUnknownOwner_IsNotFound()
     {
         await Assert
-            .That(async () => await Bus.InvokeAsync<Document>(new CreateDocumentCommand(Guid.NewGuid(), "Invoice")))
+            .That(async () => await Bus.InvokeAsync<Document>(TestDocuments.Command(Guid.NewGuid(), "Invoice")))
             .Throws<NotFoundException>();
     }
 

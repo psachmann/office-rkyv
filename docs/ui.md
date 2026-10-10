@@ -75,6 +75,15 @@ A page never calls a gRPC client. It injects a facade from `src/OfficeRkyv.UI/Sh
 - **A mutation refreshes by kind, not by key.** Workspace queries are keyed `[kind, id]` through `WorkspaceKeys` (`ForArchives`, `ForInbox`, `ForArchiveDocuments`), and a mutation's `OnSuccess` calls `queryClient.Invalidate(WorkspaceKeys.Inbox, …)`, which marks every query of those kinds stale. `MutationOptions.InvalidateKeys` matches whole keys only, so it is used only where the key has one part (`UsersFacade`).
 - **Results that settle later get a second refresh.** Deleting an archive returns its documents to the inbox after the call has answered (see [api.md](api.md)), so `ArchivesFacade` invalidates the inbox again after `CascadeSettleDelay`.
 
+### Files: upload and download
+
+A document is a file, so two operations on the facade are not queries or mutations.
+
+- **`DocumentsFacade.UploadAsync`** streams one file to the API (a header, then 64 KB chunks) and reports the bytes sent through a callback. It is a method and not a DotNetQuery mutation because a mutation has no progress to report. It invalidates the inbox and archive-content queries when a document was created, and throws a refusal exactly as the typed client throws every refusal, so `WorkspaceErrors` explains it. The upload dialog (`UploadDocumentsDialog`) calls it once per file, one file after another, and shows each file's own state; a refused file does not stop the next.
+- **`DocumentsFacade.OpenDownloadAsync`** returns the document's file as a forward-only `Stream`. The first message is read when it is opened, so a refusal (unknown or deleted document) is thrown there and not while saving.
+- **Saving is the host's job: `IFileSaver`** (`OfficeRkyv.UI.Files`) takes a file name, a content type and a stream. The web host (`WebFileSaver`) hands the stream to the browser as a download; the desktop (`DesktopFileSaver`) writes it where the user chooses. It returns where the file went when the host can say, and the page shows that in a notification. A cancelled save writes nothing and throws nothing. Register an implementation in every host, as for `IUserSettingsService`.
+- **A size limit is refused before sending.** `FileLimits` in `OfficeRkyv.Contracts` carries the default limit and the chunk size, so the dialog can say no quickly. The server's configured limit stays the authority.
+
 What the UI library registers itself is in `AddOfficeRkyvUi` (Radzen, localization, the facades). The host adds what differs per host: DotNetQuery and its options, the gRPC clients and their addresses, and its `IUserSettingsService`.
 
 ## Failures become localized messages
@@ -82,7 +91,7 @@ What the UI library registers itself is in `AddOfficeRkyvUi` (Radzen, localizati
 The API answers a refused call with a gRPC status and a stable code (see [api.md](api.md)). The UI chooses its text from the status code and that code, never from the server's own message, which is English-only and not written for users.
 
 - One small record per form or page turns an exception into resource keys: `CreateUserErrors` and `WorkspaceErrors` in `src/OfficeRkyv.UI/Components/Pages/Users`. The component localizes the keys.
-- A field violation is shown under its field; the first violation per field wins. Everything else is one general message.
+- A field violation is shown under its field; the first violation per field wins. A violation on `content` or `file_name` belongs to a file of the upload dialog (`WorkspaceErrors.File`), not to a form field. Everything else is one general message.
 - An unknown code degrades to a generic text. It is never shown raw and never dropped.
 - A refusal that means the page is out of date (`Aborted`, `NotFound`, a deleted archive or document) also asks for a reload of the affected lists (`WorkspaceErrors.ReloadNeeded`).
 
@@ -105,3 +114,4 @@ Give a `data-testid` only to an element that has no name of its own, such as a n
 - [add-settings-page](../openspec/changes/archive/2026-09-29-add-settings-page/design.md): the appearance choice and the two linked themes.
 - [add-linux-desktop-app](../openspec/changes/archive/2026-09-30-add-linux-desktop-app/design.md) (D2, D4): what lives in the UI library, and `IUserSettingsService`.
 - [move-workspace-nav-into-sidebar](../openspec/changes/archive/2026-10-01-move-workspace-nav-into-sidebar/design.md) (D6, D7): a section's own loading and failure states, and no CSS for the workspace.
+- [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D11, D12): uploading outside the mutation helper, and saving a file as the host's job.

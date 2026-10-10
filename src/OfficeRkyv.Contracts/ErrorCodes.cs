@@ -9,6 +9,7 @@ public static class ViolationCodes
     public const string Required = "required";
     public const string InvalidFormat = "invalid_format";
     public const string TooLong = "too_long";
+    public const string TooLarge = "too_large";
 }
 
 /// <summary>
