@@ -6,11 +6,6 @@
     <PackageReference Include="TUnit.Mocks" />
   </ItemGroup>
 
-  <!-- SPIKE: tests for the hand-rolled event store, excluded along with the code they cover. -->
-  <ItemGroup>
-    <Compile Remove="EventSourcing/**/*.cs" />
-  </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\src\OfficeRkyv.Api\OfficeRkyv.Api.csproj" />
     <ProjectReference Include="..\..\src\OfficeRkyv.Desktop\OfficeRkyv.Desktop.csproj" />
