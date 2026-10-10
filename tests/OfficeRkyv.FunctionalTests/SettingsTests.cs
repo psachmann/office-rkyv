@@ -9,8 +9,8 @@ namespace OfficeRkyv.FunctionalTests;
 /// is emulated per test, so each test decides what "System" means.
 /// </summary>
 [ParallelLimiter<BrowserParallelLimit>]
-[ClassDataSource<AspireFixture<Projects.OfficeRkyv_AppHost>>(Shared = SharedType.PerTestSession)]
-public class SettingsTests(AspireFixture<Projects.OfficeRkyv_AppHost> fixture) : PageTest
+[ClassDataSource<AppHostFixture>(Shared = SharedType.PerTestSession)]
+public class SettingsTests(AppHostFixture fixture) : PageTest
 {
     private const string AppearanceCookie = "office-rkyv-appearance";
 

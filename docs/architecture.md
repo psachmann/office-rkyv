@@ -66,6 +66,8 @@ A failure anywhere below the service becomes a gRPC status with a stable code in
 
 The API server (`src/OfficeRkyv.Api/Program.cs`), the desktop (`DesktopApi`) and the pipeline tests (`PipelineHost`) all call these, so they run the same pipeline. A host adds only what is its own around them: service defaults and telemetry, ports or a socket, and where the data lives. Register a new feature inside these two methods, never in a host.
 
+The API server adds one thing of its own beyond service defaults and telemetry: the development seed (`AddDevelopmentSeedData()` in `src/OfficeRkyv.Api/Program.cs`). In the Development environment it creates a demo user (`demo@example.com`) with an empty archive and three inbox documents, through the normal create commands and once per database: when the demo user exists it adds nothing. It is deliberately not part of the shared calls, so the desktop app, which is also started in Development by `just desktop` but keeps the user's real data, and the pipeline tests never seed. `Seed__DemoData=false` switches it off, and outside Development it never runs, whatever the setting says.
+
 ## Two hosts
 
 | | Web | Desktop |

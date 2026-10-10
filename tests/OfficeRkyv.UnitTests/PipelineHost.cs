@@ -26,7 +26,13 @@ public sealed class PipelineHost : IAsyncDisposable
 
     private PipelineHost() { }
 
-    public IMessageBus Bus => host.Services.GetRequiredService<IMessageBus>();
+    private AsyncServiceScope scope;
+
+    /// <summary>
+    /// Resolved through a scope that lives as long as the host: the bus is a scoped service, which the root
+    /// provider refuses in the Development environment, where scopes are validated.
+    /// </summary>
+    public IMessageBus Bus => scope.ServiceProvider.GetRequiredService<IMessageBus>();
 
     public IDocumentStore Store => host.Services.GetRequiredService<IDocumentStore>();
 
@@ -42,25 +48,32 @@ public sealed class PipelineHost : IAsyncDisposable
 
     public Uri Address { get; private set; } = null!;
 
-    public static async Task<PipelineHost> StartAsync()
+    /// <param name="environmentName">The host environment; the default is what the test run itself reports.</param>
+    /// <param name="configure">Runs after the API composition, for a host-specific addition such as the seed.</param>
+    public static async Task<PipelineHost> StartAsync(
+        string? environmentName = null,
+        Action<WebApplicationBuilder>? configure = null
+    )
     {
         var pipeline = new PipelineHost();
-        await pipeline.StartCoreAsync();
+        await pipeline.StartCoreAsync(environmentName, configure);
 
         return pipeline;
     }
 
-    private async Task StartCoreAsync()
+    private async Task StartCoreAsync(string? environmentName, Action<WebApplicationBuilder>? configure)
     {
-        var builder = WebApplication.CreateBuilder();
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environmentName });
         builder.WebHost.UseKestrel(kestrel =>
             kestrel.Listen(IPAddress.Loopback, 0, listen => listen.Protocols = HttpProtocols.Http2)
         );
         builder.AddOfficeRkyvApi($"Data Source={path}");
+        configure?.Invoke(builder);
 
         host = builder.Build();
         host.MapOfficeRkyvApi();
         await host.StartAsync();
+        scope = host.Services.CreateAsyncScope();
 
         var addresses = host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;
         Address = new Uri(addresses.Addresses.Single());
@@ -69,6 +82,7 @@ public sealed class PipelineHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        await scope.DisposeAsync();
         Channel.Dispose();
         await host.StopAsync();
         await host.DisposeAsync();

@@ -16,8 +16,8 @@ public class BrowserParallelLimit : IParallelLimit
 /// </summary>
 [Skip("Currently this test is a show case and the expects needed to be switched to TUnit assertions")]
 [ParallelLimiter<BrowserParallelLimit>]
-[ClassDataSource<AspireFixture<Projects.OfficeRkyv_AppHost>>(Shared = SharedType.PerTestSession)]
-public class LandingPageTests(AspireFixture<Projects.OfficeRkyv_AppHost> fixture) : PageTest
+[ClassDataSource<AppHostFixture>(Shared = SharedType.PerTestSession)]
+public class LandingPageTests(AppHostFixture fixture) : PageTest
 {
     private ILocator NewUserButton => Page.GetByRole(AriaRole.Button, new() { Name = "New user" });
     private ILocator CreateUserButton => Page.GetByRole(AriaRole.Button, new() { Name = "Create user" });

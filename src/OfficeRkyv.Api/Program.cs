@@ -1,4 +1,5 @@
 using OfficeRkyv.Api;
+using OfficeRkyv.Api.Development;
 using OfficeRkyv.Api.Shared.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,10 @@ builder.AddOfficeRkyvApi(
     // Microsoft.Data.Sqlite pools connections process-wide and not per store.
     options => options.OpenTelemetry.TrackWriteLockContention()
 );
+
+// Development only, and only on the API server: the desktop app shares the composition above but keeps the
+// user's real data, so it never seeds.
+builder.AddDevelopmentSeedData();
 builder.Services.AddApiTelemetry();
 
 var app = builder.Build();

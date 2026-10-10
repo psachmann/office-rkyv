@@ -9,8 +9,8 @@ namespace OfficeRkyv.FunctionalTests;
 /// session, so every test creates its own user and never looks at anyone else's data.
 /// </summary>
 [ParallelLimiter<BrowserParallelLimit>]
-[ClassDataSource<AspireFixture<Projects.OfficeRkyv_AppHost>>(Shared = SharedType.PerTestSession)]
-public class WorkspaceTests(AspireFixture<Projects.OfficeRkyv_AppHost> fixture) : PageTest
+[ClassDataSource<AppHostFixture>(Shared = SharedType.PerTestSession)]
+public class WorkspaceTests(AppHostFixture fixture) : PageTest
 {
     private WorkspacePage Workspace => new(Page);
 

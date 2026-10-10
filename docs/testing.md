@@ -53,7 +53,7 @@ The same holds for the pipeline and UI-logic levels, which live in the same proj
 
 In practice the page objects (`WorkspacePage`, `SettingsPage`) find an element the way a person does, by role, label or visible text, and use `data-testid` only for parts with no name of their own, such as a navigation entry or a document row. Follow that; [ui.md](ui.md#test-ids) says which elements get a test id.
 
-- **One AppHost per test session.** Every class takes `AspireFixture<Projects.OfficeRkyv_AppHost>` with `Shared = SharedType.PerTestSession`, so all functional tests share one app and one SQLite database.
+- **One AppHost per test session.** Every class takes `AppHostFixture` (an `AspireFixture<Projects.OfficeRkyv_AppHost>`) with `Shared = SharedType.PerTestSession`, so all functional tests share one app and one SQLite database. The fixture starts the API with `Seed__DemoData=false`, so the development seed ([architecture.md](architecture.md#one-api-composition)) does not put a demo user into that database; `DevelopmentSeedTests` guards it.
 - **Each test creates its own user** and looks at nobody else's data (`WorkspacePage.OpenNewUsersWorkspaceAsync`), which is what lets them run in parallel. `LandingPageTests` is the exception: it needs the empty database first, so its tests are ordered with `DependsOn`.
 - **Browsers are limited** with `[ParallelLimiter<BrowserParallelLimit>]` on every class.
 - **Assert with Playwright's `Expect`**, which waits, for anything on the page; TUnit assertions for everything else.
