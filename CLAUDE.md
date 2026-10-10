@@ -24,3 +24,7 @@ office-rkyv is paperless office software: a gRPC API on an event store, and one 
 ## Keeping the docs true
 
 The docs state the conventions that hold now; the reasoning behind them is in the archived designs under `openspec/changes/archive`. A change that sets or changes a convention updates the doc in the same change.
+
+## Postponed work
+
+[TODOS.md](TODOS.md) lists the features and decisions that were deliberately left for later, with the reason and where it was decided. Read it before proposing a change, since the idea may already be there with its open questions. A change that defers something adds it there; a change that picks an item up, or decides against it, removes it.
