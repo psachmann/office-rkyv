@@ -100,6 +100,12 @@
   <data name="ContentTooLarge" xml:space="preserve">
     <value>This file is too large to upload.</value>
   </data>
+  <data name="QueryTooShort" xml:space="preserve">
+    <value>Type at least 3 characters.</value>
+  </data>
+  <data name="QueryTooLong" xml:space="preserve">
+    <value>The search is too long.</value>
+  </data>
   <data name="FileNameRequired" xml:space="preserve">
     <value>This file has no name.</value>
   </data>

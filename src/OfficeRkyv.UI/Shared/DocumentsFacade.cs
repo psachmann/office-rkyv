@@ -14,9 +14,14 @@ namespace OfficeRkyv.UI.Shared;
 public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.DocumentsServiceClient documentService)
     : IDisposable
 {
-    // Any document change can move a document between the inbox and an archive's contents, so every
-    // document mutation refreshes both.
-    private static readonly string[] DocumentKinds = [WorkspaceKeys.Inbox, WorkspaceKeys.ArchiveDocuments];
+    // Any document change can move a document between the inbox and an archive's contents, or change what a
+    // search finds, so every document mutation refreshes all three.
+    private static readonly string[] DocumentKinds =
+    [
+        WorkspaceKeys.Inbox,
+        WorkspaceKeys.ArchiveDocuments,
+        WorkspaceKeys.Search,
+    ];
 
     // Filing also moves the archive's version (it appends an event to it), and the next rename or delete of
     // that archive has to send the new one - so the archive list is refreshed too.
@@ -59,6 +64,29 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
                             )
                         ).Documents,
                     ],
+            }
+        );
+
+    /// <summary>
+    /// The owner's documents, from the inbox and every archive, whose title or file name contains every word of the
+    /// query, best match first. Not called for a query the server would refuse as too short.
+    /// </summary>
+    public IQuery<DocumentSearch, DocumentSearchResult> SearchDocuments { get; } =
+        queryClient.CreateQuery(
+            new QueryOptions<DocumentSearch, DocumentSearchResult>
+            {
+                KeyFactory = WorkspaceKeys.ForSearch,
+                Fetcher = async (search, ct) =>
+                {
+                    var response = await documentService.SearchDocumentsAsync(
+                        new SearchDocumentsRequest { OwnerId = search.OwnerId.ToString(), Query = search.Query },
+                        null,
+                        null,
+                        ct
+                    );
+
+                    return new DocumentSearchResult([.. response.Documents], response.HasMore);
+                },
             }
         );
 
@@ -181,5 +209,6 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
     {
         FindInbox.Dispose();
         FindArchiveDocuments.Dispose();
+        SearchDocuments.Dispose();
     }
 }

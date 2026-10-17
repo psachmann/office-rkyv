@@ -12,6 +12,7 @@ import "google/protobuf/timestamp.proto";
 service DocumentsService {
   rpc ListInbox (ListInboxRequest) returns (ListInboxResponse);
   rpc ListArchiveDocuments (ListArchiveDocumentsRequest) returns (ListArchiveDocumentsResponse);
+  rpc SearchDocuments (SearchDocumentsRequest) returns (SearchDocumentsResponse);
   rpc UploadDocument (stream UploadDocumentRequest) returns (UploadDocumentResponse);
   rpc DownloadDocument (DownloadDocumentRequest) returns (stream DownloadDocumentResponse);
   rpc RenameDocument (RenameDocumentRequest) returns (RenameDocumentResponse);
@@ -54,6 +55,21 @@ message ListArchiveDocumentsRequest {
 
 message ListArchiveDocumentsResponse {
   repeated DocumentDto documents = 1;
+}
+
+// Finds the owner's non-deleted documents, in the inbox and in every archive, whose title or file name contains
+// every word of the query, best match first. A word matches anywhere inside a title or a file name, ignoring case.
+// Words of fewer than 3 characters are ignored; a query with no word left is INVALID_ARGUMENT on `query` with the
+// reason `too_short`, and one over 200 characters is `too_long`. An unknown owner yields an empty list.
+message SearchDocumentsRequest {
+  string owner_id = 1;
+  string query = 2;
+}
+
+// At most 50 documents; `has_more` says that more matched than were returned.
+message SearchDocumentsResponse {
+  repeated DocumentDto documents = 1;
+  bool has_more = 2;
 }
 
 // Mutations return the resulting document so the client can seed its query cache from the response,

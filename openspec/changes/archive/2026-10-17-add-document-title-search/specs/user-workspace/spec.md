@@ -68,8 +68,8 @@ A listed result SHALL offer the same actions as any listed document, and the res
 - **THEN** the search field is empty and the main area lists the documents in `Taxes 2026`
 
 #### Scenario: Acting on a result
-- **WHEN** a visitor has searched for `invoice` and renames the result `Invoice March` to `Electricity bill`
-- **THEN** `Electricity bill` is no longer listed among the results, without a page reload
+- **WHEN** a visitor has searched for `invoice` and deletes the result `Invoice March`, and confirms
+- **THEN** `Invoice March` is no longer listed among the results, without a page reload
 
 ### Requirement: The search is kept in the page address
 The workspace SHALL keep the search query in its page address while a search is entered, and SHALL open with that search when the address holds one. Typing SHALL NOT add a browser history entry per change, so that going back leaves the search and not one character of it.

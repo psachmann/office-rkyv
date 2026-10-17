@@ -39,6 +39,7 @@ public static class OfficeRkyvApiExtensions
             {
                 options.Connection(connectionString);
                 options.AddAggregateSnapshots();
+                options.AddSearchIndexes();
                 configureStore?.Invoke(options);
             })
             .ApplyAllDatabaseChangesOnStartup()

@@ -22,7 +22,7 @@ namespace OfficeRkyv.UnitTests;
 /// </summary>
 public sealed class PipelineHost : IAsyncDisposable
 {
-    private readonly string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():n}.db");
+    private readonly string path;
 
     /// <summary>
     /// Where this host keeps file content: beside the database and named after it, as the API server derives it,
@@ -31,7 +31,8 @@ public sealed class PipelineHost : IAsyncDisposable
     public string BlobDirectory => path + ".blobs";
     private WebApplication host = null!;
 
-    private PipelineHost() { }
+    private PipelineHost(string? databasePath) =>
+        path = databasePath ?? Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():n}.db");
 
     private AsyncServiceScope scope;
 
@@ -58,13 +59,18 @@ public sealed class PipelineHost : IAsyncDisposable
     /// <param name="environmentName">The host environment; the default is what the test run itself reports.</param>
     /// <param name="configure">Runs after the API composition, for a host-specific addition such as the seed.</param>
     /// <param name="maxFileSizeBytes">The largest accepted file; a test that needs a limit it can reach sets it.</param>
+    /// <param name="databasePath">
+    /// An existing database file to start on, with the blob directory beside it, instead of a new one: a test that
+    /// needs data written by an earlier version, or by an earlier host. The host deletes both when it is disposed.
+    /// </param>
     public static async Task<PipelineHost> StartAsync(
         string? environmentName = null,
         Action<WebApplicationBuilder>? configure = null,
-        long? maxFileSizeBytes = null
+        long? maxFileSizeBytes = null,
+        string? databasePath = null
     )
     {
-        var pipeline = new PipelineHost();
+        var pipeline = new PipelineHost(databasePath);
         await pipeline.StartCoreAsync(environmentName, configure, maxFileSizeBytes);
 
         return pipeline;

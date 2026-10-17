@@ -58,25 +58,33 @@ Trigram, because the users write German: a compound word holds the word being se
 
 ### D2. The query is split into words, and every word has to match
 
-A small pure rule, `SearchTerms`, turns the query into the words to search for: trim, split on whitespace, drop words with no letter or digit, drop words of fewer than 3 characters. The handler adds one `NgramSearch` predicate per word, ANDed, so the words may match in any order and in either field:
+A small pure rule, `SearchTerms` in `OfficeRkyv.Contracts` (shared with the UI, like `FileLimits`, so the page can say "type more" with exactly the server's rule), turns the query into the words to search for: trim, split on whitespace, drop words with no letter or digit, drop words of fewer than 3 characters. The handler runs one raw FTS5 query through `IAdvancedSql`, with each word quoted and ANDed, so the words may match in any order and in either field, ordered by FTS5's `bm25()`:
 
 ```csharp
-var query = session.Query<Document>()
-    .Where(d => d.OwnerId == ownerId && d.Status != EntityStatus.Deleted);
-
-foreach (var term in terms)
-{
-    query = query.Where(d => d.NgramSearch(term));
-}
-
-var page = await query.OrderByRelevance().ThenBy(d => d.Title).Take(Limit + 1).ToListAsync();
+// match: "invoice" AND "apr"  (each word in double quotes, a double quote inside a word doubled)
+select {fields of d}
+from fi_fts_document f
+join fi_doc_document d on d.rowid = f.rowid
+where fi_fts_document match ?
+  and json_extract(d.data, '$.ownerId') = ? and json_extract(d.data, '$.status') <> ?
+order by bm25(fi_fts_document), json_extract(d.data, '$.title')
+limit 51
 ```
 
-One `NgramSearch` over the whole query would read `invoice april` as a phrase, so `April invoice` would not be found. Dropping short words follows from the index: a term under 3 characters cannot match a trigram index, and Fisher refuses it rather than return nothing.
+The columns come from `SelectFieldsFor<Document>()` prefixed with `d.`, as Fisher documents for raw document queries. The JSON names in the filters and the status value are checked against what Fisher stores in task 2.4, and the pipeline tests fail if they drift.
 
-*Depends on:* task 1.1, which checks against Fisher that two `NgramSearch` predicates on one query are accepted and ANDed, and that a multi-word term is matched as a phrase. If several predicates are refused, the fallback is one FTS5 `MATCH` with each word quoted and joined by `AND`, through `IAdvancedSql` against the index table Fisher created. The task records which applies, and D2 is updated before the handler is written.
+One `NgramSearch` over the whole query would read `invoice april` as a phrase, so `April invoice` would not be found. Dropping short words follows from the index: a term under 3 characters cannot match a trigram index.
 
-*Verified at:* unit (the word rule: whitespace, short words, punctuation-only words, an empty query), pipeline (any order, every word, one word in each field, search syntax taken literally).
+Task 1.1 settled the shape. Chained `Where(d => d.NgramSearch(...))` calls, or `&&`, are accepted and ANDed; a multi-word term is a phrase; `ärger` finds `ÄRGER` (case folding beyond ASCII works) but `ARGER` does not (no accent folding). But `OrderByRelevance()` throws a `BadLinqExpressionException` as soon as the query has two full-text predicates ("cannot tell which one to rank by"; it advises one combined FTS5 query), so the LINQ route cannot rank a multi-word search. The raw query above was run against the index and returned the matches best first.
+
+*Alternatives:*
+
+- Chained `NgramSearch` with relevance for one-word queries only and title order for the rest. Rejected: the "ordered by relevance" requirement would hold only for one word.
+- Chained `NgramSearch`, then ordering in C# by our own rule. Rejected: it is not `bm25()`, and the 50-result limit would apply before the order.
+
+*Cost:* the handler depends on Fisher's storage names (`fi_fts_document`, `fi_doc_document`, the `rowid` link and the JSON member names), which Fisher does not promise. Every search scenario of the pipeline tests runs this query, so a Fisher upgrade that changes them fails a test and not a user. The names are constants in one place.
+
+*Verified at:* unit (the word rule: whitespace, short words, punctuation-only words, an empty query), pipeline (any order, every word, one word in each field, search syntax taken literally, the order).
 
 ### D3. A search is a query with a validator, answered with a page and a "more" flag
 
@@ -93,11 +101,11 @@ The archive's name is not in the response: the workspace already holds the user'
 
 *Verified at:* pipeline (the limit, the order, the refusals with their field and code, through the gRPC client and `GrpcFailure`).
 
-### D4. Documents that existed before the index are indexed at start
+### D4. Documents that existed before the index are indexed by the migration
 
 An external-content FTS5 table is filled by its triggers, and triggers only see rows written after they exist. A desktop database created before this change holds documents the triggers never saw.
 
-Task 1.1 checks whether Fisher's schema migration fills a newly created index from the existing table. If it does, nothing more is needed. If it does not, the API runs a check at start, in a hosted service registered in `AddOfficeRkyvApi`: `CheckFullTextIndexAsync<Document>()`, and `RebuildFullTextIndexAsync<Document>()` when the check fails. The check is cheap at the sizes this app has and is the only way to ask, since a stale index returns fewer rows and no error.
+Task 1.1 settled it: Fisher's schema migration fills a newly created index from the existing table. A store started with the index on a database file that a store without it had written (a document `Old Rechnung`) found that document by `NgramSearch`, and `CheckFullTextIndexAsync<Document>()` passed. **No start check or rebuild is needed.** If a later Fisher version stops doing this, `CheckFullTextIndexAsync<Document>()` is the way to ask, since a stale index returns fewer rows and no error.
 
 *Verified at:* pipeline (a `PipelineHost` started on a database written by a store without the index, then searched), by hand (a desktop data directory from before this change).
 
@@ -107,7 +115,7 @@ The workspace reads the query from the address (`?q=`, `[SupplyParameterFromQuer
 
 - After a pause of 300 ms in typing, the page navigates to its own address with the new query. The first navigation from no query to a query adds a history entry; every later one while the query is non-empty replaces it (`NavigateTo(..., replace: true)`). Going back from a search therefore returns to the unsearched list, not to the search minus its last character.
 - Clearing the field navigates to the address without `q`. Selecting a navigation entry links to that entry's address, which has no `q`, so the search clears without extra code.
-- With fewer than 3 characters, the page shows the hint and does not set the query's arguments, so the API is not called. The server rule (D3) stays the authority; the page counts characters of the trimmed query, which can only be stricter than nothing and matches the rule for a single word.
+- When `SearchTerms.From(query)` finds no word, the page shows the hint and does not set the query's arguments, so the API is not called. It is the same rule the server applies (D2, D3), which stays the authority.
 
 On the desktop the address is the `BlazorWebView`'s internal one. Reload and back are not offered there, but the same code runs.
 
@@ -127,8 +135,8 @@ The results use the page's existing document rows and their actions, with one mo
 
 ## Telemetry and logs
 
-- **Traces:** no new source. The search shows up as the existing gRPC request span with Wolverine's handler span and Fisher's store span under it. The query text is not a span attribute in any of them: gRPC and Wolverine record the method and message type, and Fisher's store spans carry no parameters (`Command_LeavesNoUserDataOnStoreSpans`). `ApiTelemetryTests` gains a search and asserts that no span carries the searched word.
-- **The web host:** the query is in the page address, so a full page load with `?q=` is an HTTP request. ASP.NET Core's instrumentation (1.19) redacts query string values by default, and nothing in this change turns that off. Checked once by hand in the Aspire dashboard (task 7.2).
+- **Traces:** no new source. The search shows up as the existing gRPC request span with Wolverine's handler span under it; a read opens no Fisher span. The query text is not a span attribute in either: gRPC and Wolverine record the method and the message type only (checked in task 3.6). `ApiTelemetryTests` gains a search and asserts that no span carries the searched word.
+- **The web host:** the query is in the page address, so a full page load with `?q=` is an HTTP request, and its server span has a `url.query` tag. ASP.NET Core's instrumentation (1.19) redacts the values by default (`?q=Redacted`), and nothing in the app turns that off; `ApiTelemetryTests` asserts it. Checked by hand in task 7.2: the Aspire AppHost sets `OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION=true` on the processes it starts, so under `just dev` the local dashboard shows the query in the clear. That is a development setting of the dashboard, not of the app, and it is accepted.
 - **Metrics:** none new.
 - **Logs:** none new. The handler does not log. A refused search is a validation failure, which the error mapping does not log.
 - **Never in a span or a log:** the search query, added to the list in `docs/observability.md` beside titles and file names.
@@ -145,7 +153,7 @@ No decision departs from a guideline doc.
 
 ## Risks / Trade-offs
 
-- [Fisher refuses more than one `NgramSearch` per query, or matches a term differently than documented] → Task 1.1 checks it before anything is built on it; D2 names the fallback.
+- [The search query uses Fisher's storage names, which Fisher does not promise] → The names are constants in one place and every search scenario of the pipeline tests runs the query, so an upgrade that changes them fails a test. Task 1.1 found that the LINQ route cannot rank a multi-word search (D2).
 - [A trigram index has no stemming, so `Rechnungen` does not find `Rechnung`] → The other way round works (`rechnung` finds `Rechnungen`), which is the common case for a search box. Accepted.
 - [No accent folding: `Marz` does not find `März`, `ae` does not find `ä`] → Fisher's tokenizer enum does not expose FTS5's `remove_diacritics` for trigram. Recorded in `TODOS.md`; a German user types the umlaut.
 - [Every keystroke after the pause is a new cache entry and a new call] → The pause bounds it, the query is an index lookup over a small table, and DotNetQuery drops unused entries after its cache time.

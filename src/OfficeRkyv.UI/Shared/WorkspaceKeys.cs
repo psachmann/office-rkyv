@@ -14,12 +14,15 @@ internal static class WorkspaceKeys
     public const string Archives = "archives";
     public const string Inbox = "inbox";
     public const string ArchiveDocuments = "archive-documents";
+    public const string Search = "search";
 
     public static QueryKey ForArchives(Guid ownerId) => [Archives, ownerId];
 
     public static QueryKey ForInbox(Guid ownerId) => [Inbox, ownerId];
 
     public static QueryKey ForArchiveDocuments(Guid archiveId) => [ArchiveDocuments, archiveId];
+
+    public static QueryKey ForSearch(DocumentSearch search) => [Search, search.OwnerId, search.Query];
 
     /// <summary>Marks every query of the given kinds stale, whatever it was asked about.</summary>
     public static void Invalidate(this IQueryClient queryClient, params string[] kinds) =>

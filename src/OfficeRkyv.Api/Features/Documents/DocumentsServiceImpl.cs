@@ -35,6 +35,16 @@ public partial class DocumentsServiceImpl(
         return documents.ToArchiveDocumentsResponse();
     }
 
+    public override async Task<SearchDocumentsResponse> SearchDocuments(
+        SearchDocumentsRequest request,
+        ServerCallContext context
+    )
+    {
+        var result = await bus.InvokeAsync<SearchDocumentsResult>(request.ToQuery(), context.CancellationToken);
+
+        return result.ToSearchResponse();
+    }
+
     // The one method that does work of its own: the content has to be read, and stored, before there is a
     // command to dispatch. DocumentIngest owns that; this only turns the stream into what it takes.
     public override async Task<UploadDocumentResponse> UploadDocument(

@@ -23,6 +23,20 @@ public sealed class WorkspacePage(IPage page)
 
     public ILocator EmptyState => page.GetByTestId("empty-state");
 
+    /// <summary>The search field above the document list, found by its accessible name as a person finds it.</summary>
+    public ILocator SearchField => page.GetByRole(AriaRole.Textbox, new() { Name = "Search documents" });
+
+    /// <summary>The hint that asks for more characters instead of showing results.</summary>
+    public ILocator SearchHint => page.GetByTestId("search-hint");
+
+    public ILocator SearchNoResults => page.GetByTestId("search-no-results");
+
+    /// <summary>The note that more documents matched than are shown.</summary>
+    public ILocator SearchMore => page.GetByTestId("search-more");
+
+    /// <summary>The heading of the results, shown instead of the selection's name while a search is entered.</summary>
+    public ILocator SearchHeading => page.GetByTestId("search-heading");
+
     public ILocator Sidebar => page.Locator(".rz-sidebar");
 
     /// <summary>The sidebar link that holds the inbox entry, so it carries the link's own state and click.</summary>
@@ -53,6 +67,12 @@ public sealed class WorkspacePage(IPage page)
     public ILocator DocumentRow(string title) =>
         page.GetByTestId("document-row")
             .Filter(new() { Has = page.Locator("td").GetByText(title, new() { Exact = true }) });
+
+    /// <summary>Where a listed document is, as the results say: the inbox, or the archive's name.</summary>
+    public ILocator DocumentLocation(string title) => DocumentRow(title).GetByTestId("document-location");
+
+    /// <summary>Types into the search field in one go; the page runs the search once typing has rested.</summary>
+    public Task SearchAsync(string text) => SearchField.FillAsync(text);
 
     /// <summary>Creates a user on the landing page and opens their workspace from the user list.</summary>
     public async Task OpenNewUsersWorkspaceAsync(string baseAddress, string displayName)

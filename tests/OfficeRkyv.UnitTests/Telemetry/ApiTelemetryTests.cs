@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Documents;
 using OfficeRkyv.Api.Features.Users;
+using OfficeRkyv.Api.Shared;
 using OfficeRkyv.Api.Shared.Blobs;
 using OfficeRkyv.Api.Shared.Errors;
 using OfficeRkyv.Api.Shared.Telemetry;
@@ -45,6 +46,7 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
     // ActivitySources are process-wide, so this host's exporter also hears every other host the test run has
     // going in parallel. Kestrel's port is what tells this host's server spans apart from theirs.
     private int port;
+    private Uri address = null!;
 
     private UsersService.UsersServiceClient Client => new(channel);
 
@@ -68,6 +70,7 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
                 options.Connection($"Data Source={path}");
                 options.Projections.Snapshot<User>(SnapshotLifecycle.Inline);
                 options.Projections.Snapshot<Document>(SnapshotLifecycle.Inline);
+                options.AddSearchIndexes();
                 options.OpenTelemetry.TrackWriteLockContention();
             })
             .ApplyAllDatabaseChangesOnStartup()
@@ -92,7 +95,7 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         await host.StartAsync();
 
         var addresses = host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;
-        var address = new Uri(addresses.Addresses.Single());
+        address = new Uri(addresses.Addresses.Single());
         port = address.Port;
         channel = GrpcChannel.ForAddress(address);
     }
@@ -169,6 +172,53 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         await Assert.That(below.Any(span => span.Source.Name == FisherSource)).IsTrue();
         await Assert.That(leaked.Count).IsEqualTo(0);
         await Assert.That(document.Title).IsEqualTo(title);
+    }
+
+    [Test]
+    public async Task AQueryString_HasItsValuesRedactedOnTheServerSpan_AndKeepsItsKeys()
+    {
+        const string searched = "Stromrechnung";
+
+        // The page address of the web host carries what a user searched for (?q=). The endpoint does not exist: a
+        // refused request is traced like any other.
+        using var http = new HttpClient
+        {
+            DefaultRequestVersion = System.Net.HttpVersion.Version20,
+            DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact,
+        };
+        await http.GetAsync(new Uri(address, $"/anything?q={searched}&page=2&flag"));
+        var spans = await WaitForServerSpans(1);
+
+        var server = spans.Single(IsOwnServerSpan);
+        var leaked = spans.Where(span => Everything(span).Any(text => text.Contains(searched))).ToList();
+
+        await Assert.That(server.GetTagItem("url.query")).IsEqualTo("?q=Redacted&page=Redacted&flag");
+        await Assert.That(leaked.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Search_LeavesTheQueryOnNoSpan()
+    {
+        const string query = "Stromrechnung";
+        var user = (
+            await Client.CreateUserAsync(new CreateUserRequest { Email = "ada@example.com", DisplayName = "Ada" })
+        ).User;
+        var documents = new DocumentsService.DocumentsServiceClient(channel);
+        await TestDocuments.UploadAsync(documents, user.Id, "scan0001.pdf", TestDocuments.Bytes(100), title: "Strom");
+
+        var response = await documents.SearchDocumentsAsync(
+            new SearchDocumentsRequest { OwnerId = user.Id, Query = query }
+        );
+        var spans = await WaitForServerSpans(3);
+
+        // The search is traced like any call: a server span with the handler below it. A read opens no store span.
+        var server = ServerSpanFor(spans, "SearchDocuments");
+        var below = spans.Where(span => IsDescendantOf(spans, span, server)).ToList();
+        var leaked = spans.Where(span => Everything(span).Any(text => text.Contains(query))).ToList();
+
+        await Assert.That(below.Any(span => span.Source.Name == WolverineSource)).IsTrue();
+        await Assert.That(leaked.Count).IsEqualTo(0);
+        await Assert.That(response.Documents).IsEmpty();
     }
 
     [Test]

@@ -62,6 +62,17 @@ public sealed class WorkspaceErrorsTests
     }
 
     [Test]
+    [Arguments(ViolationCodes.TooShort, "QueryTooShort")]
+    [Arguments(ViolationCodes.TooLong, "QueryTooLong")]
+    [Arguments("a_rule_added_later", "FieldInvalid")]
+    public async Task ASearchViolation_IsShownUnderTheSearchField_ByItsCode(string code, string key)
+    {
+        var errors = WorkspaceErrors.From(InvalidArgument(("query", code)));
+
+        await Assert.That(errors).IsEqualTo(new WorkspaceErrors(Query: key));
+    }
+
+    [Test]
     public async Task AStaleWrite_IsTheChangedElsewhereMessage_AndAsksForAReload()
     {
         var errors = WorkspaceErrors.From(new RpcException(new GrpcStatus(StatusCode.Aborted, "server text")));

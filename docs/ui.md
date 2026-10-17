@@ -72,8 +72,18 @@ A page never calls a gRPC client. It injects a facade from `src/OfficeRkyv.UI/Sh
 - **Queries are shared.** A facade exposes each query as a property and is registered scoped, so there is one per circuit (web) or per window (desktop), and every component showing the same key shares one cache entry.
 - **Mutations are not shared.** A `Create…Mutation()` method returns a fresh instance that the calling component owns and disposes, so its state reports only what that component started.
 - **Pages render a query through `Transition`** (from DotNetQuery.Blazor), which gives the loading, failure and success branches. A part of the page with its own query shows its own loading and failure state; an empty-list text is never shown for a list that did not load.
-- **A mutation refreshes by kind, not by key.** Workspace queries are keyed `[kind, id]` through `WorkspaceKeys` (`ForArchives`, `ForInbox`, `ForArchiveDocuments`), and a mutation's `OnSuccess` calls `queryClient.Invalidate(WorkspaceKeys.Inbox, …)`, which marks every query of those kinds stale. `MutationOptions.InvalidateKeys` matches whole keys only, so it is used only where the key has one part (`UsersFacade`).
-- **Results that settle later get a second refresh.** Deleting an archive returns its documents to the inbox after the call has answered (see [api.md](api.md)), so `ArchivesFacade` invalidates the inbox again after `CascadeSettleDelay`.
+- **A mutation refreshes by kind, not by key.** Workspace queries are keyed `[kind, id]` through `WorkspaceKeys` (`ForArchives`, `ForInbox`, `ForArchiveDocuments`, and `ForSearch` for `[search, ownerId, query]`), and a mutation's `OnSuccess` calls `queryClient.Invalidate(WorkspaceKeys.Inbox, …)`, which marks every query of those kinds stale. `MutationOptions.InvalidateKeys` matches whole keys only, so it is used only where the key has one part (`UsersFacade`). Every document mutation refreshes the search kind too, since a change moves or renames what a search finds.
+- **Results that settle later get a second refresh.** Deleting an archive returns its documents to the inbox after the call has answered (see [api.md](api.md)), so `ArchivesFacade` invalidates the inbox and the search again after `CascadeSettleDelay`.
+
+### Search: state kept in the address
+
+The workspace search (`Workspace.razor`, `DocumentsFacade.SearchDocuments`) keeps its query in the page address, `?q=`, read with `[SupplyParameterFromQuery]`. A state that a reload, the back button or a pasted link should keep belongs in the address; the page reacts to the address in `OnParametersSet`, as it does to the selected archive.
+
+- **The address is the source of truth.** The field writes to it and the page reads from it. The field follows the address when something other than the field changed it (a navigation entry, back, a reload), tracked by what the address was last known to hold (`knownQuery`, `knownUserId`, `knownArchiveId`).
+- **Typing is debounced, with `Subject.Throttle`** (System.Reactive, 300 ms): one search per pause, not one per key. Each keystroke carries a version, and an address change that did not come from the field bumps it, so typing that was still waiting is dropped and does not attach `?q=` to the page the visitor just opened.
+- **The first query adds a history entry; every change after it replaces it** (`NavigationOptions.ReplaceHistoryEntry`), so back leaves the search instead of stepping through letters.
+- **The page uses the server's word rule.** `SearchTerms` is in `OfficeRkyv.Contracts`; a query with no word the server would match shows a hint and sends nothing.
+- **The field lives outside the list's `Transition`s**, so a refetch of a list never recreates it and takes the focus away while typing.
 
 ### Files: upload and download
 
@@ -115,3 +125,4 @@ Give a `data-testid` only to an element that has no name of its own, such as a n
 - [add-linux-desktop-app](../openspec/changes/archive/2026-09-30-add-linux-desktop-app/design.md) (D2, D4): what lives in the UI library, and `IUserSettingsService`.
 - [move-workspace-nav-into-sidebar](../openspec/changes/archive/2026-10-01-move-workspace-nav-into-sidebar/design.md) (D6, D7): a section's own loading and failure states, and no CSS for the workspace.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D11, D12): uploading outside the mutation helper, and saving a file as the host's job.
+- [add-document-title-search](../openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D5, D6): the search query kept in the address, typing debounced, and the search kind refreshed by every document change.

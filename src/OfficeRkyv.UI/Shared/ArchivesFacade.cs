@@ -70,7 +70,12 @@ public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.Arc
                 // The archive's own documents are in the archive-documents queries and are about to be in the inbox.
                 OnSuccess = (_, _) =>
                 {
-                    queryClient.Invalidate(WorkspaceKeys.Archives, WorkspaceKeys.ArchiveDocuments, WorkspaceKeys.Inbox);
+                    queryClient.Invalidate(
+                        WorkspaceKeys.Archives,
+                        WorkspaceKeys.ArchiveDocuments,
+                        WorkspaceKeys.Inbox,
+                        WorkspaceKeys.Search
+                    );
                     _ = InvalidateInboxAgainAsync();
                 },
             }
@@ -81,7 +86,7 @@ public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.Arc
         try
         {
             await Task.Delay(CascadeSettleDelay, disposed.Token);
-            queryClient.Invalidate(WorkspaceKeys.Inbox);
+            queryClient.Invalidate(WorkspaceKeys.Inbox, WorkspaceKeys.Search);
         }
         catch (OperationCanceledException)
         {

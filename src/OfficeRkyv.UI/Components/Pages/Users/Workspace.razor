@@ -1,3 +1,5 @@
+@using System.Reactive.Linq
+@using System.Reactive.Subjects
 @using OfficeRkyv.UI.Files
 @page "/users/{UserId:guid}"
 @page "/users/{UserId:guid}/archives/{ArchiveId:guid}"
@@ -42,65 +44,75 @@
                     <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="true" Close="@(() => errorKey = null)" data-testid="workspace-error">@ErrorLocalizer[errorKey]</RadzenAlert>
                 }
 
-                <Transition Query="@Documents.FindInbox">
-                    <Content Context="inbox">
-                        <Transition Query="@Archives.FindArchives">
-                            <Content Context="archives">
-                                @{
-                                    var selectedArchive = SelectedArchive(archives);
-                                }
-                                <RadzenStack Gap="1rem">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem">
-                                            <RadzenText TextStyle="TextStyle.H5" class="rz-m-0" data-testid="workspace-selection">@(selectedArchive?.Name ?? Localizer["NavInbox"])</RadzenText>
-                                            @if (selectedArchive is not null)
-                                            {
-                                                <RadzenButton Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text"
-                                                              Click="@(() => OpenRenameArchiveDialog(selectedArchive))"
-                                                              aria-label="@Localizer["RenameArchiveAria", selectedArchive.Name]" />
-                                                <RadzenButton Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text"
-                                                              Click="@(() => DeleteArchive(selectedArchive))"
-                                                              aria-label="@Localizer["DeleteArchiveAria", selectedArchive.Name]" />
-                                            }
-                                        </RadzenStack>
-                                        <RadzenButton Icon="note_add" Text="@Localizer["NewDocument"]" Click="@OpenCreateDocumentDialog" data-testid="new-document" />
-                                    </RadzenStack>
+                <RadzenTextBox Value="@searchText" @oninput="@OnSearchInput" MaxLength="@SearchTerms.MaxQueryLength"
+                               Placeholder="@Localizer["SearchPlaceholder"]" aria-label="@Localizer["SearchLabel"]" class="rz-w-100" />
 
-                                    @if (ArchiveId is null)
-                                    {
-                                        @DocumentList(inbox, Localizer["EmptyInboxTitle"], Localizer["EmptyInboxText"])
+                @if (IsSearching)
+                {
+                    @SearchResults
+                }
+                else
+                {
+                    <Transition Query="@Documents.FindInbox">
+                        <Content Context="inbox">
+                            <Transition Query="@Archives.FindArchives">
+                                <Content Context="archives">
+                                    @{
+                                        var selectedArchive = SelectedArchive(archives);
                                     }
-                                    else
-                                    {
-                                        <Transition Query="@Documents.FindArchiveDocuments">
-                                            <Content Context="contents">
-                                                @DocumentList(contents, Localizer["EmptyArchiveTitle"], Localizer["EmptyArchiveText"])
-                                            </Content>
-                                            <Loading>
-                                                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
-                                            </Loading>
-                                            <Failure>
-                                                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
-                                            </Failure>
-                                        </Transition>
-                                    }
-                                </RadzenStack>
-                            </Content>
-                            <Loading>
-                                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
-                            </Loading>
-                            <Failure>
-                                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
-                            </Failure>
-                        </Transition>
-                    </Content>
-                    <Loading>
-                        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
-                    </Loading>
-                    <Failure>
-                        <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
-                    </Failure>
-                </Transition>
+                                    <RadzenStack Gap="1rem">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem">
+                                                <RadzenText TextStyle="TextStyle.H5" class="rz-m-0" data-testid="workspace-selection">@(selectedArchive?.Name ?? Localizer["NavInbox"])</RadzenText>
+                                                @if (selectedArchive is not null)
+                                                {
+                                                    <RadzenButton Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text"
+                                                                  Click="@(() => OpenRenameArchiveDialog(selectedArchive))"
+                                                                  aria-label="@Localizer["RenameArchiveAria", selectedArchive.Name]" />
+                                                    <RadzenButton Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text"
+                                                                  Click="@(() => DeleteArchive(selectedArchive))"
+                                                                  aria-label="@Localizer["DeleteArchiveAria", selectedArchive.Name]" />
+                                                }
+                                            </RadzenStack>
+                                            <RadzenButton Icon="note_add" Text="@Localizer["NewDocument"]" Click="@OpenCreateDocumentDialog" data-testid="new-document" />
+                                        </RadzenStack>
+
+                                        @if (ArchiveId is null)
+                                        {
+                                            @DocumentList(inbox, Localizer["EmptyInboxTitle"], Localizer["EmptyInboxText"])
+                                        }
+                                        else
+                                        {
+                                            <Transition Query="@Documents.FindArchiveDocuments">
+                                                <Content Context="contents">
+                                                    @DocumentList(contents, Localizer["EmptyArchiveTitle"], Localizer["EmptyArchiveText"])
+                                                </Content>
+                                                <Loading>
+                                                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                                                </Loading>
+                                                <Failure>
+                                                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
+                                                </Failure>
+                                            </Transition>
+                                        }
+                                    </RadzenStack>
+                                </Content>
+                                <Loading>
+                                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                                </Loading>
+                                <Failure>
+                                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
+                                </Failure>
+                            </Transition>
+                        </Content>
+                        <Loading>
+                            <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                        </Loading>
+                        <Failure>
+                            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
+                        </Failure>
+                    </Transition>
+                }
             }
         </Content>
         <Loading>
@@ -124,10 +136,32 @@
     private IReadOnlyList<ArchiveDto> archiveSnapshot = [];
     private string? errorKey;
 
+    // How long typing has to rest before the search is run: one search per pause, not one per key.
+    private static readonly TimeSpan SearchPause = TimeSpan.FromMilliseconds(300);
+
+    private readonly Subject<(string Text, int Version)> typed = new();
+    private string searchText = "";
+    private int typingVersion;
+
+    // What the address was last known to hold: the query, and the page it is on. When it holds something else,
+    // something other than this field changed it (a navigation entry, the back button, a reload): the field
+    // follows the address, and typing that has not been applied yet belongs to the page that was left.
+    private string knownQuery = "";
+    private Guid knownUserId;
+    private Guid? knownArchiveId;
+
     [Parameter] public Guid UserId { get; set; }
 
     /// <summary>The selected archive; null selects the inbox.</summary>
     [Parameter] public Guid? ArchiveId { get; set; }
+
+    /// <summary>The search, kept in the address (<c>?q=</c>) so a reload and the back button keep it.</summary>
+    [SupplyParameterFromQuery(Name = "q")] public string? SearchQuery { get; set; }
+
+    private bool IsSearching => !string.IsNullOrWhiteSpace(SearchQuery);
+
+    // The server ignores short words, so a query without a word it can match is not sent.
+    private bool HasSearchableWord => SearchTerms.From(SearchQuery ?? "").Count > 0;
 
     private string InboxPath => $"/users/{UserId}";
 
@@ -147,6 +181,9 @@
         // The list of archives decides whether the selected one still exists: it may have been deleted
         // somewhere else, and the page then falls back to the inbox instead of showing a phantom archive.
         disposables.Add(Archives.FindArchives.Success.Subscribe(archives => _ = InvokeAsync(() => OnArchivesLoaded(archives))));
+
+        disposables.Add(typed);
+        disposables.Add(typed.Throttle(SearchPause).Subscribe(typing => _ = InvokeAsync(() => ApplySearch(typing.Text, typing.Version))));
     }
 
     protected override void OnParametersSet()
@@ -159,6 +196,47 @@
         {
             Documents.FindArchiveDocuments.SetArgs(archiveId);
         }
+
+        var query = SearchQuery?.Trim() ?? "";
+
+        if (query != knownQuery || UserId != knownUserId || ArchiveId != knownArchiveId)
+        {
+            typingVersion++;
+            knownQuery = query;
+            knownUserId = UserId;
+            knownArchiveId = ArchiveId;
+            searchText = SearchQuery ?? "";
+        }
+
+        if (IsSearching && HasSearchableWord)
+        {
+            Documents.SearchDocuments.SetArgs(new DocumentSearch(UserId, query));
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? "";
+        typed.OnNext((searchText, ++typingVersion));
+    }
+
+    // Puts the search in the address. The first query adds a history entry, so back leaves the search; every
+    // change after that replaces it, so back does not step through the letters.
+    private void ApplySearch(string text, int version)
+    {
+        var query = text.Trim();
+
+        // The address moved on while the typing rested: this text is for a page that is no longer shown.
+        if (version != typingVersion || query == (SearchQuery?.Trim() ?? ""))
+        {
+            return;
+        }
+
+        knownQuery = query;
+        Navigation.NavigateTo(
+            Navigation.GetUriWithQueryParameter("q", query.Length == 0 ? null : query),
+            new NavigationOptions { ReplaceHistoryEntry = IsSearching }
+        );
     }
 
     // Disposed with the page, together with the subscriptions to it.
@@ -210,7 +288,12 @@
         // The item changed or is gone: what is shown is out of date, so load it again.
         if (errors.ReloadNeeded)
         {
-            QueryClient.Invalidate(WorkspaceKeys.Archives, WorkspaceKeys.Inbox, WorkspaceKeys.ArchiveDocuments);
+            QueryClient.Invalidate(
+                WorkspaceKeys.Archives,
+                WorkspaceKeys.Inbox,
+                WorkspaceKeys.ArchiveDocuments,
+                WorkspaceKeys.Search
+            );
         }
 
         StateHasChanged();
@@ -396,11 +479,70 @@
             </Transition>
         </nav>;
 
-    private RenderFragment DocumentList(IReadOnlyList<DocumentDto> documents, string emptyTitle, string emptyText) =>
+    // With <paramref name="locations"/> the list also says where each document is: search results come from the inbox
+    // and every archive, so the list has to tell them apart.
+    private string LocationName(DocumentDto document, IReadOnlyList<ArchiveDto> archives) =>
+        document.HasArchiveId
+            ? archives.FirstOrDefault(archive => archive.Id == document.ArchiveId)?.Name ?? string.Empty
+            : Localizer["NavInbox"].Value;
+
+    // What a refused search says: the text for its own refusal, and the general one otherwise.
+    private string SearchFailureText(Exception error) =>
+        WorkspaceErrors.From(error).Query is { } key ? ErrorLocalizer[key].Value : Localizer["LoadFailed"].Value;
+
+    // Replaces the list while a query is entered: the user's documents from the inbox and every archive.
+    private RenderFragment SearchResults =>
+        @<RadzenStack Gap="1rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenText TextStyle="TextStyle.H5" class="rz-m-0" data-testid="search-heading">@Localizer["SearchResults"]</RadzenText>
+                <RadzenButton Icon="note_add" Text="@Localizer["NewDocument"]" Click="@OpenCreateDocumentDialog" data-testid="new-document" />
+            </RadzenStack>
+
+            @if (!HasSearchableWord)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" data-testid="search-hint">@Localizer["SearchHint"]</RadzenAlert>
+            }
+            else
+            {
+                <Transition Query="@Documents.SearchDocuments">
+                    <Content Context="result">
+                        <Transition Query="@Archives.FindArchives">
+                            <Content Context="archives">
+                                @DocumentList(result.Documents, Localizer["SearchNoResultsTitle"], Localizer["SearchNoResultsText"], archives, "search-no-results")
+                                @if (result.HasMore)
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" data-testid="search-more">@Localizer["SearchMore"]</RadzenAlert>
+                                }
+                            </Content>
+                            <Loading>
+                                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                            </Loading>
+                            <Failure>
+                                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false">@Localizer["LoadFailed"]</RadzenAlert>
+                            </Failure>
+                        </Transition>
+                    </Content>
+                    <Loading>
+                        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                    </Loading>
+                    <Failure Context="error">
+                        <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" data-testid="search-failed">@SearchFailureText(error)</RadzenAlert>
+                    </Failure>
+                </Transition>
+            }
+        </RadzenStack>;
+
+    private RenderFragment DocumentList(
+        IReadOnlyList<DocumentDto> documents,
+        string emptyTitle,
+        string emptyText,
+        IReadOnlyList<ArchiveDto>? locations = null,
+        string emptyTestId = "empty-state"
+    ) =>
         @<div>
             @if (documents.Count == 0)
             {
-                <RadzenCard data-testid="empty-state">
+                <RadzenCard data-testid="@emptyTestId">
                     <RadzenStack Gap="0.5rem" AlignItems="AlignItems.Center" class="rz-p-4">
                         <RadzenText TextStyle="TextStyle.H6">@emptyTitle</RadzenText>
                         <RadzenText TextStyle="TextStyle.Body2">@emptyText</RadzenText>
@@ -418,6 +560,14 @@
                                 <span data-testid="document-file">@document.FileName (@FileSize.Format(document.Size))</span>
                             </Template>
                         </RadzenDataGridColumn>
+                        @if (locations is not null)
+                        {
+                            <RadzenDataGridColumn TItem="DocumentDto" Title="@Localizer["ColumnLocation"]" Sortable="false" Filterable="false">
+                                <Template Context="document">
+                                    <span data-testid="document-location">@LocationName(document, locations)</span>
+                                </Template>
+                            </RadzenDataGridColumn>
+                        }
                         <RadzenDataGridColumn TItem="DocumentDto" Title="" Sortable="false" Filterable="false" TextAlign="TextAlign.Right">
                             <Template Context="document">
                                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">

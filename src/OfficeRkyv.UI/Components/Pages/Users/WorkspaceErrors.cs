@@ -12,6 +12,7 @@ namespace OfficeRkyv.UI.Components.Pages.Users;
 /// <param name="Name">Under the name field of an archive dialog.</param>
 /// <param name="Title">Under the title field of a document dialog.</param>
 /// <param name="File">Under a file of the upload dialog: what is wrong with its content or its name.</param>
+/// <param name="Query">Under the search field.</param>
 /// <param name="General">For everything that is not about one field.</param>
 /// <param name="ReloadNeeded">
 /// The refusal means what the UI shows is out of date (the item changed or is gone), so the affected
@@ -22,7 +23,8 @@ internal sealed record WorkspaceErrors(
     string? Title = null,
     string? File = null,
     string? General = null,
-    bool ReloadNeeded = false
+    bool ReloadNeeded = false,
+    string? Query = null
 )
 {
     private const string ActionFailed = "ActionFailed";
@@ -73,6 +75,7 @@ internal sealed record WorkspaceErrors(
         string? title = null;
         string? file = null;
         string? general = null;
+        string? query = null;
 
         // First violation per field wins; a dialog has room for one message under each field.
         foreach (var violation in details.Unpack<BadRequest>().FieldViolations)
@@ -91,6 +94,9 @@ internal sealed record WorkspaceErrors(
                 case "file_name":
                     file ??= Key("FileName", violation.Reason);
                     break;
+                case "query":
+                    query ??= Key("Query", violation.Reason);
+                    break;
                 default:
                     // A field the dialog does not have: better a general message than a silent failure.
                     general ??= ActionFailed;
@@ -98,7 +104,7 @@ internal sealed record WorkspaceErrors(
             }
         }
 
-        return new(name, title, file, general);
+        return new(name, title, file, general, Query: query);
     }
 
     // (field, code) -> resource key. An unknown code degrades to a generic "invalid" text.
@@ -108,6 +114,7 @@ internal sealed record WorkspaceErrors(
             ViolationCodes.Required => $"{field}Required",
             ViolationCodes.TooLong => $"{field}TooLong",
             ViolationCodes.TooLarge => $"{field}TooLarge",
+            ViolationCodes.TooShort => $"{field}TooShort",
             _ => "FieldInvalid",
         };
 }

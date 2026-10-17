@@ -106,8 +106,8 @@ The system SHALL ignore words of fewer than 3 characters in a query, and SHALL i
 - **THEN** the call is refused as invalid with the field `query` and the code `too_long`
 
 #### Scenario: Search syntax is taken literally
-- **WHEN** Alice has a document titled `Invoice March` and searches for `invoice OR "*`
-- **THEN** the call is not refused and the result does not contain that document, because `OR` matches no title or file name
+- **WHEN** Alice has a document titled `Invoice March` and searches for `invoice AND march`
+- **THEN** the call is not refused and the result does not contain that document, because `AND` is searched for as a word and is in no title or file name
 
 ### Requirement: The search query stays out of telemetry
 The words a user searched for SHALL NOT appear in any span or log the API emits for the search.

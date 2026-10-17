@@ -33,13 +33,20 @@ Postponed features and decisions: things that were deliberately left out, with t
 ### Documents and users
 
 - [ ] **Tags and other metadata.**
-- [ ] **Search.**
+- [ ] **Search the words inside files.** The workspace finds documents by title and file name ([add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md)). The text of a file is extracted and kept by [add-document-text-extraction](openspec/changes/add-document-text-extraction/proposal.md), which builds no search; this item puts it into the search.
+  - To decide there: whether the text goes into a search type of its own (one extraction is shared by every document with that content, while owner and archive belong to each document) or into `Document`, and whether the `.txt` files stay as the source the index is rebuilt from.
+  - Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D1).
+  - [ ] **Accent folding.** `Marz` does not find `März`, and `ae` does not find `ä`. Why postponed: Fisher's tokenizer choice does not expose FTS5's diacritics option for a trigram index, and a German user types the umlaut. Revisit with the Lucene.NET item. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (Risks).
+  - [ ] **Stemming.** `Rechnungen` does not find `Rechnung`, although `rechnung` finds `Rechnungen`. Why postponed: a trigram index cannot stem, and matching inside a word (`Stromrechnung`) was worth more. Revisit with the Lucene.NET item. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D1).
+  - [ ] **Paging the search results.** A search returns the 50 best matches and says that more matched. Do it with the Pagination item below. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D3).
+  - [ ] **Showing which part matched.** Fisher can highlight a column and cut a snippet, but only through its LINQ operators, and the search is a raw query (D2). Do it when the words inside files are searched, where a snippet matters most. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D2).
+  - [ ] **A search box on every page.** Search is a field of the workspace, because the sidebar and the user are the workspace's. Revisit with authentication, when there is a signed-in user outside a workspace. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/proposal.md).
   - [ ] **Evaluate Lucene.NET as the search engine.** Decide when content search is built on the extracted text, with real OCR output to judge by.
     - What it would add: German stemming (`Rechnungen` finds `Rechnung`), `ae`/`ä` normalisation, fuzzy matching for OCR misreadings, compound-word splitting, highlighting and better ranking of long texts.
     - What it costs: the index leaves the SQLite transaction and can drift, so it needs feeding from the events and a rebuild path; backups become database, blobs and index together; the package is still `4.8.0-beta`; compound splitting needs a German dictionary and hyphenation file, and without them `rechnung` is not found inside `Stromrechnung`, which the trigram index can do.
     - Switch if: OCR text is noisy enough that searches miss documents without fuzzy matching, relevance ranking over long texts is visibly poor, or users miss stemming and `ae`/`ä` more than matching inside words.
     - The engine sits behind one handler and one RPC, so a switch touches the API only. The `document-search` spec's "matches anywhere inside a word" would need rewording. Fisher's hybrid vector search is the other option to weigh at the same time.
-    - Decided in: the exploration before [add-document-title-search](openspec/changes/add-document-title-search/design.md), which chose FTS5 with a trigram index (D1).
+    - Decided in: the exploration before [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md), which chose FTS5 with a trigram index (D1).
 - [ ] **Authentication and authorization.** Until then the user id in the page address stands in for the signed-in user.
 - [ ] **Sharing documents between users.**
 - [ ] **What happens to a deleted user's documents and archives.** They are left orphaned; the workspace shows not-found, so nothing is reachable in the UI.

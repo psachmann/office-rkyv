@@ -38,6 +38,7 @@ The same holds for the pipeline and UI-logic levels, which live in the same proj
 - Drive it through `Bus` for what a handler does, and through `Channel` with a generated gRPC client for what a client sees. `GrpcFailure` reads the status and its details from a failed call.
 - **Each host gets its own blob directory**, beside its database file and named after it (`PipelineHost.BlobDirectory`), deleted with it. `StartAsync(maxFileSizeBytes: ...)` sets a small upload limit, so a test can reach "one byte over" without sending 100 MB.
 - **Files go through `TestDocuments`.** `UploadAsync` and `DownloadAsync` drive the streaming RPCs through the generated client in chunks of a size you choose, and `Bytes(n)` makes content that is not one repeated byte. A test that is about something else than the upload (filing, cascades) makes documents with `TestDocuments.Command`, which has file facts for content nobody reads; one that downloads must upload.
+- **Data from before this host can be started on.** `StartAsync(databasePath: ...)` starts the host on an existing database file, with the blob directory beside it, and deletes both when it is disposed. A test that needs data written by an earlier version writes it first with a `DocumentStore.For(...)` configured as that version was (`DocumentSearchTests`: snapshots and no search index), and then starts the host on the file.
 - **A streaming refusal is read like a unary one:** wrap the whole call in `GrpcFailure.Of`, because a server that refuses mid-upload makes the next write fail and the call's status is what explains it.
 - Use `InvokeAndSettleAsync` when the command cascades (an archive deletion returning its documents), so the test asserts on the settled state and not on a race.
 - Telemetry is verified here too, with the in-memory exporter against the real wiring; see [observability.md](observability.md).
@@ -62,6 +63,7 @@ In practice the page objects (`WorkspacePage`, `SettingsPage`) find an element t
 - **Assert with Playwright's `Expect`**, which waits, for anything on the page; TUnit assertions for everything else.
 - **Files are set on the upload dialog's input** (`WorkspacePage.UploadAsync`, from byte arrays), and a download is the Playwright download event (`WorkspacePage.DownloadAsync`): compare its suggested name and the bytes it saved with the originals.
 - **A document row is found by its exact title cell** (`DocumentRow`), because the row also shows the file name, which a rename does not change.
+- **A search is debounced, so wait for something only the results show.** The page runs the search once typing has rested and puts it in the address. A document that the plain inbox shows too proves nothing; wait for one that is in an archive, or for the address (`?q=`), before acting on the results.
 
 ## By hand: the desktop
 

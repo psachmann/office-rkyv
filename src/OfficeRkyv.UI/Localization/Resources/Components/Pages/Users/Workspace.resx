@@ -163,4 +163,28 @@
   <data name="SavedTo" xml:space="preserve">
     <value>Saved to {0}</value>
   </data>
+  <data name="SearchLabel" xml:space="preserve">
+    <value>Search documents</value>
+  </data>
+  <data name="SearchPlaceholder" xml:space="preserve">
+    <value>Search by title or file name...</value>
+  </data>
+  <data name="SearchResults" xml:space="preserve">
+    <value>Search results</value>
+  </data>
+  <data name="SearchHint" xml:space="preserve">
+    <value>Type at least 3 characters to search.</value>
+  </data>
+  <data name="SearchNoResultsTitle" xml:space="preserve">
+    <value>No documents found</value>
+  </data>
+  <data name="SearchNoResultsText" xml:space="preserve">
+    <value>Try other words, or check the spelling.</value>
+  </data>
+  <data name="SearchMore" xml:space="preserve">
+    <value>More documents match. Refine your search to see them.</value>
+  </data>
+  <data name="ColumnLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
 </root>

@@ -318,6 +318,137 @@ public sealed class WorkspaceFacadeTests
         await Assert.That(documents.InboxCalls).IsEqualTo(callsBefore);
     }
 
+    // ---- search ----
+
+    [Test]
+    public async Task ASearch_FetchesTheOwnersMatches_AndSaysWhetherThereAreMore()
+    {
+        documents.Items.Add(new DocumentDto { Id = Guid.NewGuid().ToString(), Title = "Invoice" });
+        documents.SearchHasMore = true;
+        using var services = CreateServices();
+        var facade = services.GetRequiredService<DocumentsFacade>();
+
+        facade.SearchDocuments.SetArgs(new DocumentSearch(Owner, "invoice"));
+        var result = await Next(facade.SearchDocuments.Success);
+
+        await Assert.That(result.Documents.Select(d => d.Title)).IsEquivalentTo(["Invoice"]);
+        await Assert.That(result.HasMore).IsTrue();
+        await Assert.That(documents.SearchedQueries).IsEquivalentTo(["invoice"]);
+    }
+
+    private async Task AssertAnOpenSearchIsRefetchedBy(Func<DocumentsFacade, Task> act)
+    {
+        using var services = CreateServices();
+        var facade = services.GetRequiredService<DocumentsFacade>();
+        using var watchSearch = Watch(facade.SearchDocuments);
+        facade.SearchDocuments.SetArgs(new DocumentSearch(Owner, "invoice"));
+        await Next(facade.SearchDocuments.Success);
+        var before = documents.SearchCalls;
+
+        await act(facade);
+        await Task.Delay(300);
+
+        await Assert.That(documents.SearchCalls).IsGreaterThan(before);
+    }
+
+    [Test]
+    public async Task Renaming_RefreshesAnOpenSearch()
+    {
+        await AssertAnOpenSearchIsRefetchedBy(async facade =>
+        {
+            using var mutation = facade.CreateRenameDocumentMutation();
+            var done = Next(mutation.Success);
+            mutation.Execute(
+                new RenameDocumentRequest
+                {
+                    DocumentId = Guid.NewGuid().ToString(),
+                    Version = 1,
+                    Title = "New",
+                }
+            );
+            await done;
+        });
+    }
+
+    [Test]
+    public async Task Deleting_RefreshesAnOpenSearch()
+    {
+        await AssertAnOpenSearchIsRefetchedBy(async facade =>
+        {
+            using var mutation = facade.CreateDeleteDocumentMutation();
+            var done = Next(mutation.Success);
+            mutation.Execute(new DeleteDocumentRequest { DocumentId = Guid.NewGuid().ToString(), Version = 1 });
+            await done;
+        });
+    }
+
+    [Test]
+    public async Task Filing_RefreshesAnOpenSearch_BecauseTheResultShowsWhereTheDocumentIs()
+    {
+        await AssertAnOpenSearchIsRefetchedBy(async facade =>
+        {
+            using var mutation = facade.CreateFileDocumentMutation();
+            var done = Next(mutation.Success);
+            mutation.Execute(
+                new FileDocumentRequest
+                {
+                    DocumentId = Guid.NewGuid().ToString(),
+                    Version = 1,
+                    ArchiveId = Guid.NewGuid().ToString(),
+                }
+            );
+            await done;
+        });
+    }
+
+    [Test]
+    public async Task Unfiling_RefreshesAnOpenSearch()
+    {
+        await AssertAnOpenSearchIsRefetchedBy(async facade =>
+        {
+            using var mutation = facade.CreateUnfileDocumentMutation();
+            var done = Next(mutation.Success);
+            mutation.Execute(new UnfileDocumentRequest { DocumentId = Guid.NewGuid().ToString(), Version = 1 });
+            await done;
+        });
+    }
+
+    [Test]
+    public async Task Uploading_RefreshesAnOpenSearch()
+    {
+        await AssertAnOpenSearchIsRefetchedBy(async facade =>
+        {
+            using var stream = new MemoryStream(TestDocuments.Bytes(100));
+            await facade.UploadAsync(Owner, "Invoice.pdf", "application/pdf", stream);
+        });
+    }
+
+    [Test]
+    public async Task DeletingAnArchive_RefreshesAnOpenSearch_NowAndOnceTheCascadeHadTimeToLand()
+    {
+        using var services = CreateServices();
+        var archiveFacade = services.GetRequiredService<ArchivesFacade>();
+        var documentFacade = services.GetRequiredService<DocumentsFacade>();
+        using var watchSearch = Watch(documentFacade.SearchDocuments);
+        documentFacade.SearchDocuments.SetArgs(new DocumentSearch(Owner, "invoice"));
+        await Next(documentFacade.SearchDocuments.Success);
+        var before = documents.SearchCalls;
+
+        using var deleteArchive = archiveFacade.CreateDeleteArchiveMutation();
+        var deleted = Next(deleteArchive.Success);
+        deleteArchive.Execute(new DeleteArchiveRequest { ArchiveId = Guid.NewGuid().ToString(), Version = 1 });
+        await deleted;
+        await Task.Delay(300);
+        var immediately = documents.SearchCalls;
+
+        // The documents come back to the inbox after the call has answered; the search is refreshed again then.
+        documents.Items.Add(new DocumentDto { Id = Guid.NewGuid().ToString(), Title = "Returned" });
+        var later = Next(documentFacade.SearchDocuments.Success.Where(result => result.Documents.Count == 1));
+
+        await Assert.That(immediately).IsGreaterThan(before);
+        await Assert.That((await later).Documents.Single().Title).IsEqualTo("Returned");
+    }
+
     private static AsyncUnaryCall<T> Call<T>(Task<T> response) =>
         new(response, Task.FromResult(new Metadata()), () => Status.DefaultSuccess, () => [], () => { });
 
@@ -397,7 +528,12 @@ public sealed class WorkspaceFacadeTests
         public List<DocumentDto> Items { get; } = [];
         public RpcException? MutationFailure { get; set; }
         public int InboxCalls => Volatile.Read(ref inboxCalls);
+        private int searchCalls;
+
         public int ContentsCalls => Volatile.Read(ref contentsCalls);
+        public int SearchCalls => Volatile.Read(ref searchCalls);
+        public List<string> SearchedQueries { get; } = [];
+        public bool SearchHasMore { get; set; }
 
         public override AsyncUnaryCall<ListInboxResponse> ListInboxAsync(ListInboxRequest request, CallOptions options)
         {
@@ -415,6 +551,30 @@ public sealed class WorkspaceFacadeTests
 
             return Call(Task.FromResult(new ListArchiveDocumentsResponse()));
         }
+
+        public override AsyncUnaryCall<SearchDocumentsResponse> SearchDocumentsAsync(
+            SearchDocumentsRequest request,
+            CallOptions options
+        )
+        {
+            Interlocked.Increment(ref searchCalls);
+            lock (SearchedQueries)
+            {
+                SearchedQueries.Add(request.Query);
+            }
+
+            return Call(
+                Task.FromResult(new SearchDocumentsResponse { Documents = { Items }, HasMore = SearchHasMore })
+            );
+        }
+
+        public override AsyncUnaryCall<Empty> DeleteDocumentAsync(DeleteDocumentRequest request, CallOptions options) =>
+            Call(Task.FromResult(new Empty()));
+
+        public override AsyncUnaryCall<UnfileDocumentResponse> UnfileDocumentAsync(
+            UnfileDocumentRequest request,
+            CallOptions options
+        ) => Call(Task.FromResult(new UnfileDocumentResponse { Document = new DocumentDto() }));
 
         public UploadDocumentHeader? UploadedHeader { get; private set; }
         public MemoryStream UploadedContent { get; } = new();

@@ -69,6 +69,17 @@ The store is Fisher on SQLite. Every aggregate has an Inline snapshot, registere
 
 Transactions are applied by Wolverine (`AutoApplyTransactions`); a handler calls `SaveChangesAsync` itself only when it needs the result before returning.
 
+## Search
+
+A user finds their documents by the words in a title or a file name (`SearchDocuments`, `Features/Documents/Handlers/SearchDocumentsHandler.cs`).
+
+- **The index is declared on the snapshot that holds the fields.** `StoreOptionsExtensions.AddSearchIndexes` puts a full-text index on `Document.Title` and `Document.FileName`, and `AddOfficeRkyvApi` calls it next to `AddAggregateSnapshots`, so the server, the desktop and the pipeline tests share it. Fisher keeps the index in the transaction that writes the snapshot, so a document is found as soon as the call that created or renamed it has answered. When the index is first created, Fisher fills it from the documents that already exist; no start check or rebuild is needed.
+- **The tokenizer is `Trigram`**, because the text is German: `rechnung` has to find `Stromrechnung`, and only a trigram index matches inside a word. The cost is that it does not stem (`Rechnungen` does not find `Rechnung`) and does not fold accents (`Marz` does not find `März`); case is ignored.
+- **A search is a query with a validator.** `SearchDocumentsValidator` refuses a query over 200 characters (`too_long`) and one with no word the index can match (`too_short`, also for an empty query). The word rule, `SearchTerms` in `OfficeRkyv.Contracts`, is shared with the UI so the page can say "type more" with exactly the server's rule. Words under 3 characters are ignored, since a trigram index cannot match them.
+- **The handler runs one raw FTS5 query through `IAdvancedSql`.** Each word is a quoted string, so none can be read as search syntax, and the strings are ANDed. Fisher's LINQ operators accept several `NgramSearch` calls but `OrderByRelevance` refuses a query with more than one, and the results are ordered by `bm25()`, then by title. The query depends on Fisher's storage names (the document table, its `fi_fts_` table, the camelCase JSON members and the integer `status`), which Fisher does not promise; they are constants in the handler, and the pipeline tests of every search scenario fail if they change.
+- **Deleted documents are filtered by the handler**, as in every list: deletion is our own `EntityStatus`, not Fisher's soft delete, and the filter has to be in the SQL, before the limit.
+- **Results are limited, not paged.** The handler takes 51 and returns 50 with `has_more`, so the client can say that more matched. Paging is in `TODOS.md`.
+
 ## Validation
 
 Input rules are FluentValidation validators next to the handlers (`ArchiveValidators.cs`). Wolverine's middleware finds them and runs them before the handler.
@@ -122,3 +133,4 @@ The required behaviour is the `api-error-mapping` spec in `openspec/specs`.
 - [add-archives-and-inbox](../openspec/changes/archive/2026-09-29-add-archives-and-inbox/design.md) (D1 to D7): membership on the document, the inbox as a query, the handler styles, the cascade through the outbox, the filing race, the contracts.
 - [add-linux-desktop-app](../openspec/changes/archive/2026-09-30-add-linux-desktop-app/design.md) (D3): the API composition as extension methods.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D1 to D10): file facts on the creation event, the blob store, content first, the streaming RPCs, the ingest component, limits while reading, the download.
+- [add-document-title-search](../openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D1 to D4): the trigram index on the snapshot, the word rule, the raw FTS5 query that can rank several words, existing documents indexed by the migration.
