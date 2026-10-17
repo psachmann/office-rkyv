@@ -1,0 +1,28 @@
+@inject IStringLocalizer<SidebarUser> Localizer
+@inject UsersFacade Users
+@inject ISignInService SignIn
+
+@* Who is signed in, and how to stop: shown in the sidebar while a user is signed in. The name comes from the same
+   query the workspace heading uses, so the two share one request. *@
+<RadzenStack Gap="0.5rem" class="rz-p-3">
+    <Transition Query="@Users.FindUserById">
+        <Content Context="found">
+            @if (found.User is not null)
+            {
+                <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-m-0" data-testid="sidebar-user">@found.User.DisplayName</RadzenText>
+            }
+        </Content>
+        <Loading>
+            <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+        </Loading>
+    </Transition>
+    <RadzenButton Text="@Localizer["SignOut"]" Icon="logout" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                  Click="@(() => SignIn.SignOutAsync())" />
+</RadzenStack>
+
+@code {
+    /// <summary>The signed-in user.</summary>
+    [Parameter, EditorRequired] public Guid UserId { get; set; }
+
+    protected override void OnParametersSet() => Users.FindUserById.SetArgs(UserId);
+}

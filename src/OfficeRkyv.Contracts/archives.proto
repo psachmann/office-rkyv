@@ -24,17 +24,20 @@ message ArchiveDto {
   int32 version = 6;
 }
 
-// Lists the owner's non-deleted archives; an unknown owner yields an empty list.
+// Lists the caller's non-deleted archives. The caller is named by the call's token, never by the request.
 message ListArchivesRequest {
-  string owner_id = 1;
+  reserved 1;
+  reserved "owner_id";
 }
 
 message ListArchivesResponse {
   repeated ArchiveDto archives = 1;
 }
 
+// The archive belongs to the caller.
 message CreateArchiveRequest {
-  string owner_id = 1;
+  reserved 1;
+  reserved "owner_id";
   string name = 2;
 }
 

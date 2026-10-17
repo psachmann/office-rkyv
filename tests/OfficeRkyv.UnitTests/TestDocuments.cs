@@ -19,10 +19,12 @@ internal static class TestDocuments
     public static CreateDocumentCommand Command(Guid ownerId, string title = "Invoice") =>
         new(ownerId, title, $"{title.Trim()}.pdf", "application/pdf", Size: 3, UnreadSha256);
 
-    /// <summary>One header and the content in chunks of <paramref name="chunkSize"/>, as a client sends it.</summary>
+    /// <summary>
+    /// One header and the content in chunks of <paramref name="chunkSize"/>, as a client sends it. The document
+    /// belongs to the caller: the client is one made for a user (<c>PipelineHost.ChannelFor</c>).
+    /// </summary>
     public static async Task<DocumentDto> UploadAsync(
         DocumentsService.DocumentsServiceClient client,
-        string ownerId,
         string fileName,
         byte[] content,
         string? contentType = "application/pdf",
@@ -31,12 +33,7 @@ internal static class TestDocuments
     )
     {
         using var call = client.UploadDocument();
-        var header = new UploadDocumentHeader
-        {
-            OwnerId = ownerId,
-            FileName = fileName,
-            ContentType = contentType ?? "",
-        };
+        var header = new UploadDocumentHeader { FileName = fileName, ContentType = contentType ?? "" };
 
         if (title is not null)
         {

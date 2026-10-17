@@ -38,14 +38,14 @@ The system SHALL find the documents of one owner whose title or file name contai
 - **THEN** the result is empty and is not refused
 
 ### Requirement: A search covers all of the owner's live documents and nobody else's
-A search SHALL look at all of the owner's documents, in the inbox and in every archive. It SHALL NOT return a deleted document or a document of another owner. A search for an unknown owner SHALL return an empty result.
+A search SHALL look at all of the caller's documents, in the inbox and in every archive. It SHALL NOT return a deleted document or a document of another owner.
 
 #### Scenario: Inbox and archives together
-- **WHEN** Alice has a document titled `Invoice March` in her inbox and one titled `Invoice April` in her archive `Taxes 2026`, and searches for `invoice`
+- **WHEN** Alice has a document titled `Invoice March` in her inbox and one titled `Invoice April` in her archive `Taxes 2026`, and Alice's caller searches for `invoice`
 - **THEN** the result contains both, and `Invoice April` carries the id of `Taxes 2026` as its archive
 
 #### Scenario: Another user's documents
-- **WHEN** Alice and Bob each have a document titled `Invoice` and Alice searches for `invoice`
+- **WHEN** Alice and Bob each have a document titled `Invoice` and Alice's caller searches for `invoice`
 - **THEN** the result contains Alice's document only
 
 #### Scenario: A deleted document
@@ -53,8 +53,8 @@ A search SHALL look at all of the owner's documents, in the inbox and in every a
 - **THEN** the result does not contain it
 
 #### Scenario: Unknown owner
-- **WHEN** a client searches with an owner id that belongs to no user
-- **THEN** the result is empty and is not refused
+- **WHEN** a client searches with a caller token naming a user id that belongs to no user
+- **THEN** the request is refused as unauthenticated
 
 ### Requirement: Search results follow every change to a document
 A document SHALL be found by its current title as soon as the call that created or renamed it has answered, and SHALL NOT be found by a title it no longer has. Documents that existed before search was introduced SHALL be found as well.

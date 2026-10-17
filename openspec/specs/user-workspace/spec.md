@@ -7,15 +7,19 @@ Gives each user a page in the web UI for working with their inbox, archives and 
 ## Requirements
 
 ### Requirement: Each user has a workspace page
-The web UI SHALL provide a workspace page at `/users/{id}` for every non-deleted user, headed with that user's display name. No sign-in SHALL be required to view or use it. For an unknown or deleted user id, it SHALL show a not-found message instead of a workspace.
+The UI SHALL provide the signed-in user's workspace at `/workspace`, headed with that user's display name, and the same workspace with an archive selected at `/workspace/archives/{id}`. The workspace SHALL show only the signed-in user's inbox, archives and documents. A user's id SHALL NOT be part of a workspace address. A signed-out visitor SHALL be shown the landing page instead (see the `sign-in` capability). When the address names an archive that is not one of the signed-in user's live archives, the workspace SHALL show the inbox.
 
 #### Scenario: Opening a user's workspace
-- **WHEN** a visitor opens `/users/{id}` for Alice
+- **WHEN** Alice is signed in and opens `/workspace`
 - **THEN** the page shows Alice's display name, her inbox and her archives
 
 #### Scenario: Unknown user
-- **WHEN** a visitor opens `/users/{id}` with an id that belongs to no user
-- **THEN** the page shows a not-found message and no workspace
+- **WHEN** a visitor opens the old address `/users/{id}` of any user
+- **THEN** the not-found page is shown and no workspace
+
+#### Scenario: An archive of another user in the address
+- **WHEN** Bob is signed in and opens `/workspace/archives/{id}` with the id of Alice's archive
+- **THEN** Bob's inbox is selected and none of Alice's documents are shown
 
 ### Requirement: The workspace shows the inbox and the user's archives
 While a user's workspace is open, the app's navigation sidebar SHALL show a navigation list containing the inbox, with its number of documents, followed by each of the user's archives. The list SHALL sit with the sidebar's other entries, above the Settings entry. The workspace page SHALL NOT show a second navigation list of its own. On pages other than a workspace, and for an unknown or deleted user, the sidebar SHALL NOT show inbox or archive entries.
@@ -115,6 +119,7 @@ When the server refuses a workspace action, the workspace SHALL show a localized
 #### Scenario: Filing into an archive deleted elsewhere
 - **WHEN** a visitor files a document into an archive that another client deleted in the meantime
 - **THEN** the workspace shows the localized message for a deleted archive and the archive disappears from the navigation list
+
 ### Requirement: Documents can be downloaded from the workspace
 Each listed document SHALL offer a download action that hands the document's file to the visitor under its original file name, with the content exactly as it was uploaded. In the web UI the file SHALL arrive as a browser download.
 

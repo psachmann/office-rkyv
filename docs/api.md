@@ -10,15 +10,26 @@ Each aggregate has a folder under `Features/` with the same files:
 |---|---|
 | `Archive.cs` | The aggregate: a record deriving from `EntityBase`, with a static `Create` for the first event and one `Apply` per later event. |
 | `ArchiveEvents.cs` | The events, as payload-only records. Fisher supplies the envelope (stream id, version, timestamp). |
-| `ArchiveCommands.cs` | The commands. A command on an existing aggregate carries `<Aggregate>Id` and the expected `Version`. |
+| `ArchiveCommands.cs` | The commands. A command on an existing aggregate carries `<Aggregate>Id`, the expected `Version` and the `CallerId` that acts. |
 | `ArchiveQueries.cs` | The queries. |
 | `ArchiveMapper.cs` | A Mapperly mapper: requests to commands and queries, aggregates to DTOs and responses. |
-| `ArchivesServiceImpl.cs` | The gRPC service. It maps, dispatches on `IMessageBus`, and maps back. No logic. |
+| `ArchivesServiceImpl.cs` | The gRPC service. It resolves the caller, maps, dispatches on `IMessageBus`, and maps back. No logic. |
 | `Handlers/` | One static handler class per command or query, the validators, and the existence check. |
 
-What features share is under `Shared/`: `EntityBase` and `EntityStatus`, the exceptions, the error mapping, the text rules for validators, the snapshot registration, the telemetry subscription, and the blob store for file content (`Shared/Blobs`).
+What features share is under `Shared/`: `EntityBase` and `EntityStatus`, the exceptions, the error mapping, the caller (`Shared/Auth`), the text rules for validators, the snapshot registration, the telemetry subscription, and the blob store for file content (`Shared/Blobs`).
 
 The service names its RPCs after the resource (`ListArchives`, `RenameArchive`); the split into commands and queries is the server's own business and does not show in the contract.
+
+## The caller
+
+Every archive and document RPC, and `UpdateUser` and `DeleteUser`, is made by a user, and the API decides which. The UI host sends a signed caller token with each call (`Authorization: Bearer`, see [architecture.md](architecture.md#one-request)); `AddOfficeRkyvApi` registers JwtBearer authentication that checks its signature, issuer, audience and lifetime, and `MapOfficeRkyvApi` reads it. The scoped `CallerAccessor` (`Shared/Auth`) gives a service `RequireAsync(ServerCallContext)`: the user id from the token's `sub`, then a `FindUserByIdQuery`. A missing, invalid or expired token, or a user that is unknown or deleted, throws `UnauthenticatedException`.
+
+- **Not `[Authorize]`.** The authorization middleware answers with an HTTP 401 that the client turns into a status with a message of its own, past the one place that maps failures. A refusal here takes the ordinary path to a status, with our fixed text. The cost is one snapshot read per call.
+- **A service calls `RequireAsync` first,** before it reads anything of the request. The upload does it before it reads the header, so a refused upload stores no content. This is the one thing besides mapping a service does, and it owns no business rule.
+- **The owner is never a request field.** The service puts the caller into the command or query: `OwnerId` on what creates or lists (`CreateArchiveCommand`, `FindArchivesByOwnerQuery`, `FindInboxQuery`, `SearchDocumentsQuery`, `UploadHeader`), `CallerId` on a command on an existing aggregate, and `OwnerId` on `FindArchiveDocumentsQuery`.
+- **The existence check is also the ownership check.** `ArchiveExistence.RequireAsync` and `DocumentExistence.RequireAsync` take the caller, and throw `NotFoundException` when the aggregate is missing or its owner is someone else, before the version is looked at. Another user's resource is answered exactly as an unknown one. `FileDocumentHandler` treats an archive that is not the document's owner's the same way (`archive_owner_mismatch` is no longer produced; the code stays, since codes are never removed).
+- **Users are open except for changing one.** `ListUsers`, `FindUserById`, `FindUserByEmail` and `CreateUser` need no caller, because the landing page calls them signed out. `UpdateUser` and `DeleteUser` require one and throw `PermissionDeniedException` unless the caller is the user named, whether or not that user exists.
+- **The bus stays caller-free.** Handlers never read an `HttpContext`. The development seed, the archive-deletion cascade and a later folder watcher name the user explicitly in the commands they send.
 
 ## Handlers
 
@@ -32,7 +43,7 @@ Queries are static handlers over `IQuerySession` (`FindArchivesByOwnerHandler`).
 
 Rules that hold for all of them:
 
-- **Unknown id is "not found", not "stale".** A command on an existing aggregate has a `ValidateAsync` step that calls the feature's existence check (`ArchiveExistence.RequireAsync`). It runs before the stream is loaded at the expected version, so an unknown id throws `NotFoundException` instead of failing the version check.
+- **Unknown id is "not found", not "stale".** A command on an existing aggregate has a `ValidateAsync` step that calls the feature's existence check (`ArchiveExistence.RequireAsync`, with the command's `CallerId`). It runs before the stream is loaded at the expected version, so an unknown id, or one that belongs to someone else, throws `NotFoundException` instead of failing the version check.
 - **Deleting is soft and idempotent.** Deletion appends an event and sets `EntityStatus.Deleted`. Deleting a deleted aggregate succeeds and appends nothing.
 - **No change, no event.** Renaming to the same name or filing into the same archive appends nothing.
 - **Handlers throw; they know nothing about gRPC.** A refused business rule is `InvariantViolationException` with a code; a missing resource is `NotFoundException`.
@@ -40,12 +51,12 @@ Rules that hold for all of them:
 
 ### A streaming service method
 
-`DocumentsServiceImpl.UploadDocument` (client streaming) and `DownloadDocument` (server streaming) are the only service methods that do work of their own, which departs from "a service maps, dispatches and maps back". The reason is in the data: an upload cannot be a command until its content has been read, because the command carries the size and the hash of that content.
+`DocumentsServiceImpl.UploadDocument` (client streaming) and `DownloadDocument` (server streaming) are the only service methods that do work of their own beyond resolving the caller, which departs from "a service maps, dispatches and maps back". The reason is in the data: an upload cannot be a command until its content has been read, because the command carries the size and the hash of that content.
 
 - **The service only adapts the stream.** It reads the header message, then hands everything after it, as a sequence of chunks, to `DocumentIngest`. It owns no rule.
 - **`DocumentIngest` is the one way a file becomes a document.** The upload RPC, the development seed and a later folder watcher all call it. It writes the content to the blob store, refuses an empty or oversized file as a `ValidationException` (field `content`, codes `required` and `too_large`), and then dispatches the ordinary `CreateDocumentCommand`, from which point validators and the start-stream handler apply as always.
 - **Limits are enforced while reading.** The blob store counts bytes and stops at `FileStorage:MaxFileSizeBytes` (100 MB by default), so an oversized upload is never held whole and never stored.
-- **A download is a find-by-id and a stream.** It checks the document exists and is not deleted, then copies the blob in `FileLimits.ChunkSize` chunks. A document whose content is missing is a fault: `INTERNAL`, logged at Error with the document id.
+- **A download is a find-by-id and a stream.** It checks the document exists, is the caller's (another user's is not found) and is not deleted, then copies the blob in `FileLimits.ChunkSize` chunks. A document whose content is missing is a fault: `INTERNAL`, logged at Error with the document id.
 - **Errors need nothing special.** A failure thrown while the stream is read or written takes the same path to a status as a unary call (`api-error-mapping`).
 
 A new streaming method follows this shape; anything that is not a stream stays a plain map, dispatch and map back.
@@ -105,6 +116,8 @@ One place turns failures into gRPC statuses for every service: `UseApiErrorMappi
 | `DuplicateNaturalKeyException` | `ALREADY_EXISTS` | none |
 | `EventStreamUnexpectedMaxEventIdException` | `ABORTED` | none |
 | `NotFoundException` | `NOT_FOUND` | none |
+| `UnauthenticatedException` | `UNAUTHENTICATED` | none; the same text whatever the reason (no token, a token that does not verify or has expired, a user that is gone) |
+| `PermissionDeniedException` | `PERMISSION_DENIED` | none |
 | The client cancelled | `CANCELLED` | none, and not logged |
 | Anything else | `INTERNAL` | none; logged at Error with the exception |
 
@@ -120,7 +133,7 @@ The required behaviour is the `api-error-mapping` spec in `openspec/specs`.
 2. Add the command or query record, and its mapping in the feature's mapper.
 3. Add the handler in `Handlers/`, in the shape that fits, with a validator if the command has input rules and the existence check if it names an existing aggregate.
 4. Add new events to the events file and an `Apply` for each on the aggregate.
-5. Add the service method: map, dispatch, map back.
+5. Add the service method: resolve the caller first (`CallerAccessor.RequireAsync`), then map, dispatch, map back. A command on an existing aggregate gets the caller as `CallerId`, and the existence check refuses what is not theirs.
 6. For a new refusal, add the code to `InvariantCodes` and its text on the UI side.
 7. For a new aggregate, add its snapshot to `AddAggregateSnapshots` and its service to `MapOfficeRkyvApi`.
 8. For a call that streams a file, follow [the streaming shape](#a-streaming-service-method): the service adapts the stream, and the rules live in the component it hands the stream to.
@@ -134,3 +147,4 @@ The required behaviour is the `api-error-mapping` spec in `openspec/specs`.
 - [add-linux-desktop-app](../openspec/changes/archive/2026-09-30-add-linux-desktop-app/design.md) (D3): the API composition as extension methods.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D1 to D10): file facts on the creation event, the blob store, content first, the streaming RPCs, the ingest component, limits while reading, the download.
 - [add-document-title-search](../openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D1 to D4): the trigram index on the snapshot, the word rule, the raw FTS5 query that can rank several words, existing documents indexed by the migration.
+- [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D1 to D4): the caller token, the caller resolved in the services, commands carrying the acting user, the open user service.

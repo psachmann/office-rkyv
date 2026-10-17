@@ -65,7 +65,7 @@ public sealed class ArchiveDeletionRaceTests : IAsyncDisposable
             for (var member = 0; member < MembersPerRound; member++)
             {
                 var pre = await Bus.InvokeAsync<Document>(TestDocuments.Command(alice.Id, $"Member {member}"));
-                await Bus.InvokeAsync<Document>(new FileDocumentCommand(pre.Id, pre.Version, archive.Id));
+                await Bus.InvokeAsync<Document>(new FileDocumentCommand(pre.Id, pre.Version, archive.Id, alice.Id));
             }
 
             var racer = await Bus.InvokeAsync<Document>(TestDocuments.Command(alice.Id, "Racer"));
@@ -77,7 +77,9 @@ public sealed class ArchiveDeletionRaceTests : IAsyncDisposable
                 start.Wait();
 
                 return await Attempt(async () =>
-                    await Bus.InvokeAsync<Document>(new FileDocumentCommand(racer.Id, racer.Version, archive.Id))
+                    await Bus.InvokeAsync<Document>(
+                        new FileDocumentCommand(racer.Id, racer.Version, archive.Id, alice.Id)
+                    )
                 );
             });
             var deletion = Task.Run(async () =>
@@ -85,7 +87,7 @@ public sealed class ArchiveDeletionRaceTests : IAsyncDisposable
                 start.Wait();
 
                 return await Attempt(async () =>
-                    await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, current.Version))
+                    await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, current.Version, alice.Id))
                 );
             });
             start.Set();

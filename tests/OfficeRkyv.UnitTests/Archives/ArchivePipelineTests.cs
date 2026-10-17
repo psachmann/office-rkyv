@@ -154,7 +154,7 @@ public sealed class ArchivePipelineTests : IAsyncDisposable
         var alice = await CreateUser();
         var created = await CreateArchive(alice, "Taxes");
 
-        await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, "Taxes 2026"));
+        await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, "Taxes 2026", alice.Id));
 
         var renamed = (await ArchivesOf(alice)).Single();
         await Assert.That(renamed.Name).IsEqualTo("Taxes 2026");
@@ -166,10 +166,12 @@ public sealed class ArchivePipelineTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var created = await CreateArchive(alice, "Taxes");
-        await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, "Taxes 2026"));
+        await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, "Taxes 2026", alice.Id));
 
         await Assert
-            .That(async () => await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, "Late")))
+            .That(async () =>
+                await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, "Late", alice.Id))
+            )
             .Throws<EventStreamUnexpectedMaxEventIdException>();
 
         await Assert.That((await ArchivesOf(alice)).Single().Name).IsEqualTo("Taxes 2026");
@@ -182,7 +184,7 @@ public sealed class ArchivePipelineTests : IAsyncDisposable
         var created = await CreateArchive(alice, "Taxes");
 
         var failure = await ExpectValidationFailure(async () =>
-            await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, " "))
+            await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, " ", alice.Id))
         );
 
         await Assert
@@ -198,7 +200,9 @@ public sealed class ArchivePipelineTests : IAsyncDisposable
         await MarkDeleted(created);
 
         var failure = await Assert
-            .That(async () => await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version + 1, "Back")))
+            .That(async () =>
+                await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version + 1, "Back", alice.Id))
+            )
             .Throws<InvariantViolationException>();
 
         await Assert.That(failure!.Code).IsEqualTo(InvariantCodes.ArchiveDeleted);
@@ -210,7 +214,9 @@ public sealed class ArchivePipelineTests : IAsyncDisposable
     public async Task Rename_OfAnUnknownArchive_IsNotFound_WhateverVersionTheCallerSends(int version)
     {
         await Assert
-            .That(async () => await Bus.InvokeAsync(new RenameArchiveCommand(Guid.NewGuid(), version, "Ghost")))
+            .That(async () =>
+                await Bus.InvokeAsync(new RenameArchiveCommand(Guid.NewGuid(), version, "Ghost", Guid.NewGuid()))
+            )
             .Throws<NotFoundException>();
     }
 
@@ -228,6 +234,37 @@ public sealed class ArchivePipelineTests : IAsyncDisposable
             .That((await ArchivesOf(alice)).Select(archive => archive.Name))
             .IsEquivalentTo(["Taxes", "Household"]);
         await Assert.That((await ArchivesOf(bob)).Select(archive => archive.Name)).IsEquivalentTo(["Work"]);
+    }
+
+    [Test]
+    public async Task Rename_OfAnotherUsersArchive_IsNotFound_AndKeepsTheName()
+    {
+        var alice = await CreateUser("alice@example.com");
+        var bob = await CreateUser("bob@example.com");
+        var created = await CreateArchive(alice, "Taxes");
+
+        // The current version: the refusal must come from the owner, not from the version check.
+        await Assert
+            .That(async () =>
+                await Bus.InvokeAsync(new RenameArchiveCommand(created.Id, created.Version, "Mine", bob.Id))
+            )
+            .Throws<NotFoundException>();
+
+        await Assert.That((await ArchivesOf(alice)).Single().Name).IsEqualTo("Taxes");
+    }
+
+    [Test]
+    public async Task Delete_OfAnotherUsersArchive_IsNotFound_AndKeepsTheArchive()
+    {
+        var alice = await CreateUser("alice@example.com");
+        var bob = await CreateUser("bob@example.com");
+        var created = await CreateArchive(alice, "Taxes");
+
+        await Assert
+            .That(async () => await Bus.InvokeAsync(new DeleteArchiveCommand(created.Id, created.Version, bob.Id)))
+            .Throws<NotFoundException>();
+
+        await Assert.That((await ArchivesOf(alice)).Select(archive => archive.Name)).IsEquivalentTo(["Taxes"]);
     }
 
     [Test]

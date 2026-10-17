@@ -62,7 +62,8 @@
         // This dialog's own mutation: it starts idle and only reports executions started from here.
         createUser = Users.CreateCreateUserMutation();
         subscriptions = new CompositeDisposable(
-            createUser.Success.Subscribe(result => _ = InvokeAsync(() => DialogService.Close(true))),
+            // Closes with the user it created, so the landing page can sign in as them.
+            createUser.Success.Subscribe(user => _ = InvokeAsync(() => DialogService.Close(user))),
             createUser.Failure.Subscribe(error => _ = InvokeAsync(() => ShowFailure(error)))
         );
     }

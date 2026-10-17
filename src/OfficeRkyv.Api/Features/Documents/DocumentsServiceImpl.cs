@@ -4,6 +4,7 @@ using FluentValidation.Results;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using OfficeRkyv.Api.Shared.Auth;
 using OfficeRkyv.Api.Shared.Blobs;
 using Wolverine;
 
@@ -13,6 +14,7 @@ public partial class DocumentsServiceImpl(
     IMessageBus bus,
     DocumentIngest ingest,
     IBlobStore blobs,
+    CallerAccessor caller,
     ILogger<DocumentsServiceImpl> logger
 ) : DocumentsService.DocumentsServiceBase
 {
@@ -20,7 +22,11 @@ public partial class DocumentsServiceImpl(
 
     public override async Task<ListInboxResponse> ListInbox(ListInboxRequest request, ServerCallContext context)
     {
-        var documents = await bus.InvokeAsync<IReadOnlyList<Document>>(request.ToQuery(), context.CancellationToken);
+        var callerId = await caller.RequireAsync(context);
+        var documents = await bus.InvokeAsync<IReadOnlyList<Document>>(
+            request.ToQuery(callerId),
+            context.CancellationToken
+        );
 
         return documents.ToInboxResponse();
     }
@@ -30,7 +36,11 @@ public partial class DocumentsServiceImpl(
         ServerCallContext context
     )
     {
-        var documents = await bus.InvokeAsync<IReadOnlyList<Document>>(request.ToQuery(), context.CancellationToken);
+        var callerId = await caller.RequireAsync(context);
+        var documents = await bus.InvokeAsync<IReadOnlyList<Document>>(
+            request.ToQuery(callerId),
+            context.CancellationToken
+        );
 
         return documents.ToArchiveDocumentsResponse();
     }
@@ -40,7 +50,8 @@ public partial class DocumentsServiceImpl(
         ServerCallContext context
     )
     {
-        var result = await bus.InvokeAsync<SearchDocumentsResult>(request.ToQuery(), context.CancellationToken);
+        var callerId = await caller.RequireAsync(context);
+        var result = await bus.InvokeAsync<SearchDocumentsResult>(request.ToQuery(callerId), context.CancellationToken);
 
         return result.ToSearchResponse();
     }
@@ -53,7 +64,10 @@ public partial class DocumentsServiceImpl(
     )
     {
         var cancellation = context.CancellationToken;
-        var header = await ReadHeaderAsync(requestStream, cancellation);
+
+        // Before anything is read: a refused caller has nothing stored for them.
+        var callerId = await caller.RequireAsync(context);
+        var header = await ReadHeaderAsync(requestStream, callerId, cancellation);
 
         var document = await ingest.IngestAsync(
             bus,
@@ -72,11 +86,16 @@ public partial class DocumentsServiceImpl(
     )
     {
         var cancellation = context.CancellationToken;
+        var callerId = await caller.RequireAsync(context);
         var documentId = Guid.Parse(request.DocumentId);
 
-        var document =
-            await bus.InvokeAsync<Document?>(new FindDocumentByIdQuery(documentId), cancellation)
-            ?? throw new NotFoundException($"Document '{documentId}' does not exist.");
+        // Another user's document is answered as an unknown one, before any content is sent.
+        var document = await bus.InvokeAsync<Document?>(new FindDocumentByIdQuery(documentId), cancellation);
+
+        if (document is null || document.OwnerId != callerId)
+        {
+            throw new NotFoundException($"Document '{documentId}' does not exist.");
+        }
 
         if (document.Status is EntityStatus.Deleted)
         {
@@ -111,7 +130,7 @@ public partial class DocumentsServiceImpl(
         ServerCallContext context
     )
     {
-        var command = request.ToCommand();
+        var command = request.ToCommand(await caller.RequireAsync(context));
         await bus.InvokeAsync(command, context.CancellationToken);
 
         return (await ReadAsync(command.DocumentId, context)).ToRenameResponse();
@@ -119,7 +138,8 @@ public partial class DocumentsServiceImpl(
 
     public override async Task<Empty> DeleteDocument(DeleteDocumentRequest request, ServerCallContext context)
     {
-        await bus.InvokeAsync(request.ToCommand(), context.CancellationToken);
+        var callerId = await caller.RequireAsync(context);
+        await bus.InvokeAsync(request.ToCommand(callerId), context.CancellationToken);
 
         return new();
     }
@@ -129,7 +149,8 @@ public partial class DocumentsServiceImpl(
         ServerCallContext context
     )
     {
-        var document = await bus.InvokeAsync<Document>(request.ToCommand(), context.CancellationToken);
+        var callerId = await caller.RequireAsync(context);
+        var document = await bus.InvokeAsync<Document>(request.ToCommand(callerId), context.CancellationToken);
 
         return document.ToFileResponse();
     }
@@ -139,7 +160,7 @@ public partial class DocumentsServiceImpl(
         ServerCallContext context
     )
     {
-        var command = request.ToCommand();
+        var command = request.ToCommand(await caller.RequireAsync(context));
         await bus.InvokeAsync(command, context.CancellationToken);
 
         return (await ReadAsync(command.DocumentId, context)).ToUnfileResponse();
@@ -152,6 +173,7 @@ public partial class DocumentsServiceImpl(
 
     private static async Task<UploadHeader> ReadHeaderAsync(
         IAsyncStreamReader<UploadDocumentRequest> requestStream,
+        Guid ownerId,
         CancellationToken cancellation
     )
     {
@@ -165,12 +187,7 @@ public partial class DocumentsServiceImpl(
 
         var header = requestStream.Current.Header;
 
-        return new UploadHeader(
-            Guid.Parse(header.OwnerId),
-            header.FileName,
-            header.ContentType,
-            header.HasTitle ? header.Title : null
-        );
+        return new UploadHeader(ownerId, header.FileName, header.ContentType, header.HasTitle ? header.Title : null);
     }
 
     // Everything after the header is content. The blob store drains this as it writes, and stops at its limit.

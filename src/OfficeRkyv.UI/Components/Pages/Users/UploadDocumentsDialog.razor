@@ -3,8 +3,9 @@
 @inject IStringLocalizer<WorkspaceErrors> ErrorLocalizer
 @inject DocumentsFacade Documents
 @inject DialogService DialogService
+@inject ISignInService SignIn
 
-@* Uploads each chosen file as its own document in OwnerId's inbox, one after another. A refused file does not
+@* Uploads each chosen file as its own document in the signed-in user's inbox, one after another. A refused file does not
    stop the ones after it: every file shows its own state. *@
 <RadzenStack Gap="1rem">
     <RadzenText TextStyle="TextStyle.Body2">@Localizer["Hint"]</RadzenText>
@@ -44,9 +45,6 @@
     private readonly CancellationTokenSource cancellation = new();
     private bool isUploading;
 
-    /// <summary>The user the new documents belong to.</summary>
-    [Parameter] public Guid OwnerId { get; set; }
-
     private async Task OnFilesChosen(InputFileChangeEventArgs args)
     {
         var batch = args.GetMultipleFiles(maximumFileCount: 1000).Select(file => new UploadItem(file)).ToList();
@@ -78,7 +76,6 @@
             await using var content = item.File.OpenReadStream(FileLimits.DefaultMaxFileSizeBytes, cancellation.Token);
 
             await Documents.UploadAsync(
-                OwnerId,
                 item.File.Name,
                 item.File.ContentType,
                 content,
@@ -96,6 +93,7 @@
         {
             var errors = WorkspaceErrors.From(exception);
             item.Refuse(errors.File ?? errors.General ?? "ActionFailed");
+            _ = WorkspaceErrors.EndSignInIfRefusedAsync(exception, SignIn);
         }
 
         StateHasChanged();

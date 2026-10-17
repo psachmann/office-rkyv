@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using Fisher;
+using Grpc.Core;
 using Grpc.Net.Client;
 using JasperFx.Events.Projections;
 using Microsoft.AspNetCore.Builder;
@@ -11,12 +12,15 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
+using OfficeRkyv.Api.Features.Archives;
 using OfficeRkyv.Api.Features.Documents;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Shared;
+using OfficeRkyv.Api.Shared.Auth;
 using OfficeRkyv.Api.Shared.Blobs;
 using OfficeRkyv.Api.Shared.Errors;
 using OfficeRkyv.Api.Shared.Telemetry;
+using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
 using OpenTelemetry.Metrics;
@@ -68,8 +72,7 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
             .Services.AddFisher(options =>
             {
                 options.Connection($"Data Source={path}");
-                options.Projections.Snapshot<User>(SnapshotLifecycle.Inline);
-                options.Projections.Snapshot<Document>(SnapshotLifecycle.Inline);
+                options.AddAggregateSnapshots();
                 options.AddSearchIndexes();
                 options.OpenTelemetry.TrackWriteLockContention();
             })
@@ -89,8 +92,13 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         builder.Services.AddSingleton<IBlobStore>(new FileSystemBlobStore(path + ".blobs"));
         builder.Services.AddSingleton<DocumentIngest>();
 
+        // The services read the caller from the token, so this host validates tokens as the API does.
+        builder.Services.AddCallerAuthentication(PipelineHost.CallerKey);
+
         host = builder.Build();
+        host.UseAuthentication();
         host.MapGrpcService<UsersServiceImpl>();
+        host.MapGrpcService<ArchivesServiceImpl>();
         host.MapGrpcService<DocumentsServiceImpl>();
         await host.StartAsync();
 
@@ -151,15 +159,10 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         var user = (
             await Client.CreateUserAsync(new CreateUserRequest { Email = "ada@example.com", DisplayName = "Ada" })
         ).User;
-        var documents = new DocumentsService.DocumentsServiceClient(channel);
+        using var asUser = PipelineHost.ChannelFor(address, Guid.Parse(user.Id));
+        var documents = new DocumentsService.DocumentsServiceClient(asUser);
 
-        var document = await TestDocuments.UploadAsync(
-            documents,
-            user.Id,
-            fileName,
-            TestDocuments.Bytes(2_000),
-            title: title
-        );
+        var document = await TestDocuments.UploadAsync(documents, fileName, TestDocuments.Bytes(2_000), title: title);
         var spans = await WaitForServerSpans(2);
 
         // The upload is traced like any call: a server span, with the command and the append below it.
@@ -203,12 +206,11 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         var user = (
             await Client.CreateUserAsync(new CreateUserRequest { Email = "ada@example.com", DisplayName = "Ada" })
         ).User;
-        var documents = new DocumentsService.DocumentsServiceClient(channel);
-        await TestDocuments.UploadAsync(documents, user.Id, "scan0001.pdf", TestDocuments.Bytes(100), title: "Strom");
+        using var asUser = PipelineHost.ChannelFor(address, Guid.Parse(user.Id));
+        var documents = new DocumentsService.DocumentsServiceClient(asUser);
+        await TestDocuments.UploadAsync(documents, "scan0001.pdf", TestDocuments.Bytes(100), title: "Strom");
 
-        var response = await documents.SearchDocumentsAsync(
-            new SearchDocumentsRequest { OwnerId = user.Id, Query = query }
-        );
+        var response = await documents.SearchDocumentsAsync(new SearchDocumentsRequest { Query = query });
         var spans = await WaitForServerSpans(3);
 
         // The search is traced like any call: a server span with the handler below it. A read opens no store span.
@@ -219,6 +221,33 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
         await Assert.That(below.Any(span => span.Source.Name == WolverineSource)).IsTrue();
         await Assert.That(leaked.Count).IsEqualTo(0);
         await Assert.That(response.Documents).IsEmpty();
+    }
+
+    [Test]
+    public async Task ACallerToken_AppearsOnNoSpan_NotEvenInPart()
+    {
+        var user = (
+            await Client.CreateUserAsync(new CreateUserRequest { Email = "ada@example.com", DisplayName = "Ada" })
+        ).User;
+        var token = PipelineHost.TokenFor(Guid.Parse(user.Id));
+        var headers = new Metadata { { "authorization", $"Bearer {token}" } };
+
+        await new ArchivesService.ArchivesServiceClient(channel).ListArchivesAsync(
+            new ListArchivesRequest(),
+            new CallOptions(headers)
+        );
+        var spans = await WaitForServerSpans(2);
+
+        // The call was accepted and traced, so a pass is not for want of anything to look at.
+        var server = ServerSpanFor(spans, "ListArchives");
+        var below = spans.Where(span => IsDescendantOf(spans, span, server)).ToList();
+        var parts = token.Split('.');
+        var leaked = spans
+            .Where(span => Everything(span).Any(text => text.Contains(token) || parts.Any(text.Contains)))
+            .ToList();
+
+        await Assert.That(below.Any(span => span.Source.Name == WolverineSource)).IsTrue();
+        await Assert.That(leaked.Count).IsEqualTo(0);
     }
 
     [Test]

@@ -13,7 +13,9 @@
     <PackageReference Include="DotNetQuery.Blazor" />
     <PackageReference Include="DotNetQuery.Blazor.DevTools" />
     <PackageReference Include="DotNetQuery.Core" />
+    <PackageReference Include="Grpc.Net.ClientFactory" />
     <PackageReference Include="Grpc.StatusProto" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
     <PackageReference Include="Radzen.Blazor" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>

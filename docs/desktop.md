@@ -20,6 +20,16 @@ Each is verified and explained in the archived spike, `openspec/changes/archive/
 - **A crash leaves the socket behind:** `DesktopApi.ClaimSocket` connects to it first, deletes it if nothing answers, and refuses to start if something does.
 - **No `.razor.css` in the desktop project** (it breaks `BlazorWebView`'s static assets); if one is ever needed, see the spike's `MauiCss` removal. Scoped CSS of the UI library is fine: the host's `<Host>.styles.css` imports it.
 
+## Signing in
+
+The desktop offers the same landing page and sign-in as the web, with the same two seams ([ui.md](ui.md#signing-in)), implemented in memory.
+
+- **`DesktopSignIn`** is one singleton for the running app and the `AuthenticationStateProvider` of every window and every gRPC client. Signing in or out sets the principal and raises `AuthenticationStateChanged`. Nothing is written to disk, so every start is signed out. It is app-wide and not per window: a second launch opens a second window on the running instance, and one person runs the app.
+- **`DesktopSignInService`** is the `ISignInService`, one per window (it needs that window's `NavigationManager`). A sign-in only changes the state: the landing page, where it is made, sends a signed-in visitor on to `/workspace`. A sign-out also navigates to `/`, because it can be made from the settings page, which needs no user.
+- **The key.** `DesktopHost` makes 32 random bytes at every start and hands them to `DesktopApi.StartAsync` (the API's JwtBearer) and to `DesktopApi.AddSocketClients` (the token issuer). Nothing outside the process knows it.
+- **Call credentials over the socket.** gRPC attaches call credentials only over TLS, so the clients set `UnsafeUseInsecureChannelCallCredentials`. That is safe here because the socket lives in the owner-only runtime directory; the web host keeps TLS. The token is still required, so the API has one code path (checked by `DesktopApiTests`).
+- **Two log lines**, `[LoggerMessage]` at Information with the user id only, as the evidence of the by-hand check: `Signed in as user {UserId}` and `Signed out`.
+
 ## Saving a downloaded file
 
 `DesktopFileSaver` implements `IFileSaver` (see [ui.md](ui.md#files-upload-and-download)). It opens GTK's save dialog (`Gtk.FileDialog`) with the file name proposed and writes the stream to the path chosen; a dismissed dialog writes nothing and is not an error. File content itself is kept in `blobs/` in the data directory, beside the database.
@@ -37,3 +47,4 @@ The desktop host has no generic host for its own startup, so `DesktopHost.Initia
 - [linux-desktop-app-spike](../openspec/changes/archive/2026-09-30-linux-desktop-app-spike/design.md) (Spike results): what was tried on a real desktop, and what each workaround answers.
 - [add-linux-desktop-app](../openspec/changes/archive/2026-09-30-add-linux-desktop-app/design.md) (D1, D3, D6, D8): the project layout, the API in the process, the host, and why the desktop is checked by hand.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D12): saving a downloaded file as the host's job, and the fallback.
+- [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D7): the app-wide in-memory sign-in, and the key made at start.

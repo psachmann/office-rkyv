@@ -55,10 +55,12 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         await Bus.InvokeAsync<IReadOnlyList<Document>>(new FindInboxQuery(owner.Id));
 
     private async Task<IReadOnlyList<Document>> Contents(Archive archive) =>
-        await Bus.InvokeAsync<IReadOnlyList<Document>>(new FindArchiveDocumentsQuery(archive.Id));
+        await Bus.InvokeAsync<IReadOnlyList<Document>>(new FindArchiveDocumentsQuery(archive.Id, archive.OwnerId));
 
     private async Task File(Document document, Archive archive) =>
-        await Bus.InvokeAsync<Document>(new FileDocumentCommand(document.Id, document.Version, archive.Id));
+        await Bus.InvokeAsync<Document>(
+            new FileDocumentCommand(document.Id, document.Version, archive.Id, document.OwnerId)
+        );
 
     // Puts the archive in the deleted state at event level, so these tests do not depend on the delete handler.
     private async Task MarkDeleted(Archive archive)
@@ -168,7 +170,7 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var alice = await CreateUser();
         var created = await CreateDocument(alice, "Invoice March");
 
-        await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, created.Version, "Invoice April"));
+        await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, created.Version, "Invoice April", alice.Id));
 
         var renamed = await Reload(created);
         await Assert.That(renamed.Title).IsEqualTo("Invoice April");
@@ -180,10 +182,12 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var created = await CreateDocument(alice, "Invoice March");
-        await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, created.Version, "Invoice April"));
+        await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, created.Version, "Invoice April", alice.Id));
 
         await Assert
-            .That(async () => await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, created.Version, "Late")))
+            .That(async () =>
+                await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, created.Version, "Late", alice.Id))
+            )
             .Throws<EventStreamUnexpectedMaxEventIdException>();
 
         await Assert.That((await Reload(created)).Title).IsEqualTo("Invoice April");
@@ -200,7 +204,8 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
                 new RenameDocumentCommand(
                     created.Id,
                     created.Version,
-                    new string('t', CreateDocumentValidator.MaxTitleLength + 1)
+                    new string('t', CreateDocumentValidator.MaxTitleLength + 1),
+                    alice.Id
                 )
             )
         );
@@ -216,11 +221,13 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var created = await CreateDocument(alice);
-        await Bus.InvokeAsync(new DeleteDocumentCommand(created.Id, created.Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(created.Id, created.Version, alice.Id));
         var deleted = await Reload(created);
 
         var failure = await Assert
-            .That(async () => await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, deleted.Version, "Back")))
+            .That(async () =>
+                await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, deleted.Version, "Back", alice.Id))
+            )
             .Throws<InvariantViolationException>();
 
         await Assert.That(failure!.Code).IsEqualTo(InvariantCodes.DocumentDeleted);
@@ -232,7 +239,9 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
     public async Task Rename_OfAnUnknownDocument_IsNotFound_WhateverVersionTheCallerSends(int version)
     {
         await Assert
-            .That(async () => await Bus.InvokeAsync(new RenameDocumentCommand(Guid.NewGuid(), version, "Ghost")))
+            .That(async () =>
+                await Bus.InvokeAsync(new RenameDocumentCommand(Guid.NewGuid(), version, "Ghost", Guid.NewGuid()))
+            )
             .Throws<NotFoundException>();
     }
 
@@ -242,11 +251,11 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var alice = await CreateUser();
         var created = await CreateDocument(alice);
 
-        await Bus.InvokeAsync(new DeleteDocumentCommand(created.Id, created.Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(created.Id, created.Version, alice.Id));
         var deleted = await Reload(created);
         var events = await EventCount(created.Id);
 
-        await Bus.InvokeAsync(new DeleteDocumentCommand(created.Id, deleted.Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(created.Id, deleted.Version, alice.Id));
 
         await Assert.That(deleted.Status).IsEqualTo(EntityStatus.Deleted);
         await Assert.That(await Inbox(alice)).IsEmpty();
@@ -258,10 +267,10 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var created = await CreateDocument(alice);
-        await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, created.Version, "Renamed"));
+        await Bus.InvokeAsync(new RenameDocumentCommand(created.Id, created.Version, "Renamed", alice.Id));
 
         await Assert
-            .That(async () => await Bus.InvokeAsync(new DeleteDocumentCommand(created.Id, created.Version)))
+            .That(async () => await Bus.InvokeAsync(new DeleteDocumentCommand(created.Id, created.Version, alice.Id)))
             .Throws<EventStreamUnexpectedMaxEventIdException>();
 
         await Assert.That(await Inbox(alice)).Count().IsEqualTo(1);
@@ -278,7 +287,7 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var unfiled = await CreateDocument(alice, "Unfiled");
         await File(await CreateDocument(alice, "Filed"), archive);
         var deleted = await CreateDocument(alice, "Deleted");
-        await Bus.InvokeAsync(new DeleteDocumentCommand(deleted.Id, deleted.Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(deleted.Id, deleted.Version, alice.Id));
         await CreateDocument(bob, "Bobs");
 
         await Assert.That((await Inbox(alice)).Select(document => document.Id)).IsEquivalentTo([unfiled.Id]);
@@ -302,7 +311,7 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         await File(first, archive);
         await File(second, archive);
         await File(gone, archive);
-        await Bus.InvokeAsync(new DeleteDocumentCommand(gone.Id, (await Reload(gone)).Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(gone.Id, (await Reload(gone)).Version, alice.Id));
 
         await Assert
             .That((await Contents(archive)).Select(document => document.Id))
@@ -317,7 +326,9 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
 
         await Assert.That(await Contents(archive)).IsEmpty();
         await Assert
-            .That(await Bus.InvokeAsync<IReadOnlyList<Document>>(new FindArchiveDocumentsQuery(Guid.NewGuid())))
+            .That(
+                await Bus.InvokeAsync<IReadOnlyList<Document>>(new FindArchiveDocumentsQuery(Guid.NewGuid(), alice.Id))
+            )
             .IsEmpty();
     }
 
@@ -330,7 +341,9 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var archive = await CreateArchive(alice, "Taxes 2026");
         var document = await CreateDocument(alice);
 
-        var filed = await Bus.InvokeAsync<Document>(new FileDocumentCommand(document.Id, document.Version, archive.Id));
+        var filed = await Bus.InvokeAsync<Document>(
+            new FileDocumentCommand(document.Id, document.Version, archive.Id, alice.Id)
+        );
 
         await Assert.That(filed.ArchiveId).IsEqualTo(archive.Id);
         await Assert.That((await Contents(archive)).Select(d => d.Id)).IsEquivalentTo([document.Id]);
@@ -375,7 +388,9 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var filed = await Reload(document);
         var archiveAfterFiling = await Reload(archive);
 
-        var again = await Bus.InvokeAsync<Document>(new FileDocumentCommand(filed.Id, filed.Version, archive.Id));
+        var again = await Bus.InvokeAsync<Document>(
+            new FileDocumentCommand(filed.Id, filed.Version, archive.Id, alice.Id)
+        );
 
         await Assert.That(again.Version).IsEqualTo(filed.Version);
         await Assert.That(await EventCount(document.Id)).IsEqualTo(filed.Version);
@@ -390,7 +405,9 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
 
         await Assert
             .That(async () =>
-                await Bus.InvokeAsync<Document>(new FileDocumentCommand(document.Id, document.Version, Guid.NewGuid()))
+                await Bus.InvokeAsync<Document>(
+                    new FileDocumentCommand(document.Id, document.Version, Guid.NewGuid(), alice.Id)
+                )
             )
             .Throws<NotFoundException>();
 
@@ -407,7 +424,9 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
 
         var failure = await Assert
             .That(async () =>
-                await Bus.InvokeAsync<Document>(new FileDocumentCommand(document.Id, document.Version, archive.Id))
+                await Bus.InvokeAsync<Document>(
+                    new FileDocumentCommand(document.Id, document.Version, archive.Id, alice.Id)
+                )
             )
             .Throws<InvariantViolationException>();
 
@@ -416,22 +435,95 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
     }
 
     [Test]
-    public async Task Filing_IntoAnotherUsersArchive_ViolatesTheOwnerMismatchInvariant()
+    public async Task Filing_IntoAnotherUsersArchive_IsNotFound_AndTheDocumentStays()
     {
         var alice = await CreateUser("alice@example.com");
         var bob = await CreateUser("bob@example.com");
         var bobsArchive = await CreateArchive(bob);
         var document = await CreateDocument(alice);
 
-        var failure = await Assert
+        // Not archive_owner_mismatch: another user's archive is answered as an unknown one.
+        await Assert
             .That(async () =>
-                await Bus.InvokeAsync<Document>(new FileDocumentCommand(document.Id, document.Version, bobsArchive.Id))
+                await Bus.InvokeAsync<Document>(
+                    new FileDocumentCommand(document.Id, document.Version, bobsArchive.Id, alice.Id)
+                )
             )
-            .Throws<InvariantViolationException>();
+            .Throws<NotFoundException>();
 
-        await Assert.That(failure!.Code).IsEqualTo(InvariantCodes.ArchiveOwnerMismatch);
         await Assert.That(await Inbox(alice)).Count().IsEqualTo(1);
         await Assert.That(await Contents(bobsArchive)).IsEmpty();
+    }
+
+    [Test]
+    public async Task Filing_ADeletedArchiveOfAnotherUser_IsNotFoundToo_SoItsStateStaysPrivate()
+    {
+        var alice = await CreateUser("alice@example.com");
+        var bob = await CreateUser("bob@example.com");
+        var bobsArchive = await CreateArchive(bob);
+        var document = await CreateDocument(alice);
+        await MarkDeleted(bobsArchive);
+
+        await Assert
+            .That(async () =>
+                await Bus.InvokeAsync<Document>(
+                    new FileDocumentCommand(document.Id, document.Version, bobsArchive.Id, alice.Id)
+                )
+            )
+            .Throws<NotFoundException>();
+    }
+
+    // ---- another user's documents ----
+
+    [Test]
+    public async Task AnotherUsersDocument_IsNotFound_ForRenameDeleteFileAndUnfile_AndChangesNothing()
+    {
+        var alice = await CreateUser("alice@example.com");
+        var bob = await CreateUser("bob@example.com");
+        var bobsArchive = await CreateArchive(bob);
+        var document = await CreateDocument(alice, "Invoice");
+        var events = await EventCount(document.Id);
+
+        // The current version every time: the refusal must come from the owner, not from the version check.
+        await Assert
+            .That(async () =>
+                await Bus.InvokeAsync(new RenameDocumentCommand(document.Id, document.Version, "Mine", bob.Id))
+            )
+            .Throws<NotFoundException>();
+        await Assert
+            .That(async () => await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, document.Version, bob.Id)))
+            .Throws<NotFoundException>();
+        await Assert
+            .That(async () =>
+                await Bus.InvokeAsync<Document>(
+                    new FileDocumentCommand(document.Id, document.Version, bobsArchive.Id, bob.Id)
+                )
+            )
+            .Throws<NotFoundException>();
+        await Assert
+            .That(async () => await Bus.InvokeAsync(new UnfileDocumentCommand(document.Id, document.Version, bob.Id)))
+            .Throws<NotFoundException>();
+
+        await Assert.That(await EventCount(document.Id)).IsEqualTo(events);
+        await Assert.That((await Reload(document)).Title).IsEqualTo("Invoice");
+        await Assert.That(await Contents(bobsArchive)).IsEmpty();
+    }
+
+    [Test]
+    public async Task ArchiveContents_OfAnotherUsersArchive_AreEmptyForTheCaller()
+    {
+        var alice = await CreateUser("alice@example.com");
+        var bob = await CreateUser("bob@example.com");
+        var archive = await CreateArchive(alice);
+        await File(await CreateDocument(alice, "First"), archive);
+        await File(await CreateDocument(alice, "Second"), archive);
+
+        var seenByBob = await Bus.InvokeAsync<IReadOnlyList<Document>>(
+            new FindArchiveDocumentsQuery(archive.Id, bob.Id)
+        );
+
+        await Assert.That(seenByBob).IsEmpty();
+        await Assert.That(await Contents(archive)).Count().IsEqualTo(2);
     }
 
     [Test]
@@ -440,12 +532,14 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var alice = await CreateUser();
         var archive = await CreateArchive(alice);
         var document = await CreateDocument(alice);
-        await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, document.Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, document.Version, alice.Id));
         var deleted = await Reload(document);
 
         var failure = await Assert
             .That(async () =>
-                await Bus.InvokeAsync<Document>(new FileDocumentCommand(document.Id, deleted.Version, archive.Id))
+                await Bus.InvokeAsync<Document>(
+                    new FileDocumentCommand(document.Id, deleted.Version, archive.Id, alice.Id)
+                )
             )
             .Throws<InvariantViolationException>();
 
@@ -458,11 +552,13 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var alice = await CreateUser();
         var archive = await CreateArchive(alice);
         var document = await CreateDocument(alice);
-        await Bus.InvokeAsync(new RenameDocumentCommand(document.Id, document.Version, "Renamed"));
+        await Bus.InvokeAsync(new RenameDocumentCommand(document.Id, document.Version, "Renamed", alice.Id));
 
         await Assert
             .That(async () =>
-                await Bus.InvokeAsync<Document>(new FileDocumentCommand(document.Id, document.Version, archive.Id))
+                await Bus.InvokeAsync<Document>(
+                    new FileDocumentCommand(document.Id, document.Version, archive.Id, alice.Id)
+                )
             )
             .Throws<EventStreamUnexpectedMaxEventIdException>();
 
@@ -476,7 +572,9 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var archive = await CreateArchive(alice);
 
         await Assert
-            .That(async () => await Bus.InvokeAsync<Document>(new FileDocumentCommand(Guid.NewGuid(), 1, archive.Id)))
+            .That(async () =>
+                await Bus.InvokeAsync<Document>(new FileDocumentCommand(Guid.NewGuid(), 1, archive.Id, alice.Id))
+            )
             .Throws<NotFoundException>();
     }
 
@@ -491,7 +589,7 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         await File(document, archive);
         var filed = await Reload(document);
 
-        await Bus.InvokeAsync(new UnfileDocumentCommand(filed.Id, filed.Version));
+        await Bus.InvokeAsync(new UnfileDocumentCommand(filed.Id, filed.Version, alice.Id));
 
         await Assert.That((await Inbox(alice)).Select(d => d.Id)).IsEquivalentTo([document.Id]);
         await Assert.That(await Contents(archive)).IsEmpty();
@@ -503,7 +601,7 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var alice = await CreateUser();
         var document = await CreateDocument(alice);
 
-        await Bus.InvokeAsync(new UnfileDocumentCommand(document.Id, document.Version));
+        await Bus.InvokeAsync(new UnfileDocumentCommand(document.Id, document.Version, alice.Id));
 
         await Assert.That(await EventCount(document.Id)).IsEqualTo(1);
         await Assert.That(await Inbox(alice)).Count().IsEqualTo(1);
@@ -514,11 +612,11 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var document = await CreateDocument(alice);
-        await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, document.Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, document.Version, alice.Id));
         var deleted = await Reload(document);
 
         var failure = await Assert
-            .That(async () => await Bus.InvokeAsync(new UnfileDocumentCommand(document.Id, deleted.Version)))
+            .That(async () => await Bus.InvokeAsync(new UnfileDocumentCommand(document.Id, deleted.Version, alice.Id)))
             .Throws<InvariantViolationException>();
 
         await Assert.That(failure!.Code).IsEqualTo(InvariantCodes.DocumentDeleted);
@@ -564,7 +662,7 @@ public sealed class DocumentPipelineTests : IAsyncDisposable
         var archive = await CreateArchive(alice);
         var document = await CreateDocument(alice);
         await File(document, archive);
-        await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, (await Reload(document)).Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, (await Reload(document)).Version, alice.Id));
         var events = await EventCount(document.Id);
 
         await Bus.InvokeAsync(new ReturnDocumentToInbox(document.Id, archive.Id));

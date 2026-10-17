@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Playwright;
 using static Microsoft.Playwright.Assertions;
 
@@ -14,7 +15,20 @@ public sealed class WorkspacePage(IPage page)
 
     public ILocator Heading => page.GetByTestId("workspace-heading");
 
-    public ILocator NotFound => page.GetByTestId("workspace-not-found");
+    /// <summary>The page every address the app does not know shows, in place of any workspace.</summary>
+    public ILocator NotFound => page.GetByRole(AriaRole.Heading, new() { Name = "Not Found", Exact = true });
+
+    /// <summary>The landing page's heading: what a visitor who is signed out is shown.</summary>
+    public ILocator LandingHeading => page.GetByRole(AriaRole.Heading, new() { Name = "Users", Exact = true });
+
+    /// <summary>The user's name in the sidebar, which is there only while someone is signed in.</summary>
+    public ILocator SignedInName => Sidebar.GetByTestId("sidebar-user");
+
+    public ILocator SignOutButton => Sidebar.GetByRole(AriaRole.Button, new() { Name = "Sign out" });
+
+    /// <summary>A user's card on the landing page: a button named by the display name.</summary>
+    public ILocator UserCard(string displayName) =>
+        page.GetByRole(AriaRole.Button, new() { Name = displayName, Exact = true });
 
     public ILocator Error => page.GetByTestId("workspace-error");
 
@@ -74,17 +88,26 @@ public sealed class WorkspacePage(IPage page)
     /// <summary>Types into the search field in one go; the page runs the search once typing has rested.</summary>
     public Task SearchAsync(string text) => SearchField.FillAsync(text);
 
-    /// <summary>Creates a user on the landing page and opens their workspace from the user list.</summary>
+    /// <summary>
+    /// Creates a user on the landing page, which signs the visitor in as them and opens their workspace. Each
+    /// browser context has its own sign-in, so tests that do this stay independent.
+    /// </summary>
     public async Task OpenNewUsersWorkspaceAsync(string baseAddress, string displayName)
     {
         await page.GotoAsync(baseAddress);
+        await CreateUserAsync(displayName);
+
+        await Expect(page).ToHaveURLAsync(new Regex("/workspace$"));
+        await Expect(Heading).ToHaveTextAsync(displayName);
+    }
+
+    /// <summary>Fills the create-user form of the landing page with a fresh email and submits it.</summary>
+    public async Task CreateUserAsync(string displayName, string? email = null)
+    {
         await page.GetByRole(AriaRole.Button, new() { Name = "New user" }).First.ClickAsync();
-        await page.GetByLabel("Email").FillAsync($"{Guid.NewGuid():n}@example.com");
+        await page.GetByLabel("Email").FillAsync(email ?? $"{Guid.NewGuid():n}@example.com");
         await page.GetByLabel("Display name").FillAsync(displayName);
         await page.GetByRole(AriaRole.Button, new() { Name = "Create user" }).ClickAsync();
-
-        await page.GetByRole(AriaRole.Link, new() { Name = displayName, Exact = true }).ClickAsync();
-        await Expect(Heading).ToHaveTextAsync(displayName);
     }
 
     public async Task CreateArchiveAsync(string name)

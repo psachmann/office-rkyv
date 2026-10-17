@@ -6,7 +6,7 @@ namespace OfficeRkyv.Api.Features.Archives.Handlers;
 public static class DeleteArchiveHandler
 {
     public static Task ValidateAsync(DeleteArchiveCommand command, IQuerySession session) =>
-        ArchiveExistence.RequireAsync(session, command.ArchiveId);
+        ArchiveExistence.RequireAsync(session, command.ArchiveId, command.CallerId);
 
     /// <summary>
     /// Deletes the archive and cascades: one <see cref="ReturnDocumentToInbox"/> per member document. Wolverine

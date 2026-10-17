@@ -1,10 +1,11 @@
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using OfficeRkyv.Api.Shared.Auth;
 using Wolverine;
 
 namespace OfficeRkyv.Api.Features.Users;
 
-public class UsersServiceImpl(IMessageBus bus) : UsersService.UsersServiceBase
+public class UsersServiceImpl(IMessageBus bus, CallerAccessor caller) : UsersService.UsersServiceBase
 {
     public override async Task<ListUsersResponse> ListUsers(ListUsersRequest request, ServerCallContext context)
     {
@@ -45,6 +46,7 @@ public class UsersServiceImpl(IMessageBus bus) : UsersService.UsersServiceBase
     public override async Task<UpdateUserResponse> UpdateUser(UpdateUserRequest request, ServerCallContext context)
     {
         var command = request.ToCommand();
+        await RequireSelfAsync(command.UserId, context);
         await bus.InvokeAsync(command, context.CancellationToken);
 
         // Inline projection: the snapshot is already current, so this reads the result of the write
@@ -56,8 +58,20 @@ public class UsersServiceImpl(IMessageBus bus) : UsersService.UsersServiceBase
 
     public override async Task<Empty> DeleteUser(DeleteUserRequest request, ServerCallContext context)
     {
-        await bus.InvokeAsync(request.ToCommand(), context.CancellationToken);
+        var command = request.ToCommand();
+        await RequireSelfAsync(command.UserId, context);
+        await bus.InvokeAsync(command, context.CancellationToken);
 
         return new();
+    }
+
+    // Listing, finding and creating users are open, because the landing page calls them signed out. Changing a
+    // user is the user's own business, whether or not the one named exists.
+    private async Task RequireSelfAsync(Guid userId, ServerCallContext context)
+    {
+        if (await caller.RequireAsync(context) != userId)
+        {
+            throw new PermissionDeniedException($"The caller may not change user '{userId}'.");
+        }
     }
 }

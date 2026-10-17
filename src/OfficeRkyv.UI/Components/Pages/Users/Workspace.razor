@@ -1,8 +1,11 @@
 @using System.Reactive.Linq
 @using System.Reactive.Subjects
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using OfficeRkyv.UI.Files
-@page "/users/{UserId:guid}"
-@page "/users/{UserId:guid}/archives/{ArchiveId:guid}"
+@page "/workspace"
+@page "/workspace/archives/{ArchiveId:guid}"
+@attribute [Authorize]
 @implements IDisposable
 @inject IStringLocalizer<Workspace> Localizer
 @inject IStringLocalizer<WorkspaceErrors> ErrorLocalizer
@@ -15,6 +18,7 @@
 @inject DialogService DialogService
 @inject ContextMenuService ContextMenuService
 @inject NavigationManager Navigation
+@inject ISignInService SignIn
 
 <PageTitle>@Localizer["Title"]</PageTitle>
 
@@ -23,13 +27,9 @@
         <Content Context="found">
             @if (found.User is null)
             {
-                <RadzenCard data-testid="workspace-not-found">
-                    <RadzenStack Gap="1rem" AlignItems="AlignItems.Center" class="rz-p-4">
-                        <RadzenText TextStyle="TextStyle.H5">@Localizer["NotFoundTitle"]</RadzenText>
-                        <RadzenText TextStyle="TextStyle.Body1">@Localizer["NotFoundText"]</RadzenText>
-                        <RadzenLink Path="/" Text="@Localizer["BackToUsers"]" />
-                    </RadzenStack>
-                </RadzenCard>
+                @* The API has no such user any more, so this is nobody's workspace: the sign-in ends (see OnInitialized)
+                   and the landing page follows. Nothing of a user is shown meanwhile. *@
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
             }
             else
             {
@@ -150,7 +150,13 @@
     private Guid knownUserId;
     private Guid? knownArchiveId;
 
-    [Parameter] public Guid UserId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = null!;
+
+    /// <summary>
+    /// The signed-in user, from the authentication state: a user's id is never part of the address. The page is
+    /// only reachable signed in, so this is empty only for the moment a sign-out is taking effect.
+    /// </summary>
+    private Guid UserId { get; set; }
 
     /// <summary>The selected archive; null selects the inbox.</summary>
     [Parameter] public Guid? ArchiveId { get; set; }
@@ -163,9 +169,9 @@
     // The server ignores short words, so a query without a word it can match is not sent.
     private bool HasSearchableWord => SearchTerms.From(SearchQuery ?? "").Count > 0;
 
-    private string InboxPath => $"/users/{UserId}";
+    private const string InboxPath = "/workspace";
 
-    private string ArchivePath(ArchiveDto archive) => $"/users/{UserId}/archives/{archive.Id}";
+    private static string ArchivePath(ArchiveDto archive) => $"{InboxPath}/archives/{archive.Id}";
 
     private ArchiveDto? SelectedArchive(IReadOnlyList<ArchiveDto> archives) =>
         ArchiveId is { } id ? archives.FirstOrDefault(archive => archive.Id == id.ToString()) : null;
@@ -182,12 +188,38 @@
         // somewhere else, and the page then falls back to the inbox instead of showing a phantom archive.
         disposables.Add(Archives.FindArchives.Success.Subscribe(archives => _ = InvokeAsync(() => OnArchivesLoaded(archives))));
 
+        // A user the API does not know, or does not accept, is no longer signed in. A refused query ends the
+        // sign-in as a refused mutation does (ShowFailure).
+        disposables.Add(Users.FindUserById.Success.Subscribe(found =>
+        {
+            if (found.User is null)
+            {
+                _ = InvokeAsync(SignIn.SignOutAsync);
+            }
+        }));
+        WatchForSignOut(Users.FindUserById);
+        WatchForSignOut(Archives.FindArchives);
+        WatchForSignOut(Documents.FindInbox);
+        WatchForSignOut(Documents.FindArchiveDocuments);
+        WatchForSignOut(Documents.SearchDocuments);
+
         disposables.Add(typed);
         disposables.Add(typed.Throttle(SearchPause).Subscribe(typing => _ = InvokeAsync(() => ApplySearch(typing.Text, typing.Version))));
     }
 
-    protected override void OnParametersSet()
+    private void WatchForSignOut<TArgs, TData>(IQuery<TArgs, TData> query)
+        where TData : class =>
+        disposables.Add(query.Failure.Subscribe(error => _ = InvokeAsync(() => WorkspaceErrors.EndSignInIfRefusedAsync(error, SignIn))));
+
+    protected override async Task OnParametersSetAsync()
     {
+        if (SignedInUser.IdOf((await AuthenticationState).User) is not { } userId)
+        {
+            return;
+        }
+
+        UserId = userId;
+
         Users.FindUserById.SetArgs(UserId);
         Archives.FindArchives.SetArgs(UserId);
         Documents.FindInbox.SetArgs(UserId);
@@ -284,6 +316,7 @@
     {
         var errors = WorkspaceErrors.From(exception);
         errorKey = errors.General ?? "ActionFailed";
+        _ = WorkspaceErrors.EndSignInIfRefusedAsync(exception, SignIn);
 
         // The item changed or is gone: what is shown is out of date, so load it again.
         if (errors.ReloadNeeded)
@@ -300,11 +333,7 @@
     }
 
     private Task OpenCreateDocumentDialog() =>
-        DialogService.OpenAsync<UploadDocumentsDialog>(
-            Localizer["NewDocument"],
-            new Dictionary<string, object?> { [nameof(UploadDocumentsDialog.OwnerId)] = UserId },
-            new DialogOptions { Width = "28rem" }
-        );
+        DialogService.OpenAsync<UploadDocumentsDialog>(Localizer["NewDocument"], options: new DialogOptions { Width = "28rem" });
 
     private Task OpenRenameDocumentDialog(DocumentDto document) =>
         DialogService.OpenAsync<DocumentDialog>(
@@ -314,11 +343,7 @@
         );
 
     private Task OpenCreateArchiveDialog() =>
-        DialogService.OpenAsync<ArchiveDialog>(
-            Localizer["NewArchive"],
-            new Dictionary<string, object?> { [nameof(ArchiveDialog.OwnerId)] = UserId },
-            new DialogOptions { Width = "28rem" }
-        );
+        DialogService.OpenAsync<ArchiveDialog>(Localizer["NewArchive"], options: new DialogOptions { Width = "28rem" });
 
     private Task OpenRenameArchiveDialog(ArchiveDto archive) =>
         DialogService.OpenAsync<ArchiveDialog>(

@@ -6,25 +6,26 @@ namespace OfficeRkyv.Api.Features.Documents;
 [Mapper]
 public static partial class DocumentMapper
 {
-    public static FindInboxQuery ToQuery(this ListInboxRequest request) => new(Guid.Parse(request.OwnerId));
+    // The owner is never a request field: the service passes the caller.
+    public static FindInboxQuery ToQuery(this ListInboxRequest request, Guid callerId) => new(callerId);
 
-    public static FindArchiveDocumentsQuery ToQuery(this ListArchiveDocumentsRequest request) =>
-        new(Guid.Parse(request.ArchiveId));
+    public static FindArchiveDocumentsQuery ToQuery(this ListArchiveDocumentsRequest request, Guid callerId) =>
+        new(Guid.Parse(request.ArchiveId), callerId);
 
-    public static SearchDocumentsQuery ToQuery(this SearchDocumentsRequest request) =>
-        new(Guid.Parse(request.OwnerId), request.Query);
+    public static SearchDocumentsQuery ToQuery(this SearchDocumentsRequest request, Guid callerId) =>
+        new(callerId, request.Query);
 
-    public static RenameDocumentCommand ToCommand(this RenameDocumentRequest request) =>
-        new(Guid.Parse(request.DocumentId), request.Version, request.Title);
+    public static RenameDocumentCommand ToCommand(this RenameDocumentRequest request, Guid callerId) =>
+        new(Guid.Parse(request.DocumentId), request.Version, request.Title, callerId);
 
-    public static DeleteDocumentCommand ToCommand(this DeleteDocumentRequest request) =>
-        new(Guid.Parse(request.DocumentId), request.Version);
+    public static DeleteDocumentCommand ToCommand(this DeleteDocumentRequest request, Guid callerId) =>
+        new(Guid.Parse(request.DocumentId), request.Version, callerId);
 
-    public static FileDocumentCommand ToCommand(this FileDocumentRequest request) =>
-        new(Guid.Parse(request.DocumentId), request.Version, Guid.Parse(request.ArchiveId));
+    public static FileDocumentCommand ToCommand(this FileDocumentRequest request, Guid callerId) =>
+        new(Guid.Parse(request.DocumentId), request.Version, Guid.Parse(request.ArchiveId), callerId);
 
-    public static UnfileDocumentCommand ToCommand(this UnfileDocumentRequest request) =>
-        new(Guid.Parse(request.DocumentId), request.Version);
+    public static UnfileDocumentCommand ToCommand(this UnfileDocumentRequest request, Guid callerId) =>
+        new(Guid.Parse(request.DocumentId), request.Version, callerId);
 
     // The proto field is `optional` and its setter rejects null, so ArchiveId is set only when the
     // document is filed; everything else is mapped by MapCore.

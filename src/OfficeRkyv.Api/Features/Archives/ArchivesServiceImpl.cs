@@ -1,17 +1,22 @@
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using OfficeRkyv.Api.Shared.Auth;
 using Wolverine;
 
 namespace OfficeRkyv.Api.Features.Archives;
 
-public class ArchivesServiceImpl(IMessageBus bus) : ArchivesService.ArchivesServiceBase
+public class ArchivesServiceImpl(IMessageBus bus, CallerAccessor caller) : ArchivesService.ArchivesServiceBase
 {
     public override async Task<ListArchivesResponse> ListArchives(
         ListArchivesRequest request,
         ServerCallContext context
     )
     {
-        var archives = await bus.InvokeAsync<IReadOnlyList<Archive>>(request.ToQuery(), context.CancellationToken);
+        var callerId = await caller.RequireAsync(context);
+        var archives = await bus.InvokeAsync<IReadOnlyList<Archive>>(
+            request.ToQuery(callerId),
+            context.CancellationToken
+        );
 
         return archives.ToResponse();
     }
@@ -21,7 +26,8 @@ public class ArchivesServiceImpl(IMessageBus bus) : ArchivesService.ArchivesServ
         ServerCallContext context
     )
     {
-        var archive = await bus.InvokeAsync<Archive>(request.ToCommand(), context.CancellationToken);
+        var callerId = await caller.RequireAsync(context);
+        var archive = await bus.InvokeAsync<Archive>(request.ToCommand(callerId), context.CancellationToken);
 
         return archive.ToCreateResponse();
     }
@@ -31,7 +37,7 @@ public class ArchivesServiceImpl(IMessageBus bus) : ArchivesService.ArchivesServ
         ServerCallContext context
     )
     {
-        var command = request.ToCommand();
+        var command = request.ToCommand(await caller.RequireAsync(context));
         await bus.InvokeAsync(command, context.CancellationToken);
 
         // Inline projection: the snapshot is already current, so this reads the result of the write
@@ -48,7 +54,8 @@ public class ArchivesServiceImpl(IMessageBus bus) : ArchivesService.ArchivesServ
     // messages Wolverine persisted in the same transaction as the deletion.
     public override async Task<Empty> DeleteArchive(DeleteArchiveRequest request, ServerCallContext context)
     {
-        await bus.InvokeAsync(request.ToCommand(), context.CancellationToken);
+        var callerId = await caller.RequireAsync(context);
+        await bus.InvokeAsync(request.ToCommand(callerId), context.CancellationToken);
 
         return new();
     }

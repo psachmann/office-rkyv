@@ -17,6 +17,7 @@ using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Features.Users.Handlers;
 using OfficeRkyv.Api.Shared;
+using OfficeRkyv.Api.Shared.Auth;
 using OfficeRkyv.Api.Shared.Errors;
 using OfficeRkyv.Api.Shared.Exceptions;
 using OfficeRkyv.Contracts;
@@ -68,7 +69,11 @@ public sealed class UserPipelineTests : IAsyncDisposable
         });
         builder.Services.AddGrpc();
 
+        // Changing a user needs a caller, so this host validates caller tokens as the API does.
+        builder.Services.AddCallerAuthentication(PipelineHost.CallerKey);
+
         host = builder.Build();
+        host.UseAuthentication();
         host.MapGrpcService<UsersServiceImpl>();
         await host.StartAsync();
 
@@ -349,7 +354,8 @@ public sealed class UserPipelineTests : IAsyncDisposable
                     UserId = created.Id.ToString(),
                     Version = created.Version,
                     DisplayName = "Late",
-                }
+                },
+                PipelineHost.CallOptionsFor(created.Id)
             )
         );
 
@@ -357,8 +363,10 @@ public sealed class UserPipelineTests : IAsyncDisposable
     }
 
     [Test]
-    public async Task OverTheWire_AnUnknownUser_IsNotFound()
+    public async Task OverTheWire_AnUnknownUser_IsPermissionDenied_BecauseACallerMayChangeOnlyThemselves()
     {
+        var alice = await Bus.InvokeAsync<User>(new CreateUserCommand("alice@example.com", "Alice"));
+
         var failure = await FailureOf(async () =>
             await Client.UpdateUserAsync(
                 new UpdateUserRequest
@@ -366,15 +374,16 @@ public sealed class UserPipelineTests : IAsyncDisposable
                     UserId = Guid.NewGuid().ToString(),
                     Version = 1,
                     DisplayName = "Ghost",
-                }
+                },
+                PipelineHost.CallOptionsFor(alice.Id)
             )
         );
 
-        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.NotFound);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.PermissionDenied);
     }
 
     [Test]
-    public async Task OverTheWire_RenamingADeletedUser_IsFailedPrecondition_WithAReason()
+    public async Task OverTheWire_RenamingADeletedUser_IsUnauthenticated_NotUserDeleted()
     {
         var created = await Bus.InvokeAsync<User>(new CreateUserCommand("gone@example.com", "Gone"));
         await Bus.InvokeAsync(new DeleteUserCommand(created.Id, created.Version));
@@ -387,15 +396,92 @@ public sealed class UserPipelineTests : IAsyncDisposable
                     UserId = created.Id.ToString(),
                     Version = deleted!.Version,
                     DisplayName = "Back",
+                },
+                PipelineHost.CallOptionsFor(created.Id)
+            )
+        );
+
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Unauthenticated);
+        await Assert.That(failure.GetRpcStatus()!.Details).IsEmpty();
+    }
+
+    [Test]
+    public async Task OverTheWire_ListingUsers_NeedsNoCaller()
+    {
+        await Bus.InvokeAsync<User>(new CreateUserCommand("alice@example.com", "Alice"));
+
+        var response = await Client.ListUsersAsync(new ListUsersRequest());
+
+        await Assert.That(response.Users.Select(user => user.Email)).IsEquivalentTo(["alice@example.com"]);
+    }
+
+    [Test]
+    public async Task OverTheWire_RenamingYourself_ChangesTheDisplayName()
+    {
+        var alice = await Bus.InvokeAsync<User>(new CreateUserCommand("alice@example.com", "Alice"));
+
+        var response = await Client.UpdateUserAsync(
+            new UpdateUserRequest
+            {
+                UserId = alice.Id.ToString(),
+                Version = alice.Version,
+                DisplayName = "Alice Liddell",
+            },
+            PipelineHost.CallOptionsFor(alice.Id)
+        );
+
+        await Assert.That(response.User.DisplayName).IsEqualTo("Alice Liddell");
+    }
+
+    [Test]
+    public async Task OverTheWire_ChangingSomeoneElse_IsPermissionDenied_AndChangesNothing()
+    {
+        var alice = await Bus.InvokeAsync<User>(new CreateUserCommand("alice@example.com", "Alice"));
+        var bob = await Bus.InvokeAsync<User>(new CreateUserCommand("bob@example.com", "Bob"));
+
+        var renaming = await FailureOf(async () =>
+            await Client.UpdateUserAsync(
+                new UpdateUserRequest
+                {
+                    UserId = alice.Id.ToString(),
+                    Version = alice.Version,
+                    DisplayName = "Mallory",
+                },
+                PipelineHost.CallOptionsFor(bob.Id)
+            )
+        );
+        var deleting = await FailureOf(async () =>
+            await Client.DeleteUserAsync(
+                new DeleteUserRequest { UserId = alice.Id.ToString(), Version = alice.Version },
+                PipelineHost.CallOptionsFor(bob.Id)
+            )
+        );
+
+        await Assert.That(renaming.StatusCode).IsEqualTo(StatusCode.PermissionDenied);
+        await Assert.That(deleting.StatusCode).IsEqualTo(StatusCode.PermissionDenied);
+        await Assert.That(deleting.GetRpcStatus()!.Details).IsEmpty();
+        var unchanged = await Bus.InvokeAsync<User?>(new FindUserByIdQuery(alice.Id));
+        await Assert.That(unchanged!.DisplayName).IsEqualTo("Alice");
+        await Assert.That(unchanged.Status).IsEqualTo(EntityStatus.Active);
+    }
+
+    [Test]
+    public async Task OverTheWire_ChangingAUserWithoutACaller_IsUnauthenticated()
+    {
+        var alice = await Bus.InvokeAsync<User>(new CreateUserCommand("alice@example.com", "Alice"));
+
+        var failure = await FailureOf(async () =>
+            await Client.UpdateUserAsync(
+                new UpdateUserRequest
+                {
+                    UserId = alice.Id.ToString(),
+                    Version = alice.Version,
+                    DisplayName = "Nobody",
                 }
             )
         );
 
-        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.FailedPrecondition);
-
-        var info = Detail<ErrorInfo>(failure);
-        await Assert.That(info.Reason).IsEqualTo(InvariantCodes.UserDeleted);
-        await Assert.That(info.Domain).IsEqualTo(ErrorDomain.Value);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Unauthenticated);
     }
 
     [Test]

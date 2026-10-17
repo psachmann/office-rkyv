@@ -25,7 +25,7 @@ The web side (the query spans, and one trace id from the UI through the API) is 
 ## Logging
 
 - **Log at the edges.** A log line is for the life of a host (started, listening, stopped, a setting applied) and for a failure nobody expected. The story of one request is in its trace, so handlers do not log.
-- **Expected refusals are not logged.** A validation failure, a missing resource and a refused business rule are answers, not faults. `UseApiErrorMapping` filters Wolverine's gRPC interceptor to Error for that reason, and `ErrorStatusProvider` logs only what nothing else claimed.
+- **Expected refusals are not logged.** A validation failure, a missing resource, a refused business rule, an unauthenticated call and a refused user change are answers, not faults. Nor is a sign-in ticket that was redeemed or refused. `UseApiErrorMapping` filters Wolverine's gRPC interceptor to Error for that reason, and `ErrorStatusProvider` logs only what nothing else claimed.
 - **Levels:**
   - Information: the life of a host.
   - Warning: a fault the app continues after, such as an unreadable settings file, or unfinished upload files found and removed from the blob store's `tmp` folder at start.
@@ -57,13 +57,16 @@ internal sealed partial class ErrorStatusProvider(ILogger<ErrorStatusProvider> l
 - The message stays on the type that emits it. There is no shared class of log messages per project.
 - A Razor component declares its log methods in a code-behind file (`Main.razor.cs`): the generator does not see code written in a `.razor` file, and the analyzer may not either.
 - A type that takes an optional logger keeps `logger ?? NullLogger.Instance`, since a generated method needs a logger.
+- The desktop's sign-in logs two messages as the evidence of the by-hand check, at Information and with the user id only: `Signed in as user {UserId}` and `Signed out` (`DesktopSignIn`).
 
 ## What must never appear in a span or a log
 
 - Document contents.
 - The name of a document's file and the title of a document, which say as much as the content does.
 - What a user searched for, which is as revealing as a title. A search is traced like any call, by the method and the message type; the query text is in neither (`Search_LeavesTheQueryOnNoSpan`). It is also in the page address of the web host (`?q=`), and ASP.NET Core's instrumentation redacts query-string values on the request span by default (`?q=Redacted`, keys kept; `AQueryString_HasItsValuesRedactedOnTheServerSpan_AndKeepsItsKeys`). Do not turn that off. Aspire does, for the processes it starts (`OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION`), so under `just dev` the local dashboard shows the query in the clear; that is a development setting and not the app's.
-- Personal data, such as an email address or a display name.
+- A caller token, a sign-in cookie, or a sign-in ticket, or any part of one. ASP.NET Core's instrumentation records no request headers by default, so the `Authorization` header and the cookie stay out of spans; do not add them to the instrumentation. The token is checked on no span (`ACallerToken_AppearsOnNoSpan_NotEvenInPart`). A sign-in ticket is in the address of `/account/sign-in`, which the query redaction below covers outside Aspire's development setting (and a ticket works once, for 60 seconds).
+- **IdentityModel's PII switches stay off.** JwtBearer logs a rejected token at Information, and IdentityModel hides token contents in its messages unless `IdentityModelEventSource.ShowPII` or `LogCompleteSecurityArtifact` is turned on. Neither may be turned on.
+- Personal data, such as an email address or a display name. Where telemetry names the caller at all, it is by user id only; this change adds none to spans.
 - Bound parameter values of a database statement.
 - An exception's message in anything sent to a client. It may be logged with the exception at Error; it never goes into a gRPC status (see [api.md](api.md#failures)).
 
@@ -75,3 +78,4 @@ Identify things by id (a document by its id, file content by its hash). The spec
 - [structured-error-codes](../openspec/changes/archive/2026-09-28-structured-error-codes/design.md) (D1): unexpected failures logged at Error, expected refusals not logged.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (Telemetry and logs): no new source or meter for file transfer, and the file name and title kept out of spans and logs.
 - [add-document-title-search](../openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (Telemetry and logs): no new source, meter or log message for search, and the search query kept out of spans and logs.
+- [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (Telemetry and logs): no new source or meter, tokens and cookies kept out of spans and logs, IdentityModel's PII switches off, and the desktop's two messages.

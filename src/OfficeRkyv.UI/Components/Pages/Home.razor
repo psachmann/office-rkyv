@@ -1,8 +1,11 @@
 @page "/"
+@using Microsoft.AspNetCore.Components.Authorization
 @using OfficeRkyv.UI.Components.Pages.Users
 @inject IStringLocalizer<Home> Localizer
 @inject DialogService DialogService
 @inject UsersFacade Users
+@inject ISignInService SignIn
+@inject NavigationManager Navigation
 
 <PageTitle>@Localizer["Title"]</PageTitle>
 
@@ -22,19 +25,33 @@
             }
             else
             {
-                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
-                    <RadzenButton Text="@Localizer["NewUser"]" Icon="person_add" Click="@OpenCreateDialog" />
-                </RadzenStack>
-                <RadzenDataGrid TItem="UserDto" Data="@users" AllowSorting="true">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="UserDto" Property="@nameof(UserDto.Email)" Title="@Localizer["ColumnEmail"]" />
-                        <RadzenDataGridColumn TItem="UserDto" Property="@nameof(UserDto.DisplayName)" Title="@Localizer["ColumnDisplayName"]">
-                            <Template Context="user">
-                                <RadzenLink Path="@($"/users/{user.Id}")" Text="@user.DisplayName" data-testid="user-link" />
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-                </RadzenDataGrid>
+                @* One card per user, and a card is the button that signs in as that user. Its accessible name is the
+                   display name, so it is found by that name; initials, name and email are what a person sees. *@
+                <RadzenRow Gap="1rem">
+                    @foreach (var user in InOrder(users))
+                    {
+                        <RadzenColumn Size="12" SizeMD="6" SizeLG="4" SizeXL="3">
+                            <RadzenCard class="rz-p-2">
+                                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" class="rz-w-100"
+                                              Click="@(() => SignInAs(user))" aria-label="@user.DisplayName">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" class="rz-w-100 rz-p-2">
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Primary" IsPill="true" Text="@Initials(user.DisplayName)" aria-hidden="true" />
+                                        <RadzenStack Gap="0" class="rz-text-align-start">
+                                            <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-m-0">@user.DisplayName</RadzenText>
+                                            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@user.Email</RadzenText>
+                                        </RadzenStack>
+                                    </RadzenStack>
+                                </RadzenButton>
+                            </RadzenCard>
+                        </RadzenColumn>
+                    }
+                    <RadzenColumn Size="12" SizeMD="6" SizeLG="4" SizeXL="3">
+                        <RadzenCard class="rz-p-2">
+                            <RadzenButton Text="@Localizer["NewUser"]" Icon="person_add" Variant="Variant.Text" class="rz-w-100"
+                                          Click="@OpenCreateDialog" />
+                        </RadzenCard>
+                    </RadzenColumn>
+                </RadzenRow>
             }
         </Content>
         <Loading>
@@ -47,10 +64,50 @@
 </RadzenStack>
 
 @code {
-    protected override void OnInitialized()
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = null!;
+
+    // Runs again whenever the authentication state changes, which is how a sign-in made in place (the desktop's)
+    // reaches the workspace: the page that the visitor signed in on sends them on.
+    protected override async Task OnParametersSetAsync()
     {
+        // A signed-in visitor has no use for the landing page. The history entry is replaced, so back does not
+        // return to a page that would send them on again.
+        if (SignedInUser.IdOf((await AuthenticationState).User) is not null)
+        {
+            Navigation.NavigateTo("/workspace", replace: true);
+
+            return;
+        }
+
         Users.FindAllUsers.SetArgs(Unit.Default);
     }
 
-    private Task OpenCreateDialog() => DialogService.OpenAsync<CreateUserDialog>(Localizer["NewUser"], options: new DialogOptions { Width = "28rem" });
+    // The API lists users in the order they were created; a grid used to sort them, so the page does.
+    private static IEnumerable<UserDto> InOrder(IReadOnlyList<UserDto> users) =>
+        users.OrderBy(user => user.DisplayName, StringComparer.CurrentCultureIgnoreCase);
+
+    // The first letter of the first two words of the display name.
+    private static string Initials(string displayName) =>
+        string.Concat(
+            displayName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Take(2)
+                .Select(word => char.ToUpperInvariant(word[0]))
+        );
+
+    private Task SignInAs(UserDto user) => SignIn.SignInAsync(Guid.Parse(user.Id));
+
+    // The dialog closes with the user it created, who is then signed in.
+    private async Task OpenCreateDialog()
+    {
+        var created = await DialogService.OpenAsync<CreateUserDialog>(
+            Localizer["NewUser"],
+            options: new DialogOptions { Width = "28rem" }
+        );
+
+        if (created is UserDto user)
+        {
+            await SignInAs(user);
+        }
+    }
 }

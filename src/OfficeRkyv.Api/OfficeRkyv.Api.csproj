@@ -4,6 +4,7 @@
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="Grpc.StatusProto" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Riok.Mapperly" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.Fisher" />

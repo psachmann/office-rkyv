@@ -16,7 +16,7 @@ public static class FileDocumentHandler
     public static async Task<Document> Handle(FileDocumentCommand command, IDocumentSession session)
     {
         // Before the version check, so an unknown id is not found rather than a stale version.
-        await DocumentExistence.RequireAsync(session, command.DocumentId);
+        await DocumentExistence.RequireAsync(session, command.DocumentId, command.CallerId);
 
         var documentStream = await session.Events.FetchForWriting<Document>(command.DocumentId, command.Version);
         var document = documentStream.Aggregate!;
@@ -27,17 +27,17 @@ public static class FileDocumentHandler
         }
 
         var archiveStream = await session.Events.FetchForWriting<Archive>(command.ArchiveId);
+
+        // The document is the caller's, so an archive that is not the document's owner's is not the caller's: it is
+        // answered as an unknown one, before its state is looked at.
         var archive =
-            archiveStream.Aggregate ?? throw new NotFoundException($"Archive '{command.ArchiveId}' does not exist.");
+            archiveStream.Aggregate is { } found && found.OwnerId == document.OwnerId
+                ? found
+                : throw new NotFoundException($"Archive '{command.ArchiveId}' does not exist.");
 
         if (archive.Status is EntityStatus.Deleted)
         {
             throw new InvariantViolationException(InvariantCodes.ArchiveDeleted);
-        }
-
-        if (archive.OwnerId != document.OwnerId)
-        {
-            throw new InvariantViolationException(InvariantCodes.ArchiveOwnerMismatch);
         }
 
         if (document.ArchiveId != archive.Id)

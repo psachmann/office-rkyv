@@ -3,7 +3,7 @@ namespace OfficeRkyv.Api.Features.Documents.Handlers;
 public static class UnfileDocumentHandler
 {
     public static Task ValidateAsync(UnfileDocumentCommand command, IQuerySession session) =>
-        DocumentExistence.RequireAsync(session, command.DocumentId);
+        DocumentExistence.RequireAsync(session, command.DocumentId, command.CallerId);
 
     // Idempotent: a document already in the inbox stays there and appends nothing.
     [DeciderFunction]

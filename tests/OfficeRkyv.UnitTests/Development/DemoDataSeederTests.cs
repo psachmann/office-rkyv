@@ -35,7 +35,7 @@ public sealed class DemoDataSeederTests : IAsyncDisposable
         await Bus.InvokeAsync<IReadOnlyList<Document>>(new FindInboxQuery(owner.Id));
 
     private async Task<IReadOnlyList<Document>> Contents(Archive archive) =>
-        await Bus.InvokeAsync<IReadOnlyList<Document>>(new FindArchiveDocumentsQuery(archive.Id));
+        await Bus.InvokeAsync<IReadOnlyList<Document>>(new FindArchiveDocumentsQuery(archive.Id, archive.OwnerId));
 
     [Test]
     public async Task AnEmptyDatabase_GetsTheDemoUser_ItsEmptyArchive_AndThreeInboxDocuments()
@@ -99,8 +99,8 @@ public sealed class DemoDataSeederTests : IAsyncDisposable
         var user = (await Users()).Single();
         var archive = (await Archives(user)).Single();
         var document = (await Inbox(user)).First();
-        await Bus.InvokeAsync(new DeleteArchiveCommand(archive.Id, archive.Version));
-        await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, document.Version));
+        await Bus.InvokeAsync(new DeleteArchiveCommand(archive.Id, archive.Version, user.Id));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(document.Id, document.Version, user.Id));
 
         await seeder.SeedAsync(Bus);
 
@@ -117,7 +117,7 @@ public sealed class DemoDataSeederTests : IAsyncDisposable
         var archive = (await Archives(user)).Single();
         var contract = (await Inbox(user)).Single(document => document.Title == "Rental contract");
 
-        await Bus.InvokeAsync<Document>(new FileDocumentCommand(contract.Id, contract.Version, archive.Id));
+        await Bus.InvokeAsync<Document>(new FileDocumentCommand(contract.Id, contract.Version, archive.Id, user.Id));
 
         await Assert
             .That((await Contents(archive)).Select(document => document.Title))
@@ -130,7 +130,8 @@ public sealed class DemoDataSeederTests : IAsyncDisposable
     {
         await SeederWith(new CapturingLogger()).SeedAsync(Bus);
         var user = (await Users()).Single();
-        var client = new DocumentsService.DocumentsServiceClient(pipeline.Channel);
+        // The seeded user is a user like any other: signed in as them, the files download.
+        var client = new DocumentsService.DocumentsServiceClient(pipeline.ChannelFor(user.Id));
         var inbox = await Inbox(user);
 
         foreach (var document in inbox)

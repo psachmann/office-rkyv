@@ -23,6 +23,11 @@ context: |
   -> Wolverine -> handler -> Fisher session -> SQLite. Failures become gRPC statuses with a stable
   error code in one place; the UI maps the code to localized text.
 
+  Who is calling: the UI host issues a short-lived signed caller token for the signed-in user on every call
+  (a JWT, `Authorization: Bearer`); the API validates it, and the services take the owner from it, never from
+  a request field. The UI reads the signed-in user through Blazor's AuthenticationStateProvider and signs in
+  and out through a host-implemented ISignInService (web: a cookie; desktop: in memory).
+
   A file upload is a client-streaming call: DocumentIngest writes the content to the blob store (a directory
   beside the database, named by SHA-256), then dispatches the create command that records the file's facts.
   A download streams the blob back; each host hands it to the user (browser download, GTK save dialog).

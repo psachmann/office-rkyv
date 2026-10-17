@@ -1,5 +1,8 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
+using OfficeRkyv.Contracts;
+using OfficeRkyv.Desktop.Auth;
 using OfficeRkyv.Desktop.Hosting;
 using OfficeRkyv.Desktop.Settings;
 using OfficeRkyv.UI.Shared;
@@ -16,10 +19,11 @@ internal sealed partial class DesktopHost
     private DesktopApi? api;
     private IDisposable? appearance;
 
-    private DesktopHost(DesktopPaths paths, DesktopUserSettingsService settings, ILogger logger)
+    private DesktopHost(DesktopPaths paths, DesktopUserSettingsService settings, DesktopSignIn signIn, ILogger logger)
     {
         Paths = paths;
         Settings = settings;
+        SignIn = signIn;
         Logger = logger;
     }
 
@@ -28,6 +32,15 @@ internal sealed partial class DesktopHost
     public DesktopPaths Paths { get; }
 
     public DesktopUserSettingsService Settings { get; }
+
+    /// <summary>Who is signed in, for the running app: in memory, so every start is signed out.</summary>
+    public DesktopSignIn SignIn { get; }
+
+    /// <summary>
+    /// The key caller tokens are signed with, made at every start. The API in this process validates with it and
+    /// this process's clients sign with it; nothing outside the process ever knows it.
+    /// </summary>
+    public byte[] CallerTokenKey { get; } = RandomNumberGenerator.GetBytes(CallerTokens.MinimumKeyLength);
 
     public ILogger Logger { get; }
 
@@ -51,7 +64,12 @@ internal sealed partial class DesktopHost
 
         LogSettings(logger, initial.Appearance, initial.Culture.Name, paths.SettingsPath);
 
-        return Current = new DesktopHost(paths, new DesktopUserSettingsService(store, initial, logger), logger);
+        return Current = new DesktopHost(
+            paths,
+            new DesktopUserSettingsService(store, initial, logger),
+            new DesktopSignIn(logger),
+            logger
+        );
     }
 
     /// <summary>Starts the API once, however often the window is activated.</summary>
@@ -62,7 +80,7 @@ internal sealed partial class DesktopHost
             return;
         }
 
-        api = DesktopApi.StartAsync(Paths).GetAwaiter().GetResult();
+        api = DesktopApi.StartAsync(Paths, CallerTokenKey).GetAwaiter().GetResult();
         LogApiListening(Logger, string.Join(", ", api.Addresses), Paths.DatabasePath);
     }
 

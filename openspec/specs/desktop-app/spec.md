@@ -18,11 +18,15 @@ The desktop app SHALL run as a single program on a Linux desktop, showing the UI
 - **THEN** its API accepts connections only through a socket in the user's private runtime directory, and listens on no network port
 
 ### Requirement: The desktop app offers the same workspace as the web app
-The desktop app SHALL offer the same pages and features as the web UI: the user list and user creation, each user's workspace (inbox, archives, documents, uploading files, filing, renaming and deleting), and the settings page, with the same behaviour, validation and localized messages as specified for the web UI. Handing a downloaded file to the user is the one part that differs, and has its own requirement.
+The desktop app SHALL offer the same pages and features as the web UI: the landing page with its user cards and user creation, signing in and out, the signed-in user's workspace (inbox, archives, documents, uploading files, filing, renaming and deleting), and the settings page, with the same behaviour, validation and localized messages as specified for the web UI. Handing a downloaded file to the user, and how long a sign-in lasts (see the `sign-in` capability), are the parts that differ.
 
 #### Scenario: Working with documents on the desktop
-- **WHEN** a user creates an archive, uploads a file as a document on the desktop, files the document into the archive, and then deletes the archive
+- **WHEN** a user signs in on the desktop, creates an archive, uploads a file as a document, files the document into the archive, and then deletes the archive
 - **THEN** the document returns to the inbox, as it does in the web app
+
+#### Scenario: Signing in and out on the desktop
+- **WHEN** a user chooses Alice on the desktop's landing page, then signs out from the sidebar and chooses Bob
+- **THEN** the workspace shows Alice's documents first, then the landing page, then Bob's documents and none of Alice's
 
 ### Requirement: The desktop app keeps the user's data
 The desktop app SHALL store its data, including the content of every uploaded file, in the user's data directory (`$XDG_DATA_HOME/office-rkyv`, defaulting to `~/.local/share/office-rkyv`), and SHALL keep it across restarts.
@@ -82,6 +86,7 @@ The desktop app SHALL store the user's appearance and language choices in a sett
 #### Scenario: A broken settings file
 - **WHEN** the settings file contains something the app cannot read
 - **THEN** the app starts with the default settings
+
 ### Requirement: The desktop app saves a downloaded file to the user's filesystem
 When a user chooses a document's download action, the desktop app SHALL write the document's file, with the content exactly as it was uploaded, to a location on the user's filesystem: either one the user chooses in a save dialog that proposes the original file name, or the user's Downloads directory under the original file name. When it saves into the Downloads directory, it SHALL tell the user where the file was saved, and SHALL choose a different name instead of overwriting an existing file. It SHALL NOT require a browser.
 

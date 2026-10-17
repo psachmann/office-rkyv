@@ -81,7 +81,7 @@ public sealed class WorkspaceFacadeTests
         facade.FindArchives.SetArgs(Owner);
 
         await Assert.That((await Next(facade.FindArchives.Success)).Select(a => a.Name)).IsEquivalentTo(["Taxes"]);
-        await Assert.That(archives.ListedOwners).IsEquivalentTo([Owner.ToString()]);
+        await Assert.That(archives.ListCalls).IsEqualTo(1);
     }
 
     [Test]
@@ -94,7 +94,7 @@ public sealed class WorkspaceFacadeTests
 
         var refetched = Next(facade.FindArchives.Success.Where(list => list.Count == 1));
         using var createArchive = facade.CreateCreateArchiveMutation();
-        createArchive.Execute(new CreateArchiveRequest { OwnerId = Owner.ToString(), Name = "Household" });
+        createArchive.Execute(new CreateArchiveRequest { Name = "Household" });
 
         await Assert.That((await refetched).Single().Name).IsEqualTo("Household");
     }
@@ -112,7 +112,7 @@ public sealed class WorkspaceFacadeTests
 
         using var createArchive = facade.CreateCreateArchiveMutation();
         var failed = Next(createArchive.Failure);
-        createArchive.Execute(new CreateArchiveRequest { OwnerId = Owner.ToString(), Name = " " });
+        createArchive.Execute(new CreateArchiveRequest { Name = " " });
 
         await Assert.That(((RpcException)await failed).StatusCode).IsEqualTo(StatusCode.InvalidArgument);
         await Task.Delay(200);
@@ -161,11 +161,10 @@ public sealed class WorkspaceFacadeTests
 
         var refetched = Next(facade.FindInbox.Success.Where(list => list.Count == 1));
         using var stream = new MemoryStream(content);
-        var created = await facade.UploadAsync(Owner, "Invoice March.pdf", "application/pdf", stream, progress.Add);
+        var created = await facade.UploadAsync("Invoice March.pdf", "application/pdf", stream, progress.Add);
 
         await Assert.That((await refetched).Single().Id).IsEqualTo(created.Id);
-        await Assert.That(documents.UploadedHeader!.OwnerId).IsEqualTo(Owner.ToString());
-        await Assert.That(documents.UploadedHeader.FileName).IsEqualTo("Invoice March.pdf");
+        await Assert.That(documents.UploadedHeader!.FileName).IsEqualTo("Invoice March.pdf");
         await Assert.That(documents.UploadedHeader.HasTitle).IsFalse();
         await Assert.That(documents.UploadedContent.ToArray()).IsEquivalentTo(content);
         await Assert
@@ -186,7 +185,7 @@ public sealed class WorkspaceFacadeTests
 
         using var stream = new MemoryStream(TestDocuments.Bytes(FileLimits.ChunkSize * 3));
         var failure = await Assert
-            .That(async () => await facade.UploadAsync(Owner, "big.pdf", null, stream))
+            .That(async () => await facade.UploadAsync("big.pdf", null, stream))
             .Throws<RpcException>();
 
         await Assert.That(failure!.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
@@ -419,7 +418,7 @@ public sealed class WorkspaceFacadeTests
         await AssertAnOpenSearchIsRefetchedBy(async facade =>
         {
             using var stream = new MemoryStream(TestDocuments.Bytes(100));
-            await facade.UploadAsync(Owner, "Invoice.pdf", "application/pdf", stream);
+            await facade.UploadAsync("Invoice.pdf", "application/pdf", stream);
         });
     }
 
@@ -477,7 +476,6 @@ public sealed class WorkspaceFacadeTests
         private int listCalls;
 
         public List<ArchiveDto> Items { get; } = [];
-        public List<string> ListedOwners { get; } = [];
         public RpcException? MutationFailure { get; set; }
         public int ListCalls => Volatile.Read(ref listCalls);
 
@@ -487,10 +485,6 @@ public sealed class WorkspaceFacadeTests
         )
         {
             Interlocked.Increment(ref listCalls);
-            lock (ListedOwners)
-            {
-                ListedOwners.Add(request.OwnerId);
-            }
 
             return Call(Task.FromResult(new ListArchivesResponse { Archives = { Items } }));
         }
@@ -508,7 +502,7 @@ public sealed class WorkspaceFacadeTests
             var archive = new ArchiveDto
             {
                 Id = Guid.NewGuid().ToString(),
-                OwnerId = request.OwnerId,
+                OwnerId = Guid.Empty.ToString(),
                 Name = request.Name,
             };
             Items.Add(archive);
@@ -609,8 +603,8 @@ public sealed class WorkspaceFacadeTests
                     var document = new DocumentDto
                     {
                         Id = Guid.NewGuid().ToString(),
-                        OwnerId = UploadedHeader!.OwnerId,
-                        Title = UploadedHeader.FileName,
+                        OwnerId = Guid.Empty.ToString(),
+                        Title = UploadedHeader!.FileName,
                         FileName = UploadedHeader.FileName,
                         Size = UploadedContent.Length,
                     };

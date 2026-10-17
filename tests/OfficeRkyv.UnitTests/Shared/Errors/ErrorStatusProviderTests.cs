@@ -47,6 +47,28 @@ public sealed class ErrorStatusProviderTests
     }
 
     [Test]
+    public async Task Unauthenticated_IsUnauthenticated_WithFixedTextAndNoDetails_AndIsNotLogged()
+    {
+        var status = Map(new UnauthenticatedException("The caller 'abc' does not exist or was deleted."))!;
+
+        await Assert.That(status.Code).IsEqualTo((int)Code.Unauthenticated);
+        await Assert.That(status.Message).DoesNotContain("abc");
+        await Assert.That(status.Details).IsEmpty();
+        await Assert.That(logger.Entries).IsEmpty();
+    }
+
+    [Test]
+    public async Task PermissionDenied_IsPermissionDenied_WithFixedTextAndNoDetails_AndIsNotLogged()
+    {
+        var status = Map(new PermissionDeniedException("The caller may not change user 'abc'."))!;
+
+        await Assert.That(status.Code).IsEqualTo((int)Code.PermissionDenied);
+        await Assert.That(status.Message).DoesNotContain("abc");
+        await Assert.That(status.Details).IsEmpty();
+        await Assert.That(logger.Entries).IsEmpty();
+    }
+
+    [Test]
     public async Task AnExistingRpcException_KeepsItsStatus()
     {
         var status = Map(new RpcException(new GrpcStatus(StatusCode.Unavailable, "backend down")))!;

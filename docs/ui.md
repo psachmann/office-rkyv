@@ -39,6 +39,7 @@ A text missing from a translation silently falls back to English, so the unit te
 | Email | E-Mail |
 | Display name | Anzeigename |
 | Rename / Delete / Cancel | Umbenennen / Löschen / Abbrechen |
+| Sign in / Sign out | Anmelden / Abmelden |
 
 ### Culture resolution order (web host)
 
@@ -65,11 +66,38 @@ The shared UI reads and changes appearance and language only through `IUserSetti
 
 The appearance choice is `System`, `Light` or `Dark` (`AppearancePreference` in `src/OfficeRkyv.UI/Shared/Appearance.cs`). Both Radzen themes are always linked and a media query decides which applies, so switching never waits for a stylesheet.
 
+## Signing in
+
+A person says who they are by choosing themselves from the landing page: a card per user, and creating a user signs in as them. There is no secret in this version; passkeys are the intended successor (`TODOS.md`), and what is built here is the seam they plug into.
+
+### One interface to read, one to act
+
+- **Reading.** The UI reads the signed-in user only through Blazor's `AuthenticationStateProvider` and the cascaded `Task<AuthenticationState>` (`AddOfficeRkyvUi` adds `AddAuthorizationCore` and `AddCascadingAuthenticationState`). The user id is the `NameIdentifier` claim, read through `SignedInUser.IdOf(ClaimsPrincipal)` in `OfficeRkyv.UI.Auth`; `SignedInUser.PrincipalFor` makes the principal both hosts produce.
+- **Acting.** Signing in and out goes through `ISignInService` (`SignInAsync(Guid userId)`, `SignOutAsync()`), which each host implements, as for `IUserSettingsService` and for the same reason: the web needs a real navigation to change a cookie, the desktop changes in place. Register an implementation in every host.
+- **Routing.** Both routers (`Routes.razor`, `Main.razor`) use `AuthorizeRouteView`, whose `NotAuthorized` is `RedirectToLanding`. The workspace is `[Authorize]`; the landing page sends a signed-in visitor on to `/workspace` (in `OnParametersSetAsync`, so a sign-in made in place reaches it too); settings and not-found need no user. The workspace is `/workspace` and `/workspace/archives/{id}`: a user's id is never part of an address, and the old `/users/{id}` shows the not-found page.
+- **The sidebar** shows the signed-in user's name and a sign-out button above Settings (`SidebarUser`, through `AuthorizeView`).
+- **Every gRPC client carries the user.** `CallerTokenCredentials.AddTo(IHttpClientBuilder, key)` registers call credentials that issue a caller token per call, for the user in the `AuthenticationStateProvider` of the scope the client was resolved in (the circuit on the web, the window on the desktop; checked by `CallerTokenCredentialsTests`). Nobody signed in, no header, and the API refuses a call that needs a caller. Both hosts register their clients through it.
+
+### Web: a cookie, set by an endpoint that redeems a ticket
+
+A Blazor Server circuit cannot set a cookie, so a sign-in is a real request, as the language switch is (`/culture/set`). `WebSignInService` asks the singleton `SignInTickets` for a ticket (32 random bytes, base64url, valid 60 seconds, usable once, bound to sign-in or sign-out) and navigates with `forceLoad` to `/account/sign-in?ticket=…` or `/account/sign-out?ticket=…` (`AccountEndpoints`). The endpoint redeems it, sets or clears the cookie (ASP.NET Core cookie authentication: `HttpOnly`, `Secure`, `SameSite=Lax`, sliding, 14 days) and redirects to `/workspace` or `/`. A missing, used, expired or wrong-action ticket changes nothing and redirects to `/`. The ticket is what stops another site from signing a visitor in: only the app's own circuit can mint one. Because a sign-in is a reload, a circuit never outlives its user.
+
+The cookie scheme's login redirect goes to `/`, not to its default `/Account/Login`: `[Authorize]` on a routable component makes the authorization middleware challenge a signed-out request for `/workspace` before Blazor renders it, and the answer is the landing page.
+
+### Desktop
+
+See [desktop.md](desktop.md#signing-in): the same two interfaces, implemented in memory.
+
+### A sign-in the API stops accepting
+
+`UNAUTHENTICATED` is `WorkspaceErrors.SignedOut`. A refusal that carries it, from a query or a mutation or a dialog, ends the sign-in (`WorkspaceErrors.EndSignInIfRefusedAsync` calls `ISignInService.SignOutAsync()`), and the landing page follows. `FindUserById` answering "no user" for the signed-in id does the same. The workspace never presents it as an empty inbox.
+
 ## Data: one facade per gRPC service
 
 A page never calls a gRPC client. It injects a facade from `src/OfficeRkyv.UI/Shared` (`UsersFacade`, `ArchivesFacade`, `DocumentsFacade`), which wraps the service's client in DotNetQuery queries and mutations.
 
 - **Queries are shared.** A facade exposes each query as a property and is registered scoped, so there is one per circuit (web) or per window (desktop), and every component showing the same key shares one cache entry.
+- **Requests carry no owner.** The API acts for the caller (see [Signing in](#signing-in)). The workspace queries are still asked with the signed-in user's id, but only to key the cache, so that a desktop sign-out and sign-in as another user never serves the first user's lists.
 - **Mutations are not shared.** A `Create…Mutation()` method returns a fresh instance that the calling component owns and disposes, so its state reports only what that component started.
 - **Pages render a query through `Transition`** (from DotNetQuery.Blazor), which gives the loading, failure and success branches. A part of the page with its own query shows its own loading and failure state; an empty-list text is never shown for a list that did not load.
 - **A mutation refreshes by kind, not by key.** Workspace queries are keyed `[kind, id]` through `WorkspaceKeys` (`ForArchives`, `ForInbox`, `ForArchiveDocuments`, and `ForSearch` for `[search, ownerId, query]`), and a mutation's `OnSuccess` calls `queryClient.Invalidate(WorkspaceKeys.Inbox, …)`, which marks every query of those kinds stale. `MutationOptions.InvalidateKeys` matches whole keys only, so it is used only where the key has one part (`UsersFacade`). Every document mutation refreshes the search kind too, since a change moves or renames what a search finds.
@@ -94,7 +122,7 @@ A document is a file, so two operations on the facade are not queries or mutatio
 - **Saving is the host's job: `IFileSaver`** (`OfficeRkyv.UI.Files`) takes a file name, a content type and a stream. The web host (`WebFileSaver`) hands the stream to the browser as a download; the desktop (`DesktopFileSaver`) writes it where the user chooses. It returns where the file went when the host can say, and the page shows that in a notification. A cancelled save writes nothing and throws nothing. Register an implementation in every host, as for `IUserSettingsService`.
 - **A size limit is refused before sending.** `FileLimits` in `OfficeRkyv.Contracts` carries the default limit and the chunk size, so the dialog can say no quickly. The server's configured limit stays the authority.
 
-What the UI library registers itself is in `AddOfficeRkyvUi` (Radzen, localization, the facades). The host adds what differs per host: DotNetQuery and its options, the gRPC clients and their addresses, and its `IUserSettingsService`.
+What the UI library registers itself is in `AddOfficeRkyvUi` (Radzen, localization, authorization, the facades). The host adds what differs per host: DotNetQuery and its options, the gRPC clients and their addresses (each through `CallerTokenCredentials`), its `IUserSettingsService`, and who is signed in (an `AuthenticationStateProvider` and an `ISignInService`).
 
 ## Failures become localized messages
 
@@ -103,7 +131,8 @@ The API answers a refused call with a gRPC status and a stable code (see [api.md
 - One small record per form or page turns an exception into resource keys: `CreateUserErrors` and `WorkspaceErrors` in `src/OfficeRkyv.UI/Components/Pages/Users`. The component localizes the keys.
 - A field violation is shown under its field; the first violation per field wins. A violation on `content` or `file_name` belongs to a file of the upload dialog (`WorkspaceErrors.File`), not to a form field. Everything else is one general message.
 - An unknown code degrades to a generic text. It is never shown raw and never dropped.
-- A refusal that means the page is out of date (`Aborted`, `NotFound`, a deleted archive or document) also asks for a reload of the affected lists (`WorkspaceErrors.ReloadNeeded`).
+- A refusal that means the page is out of date (`Aborted`, `NotFound`, a deleted archive or document) also asks for a reload of the affected lists (`WorkspaceErrors.ReloadNeeded`). Another user's archive or document is `NotFound` too, so it reads the same.
+- `Unauthenticated` ends the sign-in instead of showing a message (`WorkspaceErrors.SignedOut`; see [Signing in](#a-sign-in-the-api-stops-accepting)).
 
 Adding a code to `OfficeRkyv.Contracts` therefore needs a case in the matching record and a key in its `.resx`.
 
@@ -126,3 +155,4 @@ Give a `data-testid` only to an element that has no name of its own, such as a n
 - [move-workspace-nav-into-sidebar](../openspec/changes/archive/2026-10-01-move-workspace-nav-into-sidebar/design.md) (D6, D7): a section's own loading and failure states, and no CSS for the workspace.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D11, D12): uploading outside the mutation helper, and saving a file as the host's job.
 - [add-document-title-search](../openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D5, D6): the search query kept in the address, typing debounced, and the search kind refreshed by every document change.
+- [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D5, D6, D9 to D12): the sign-in seam, the web tickets and cookie, the token on every call, the landing cards, a sign-in the API stops accepting, the addresses.

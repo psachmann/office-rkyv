@@ -22,23 +22,17 @@ public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.Arc
     // deleted the archive is gone by then, and stops only when the circuit ends.
     private readonly CancellationTokenSource disposed = new();
 
-    /// <summary>The owner's archives, queried by owner id.</summary>
+    /// <summary>
+    /// The signed-in user's archives. The query is asked with the user's id, which only keys the cache, so that a
+    /// sign-in as another user never serves the first one's list: the API answers for the caller.
+    /// </summary>
     public IQuery<Guid, IReadOnlyList<ArchiveDto>> FindArchives { get; } =
         queryClient.CreateQuery(
             new QueryOptions<Guid, IReadOnlyList<ArchiveDto>>
             {
                 KeyFactory = WorkspaceKeys.ForArchives,
-                Fetcher = async (ownerId, ct) =>
-                    [
-                        .. (
-                            await archiveService.ListArchivesAsync(
-                                new ListArchivesRequest { OwnerId = ownerId.ToString() },
-                                null,
-                                null,
-                                ct
-                            )
-                        ).Archives,
-                    ],
+                Fetcher = async (_, ct) =>
+                    [.. (await archiveService.ListArchivesAsync(new ListArchivesRequest(), null, null, ct)).Archives],
             }
         );
 

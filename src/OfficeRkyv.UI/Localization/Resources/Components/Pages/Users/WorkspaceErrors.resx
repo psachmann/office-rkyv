@@ -112,4 +112,7 @@
   <data name="FileNameTooLong" xml:space="preserve">
     <value>This file name is too long.</value>
   </data>
+  <data name="SignedOut" xml:space="preserve">
+    <value>Your sign-in has ended. Please sign in again.</value>
+  </data>
 </root>

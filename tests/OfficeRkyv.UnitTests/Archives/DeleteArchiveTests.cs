@@ -44,7 +44,9 @@ public sealed class DeleteArchiveTests : IAsyncDisposable
     {
         var current = await Reload(document);
 
-        await Bus.InvokeAsync<Document>(new FileDocumentCommand(current.Id, current.Version, archive.Id));
+        await Bus.InvokeAsync<Document>(
+            new FileDocumentCommand(current.Id, current.Version, archive.Id, current.OwnerId)
+        );
     }
 
     private async Task<IReadOnlyList<Document>> Inbox(User owner) =>
@@ -66,7 +68,7 @@ public sealed class DeleteArchiveTests : IAsyncDisposable
         var alice = await CreateUser();
         var archive = await CreateArchive(alice);
 
-        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, archive.Version));
+        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, archive.Version, alice.Id));
 
         await Assert.That(await ArchivesOf(alice)).IsEmpty();
         await Assert.That((await Reload(archive)).Status).IsEqualTo(EntityStatus.Deleted);
@@ -83,7 +85,7 @@ public sealed class DeleteArchiveTests : IAsyncDisposable
         await File(second, archive);
         var current = await Reload(archive);
 
-        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, current.Version));
+        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, current.Version, alice.Id));
 
         await Assert.That(await ArchivesOf(alice)).IsEmpty();
         await Assert.That((await Inbox(alice)).Select(d => d.Id)).IsEquivalentTo([first.Id, second.Id]);
@@ -103,10 +105,12 @@ public sealed class DeleteArchiveTests : IAsyncDisposable
         await File(inDoomed, doomed);
         await File(inKeeper, keeper);
         await File(deleted, doomed);
-        await Bus.InvokeAsync(new DeleteDocumentCommand(deleted.Id, (await Reload(deleted)).Version));
+        await Bus.InvokeAsync(new DeleteDocumentCommand(deleted.Id, (await Reload(deleted)).Version, alice.Id));
         var deletedEvents = await EventCount(deleted.Id);
 
-        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(doomed.Id, (await Reload(doomed)).Version));
+        await pipeline.InvokeAndSettleAsync(
+            new DeleteArchiveCommand(doomed.Id, (await Reload(doomed)).Version, alice.Id)
+        );
 
         await Assert.That((await Inbox(alice)).Select(d => d.Id)).IsEquivalentTo([inDoomed.Id]);
         await Assert.That((await Reload(inKeeper)).ArchiveId).IsEqualTo(keeper.Id);
@@ -118,11 +122,11 @@ public sealed class DeleteArchiveTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var archive = await CreateArchive(alice);
-        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, archive.Version));
+        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, archive.Version, alice.Id));
         var deleted = await Reload(archive);
         var events = await EventCount(archive.Id);
 
-        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, deleted.Version));
+        await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, deleted.Version, alice.Id));
 
         await Assert.That(await EventCount(archive.Id)).IsEqualTo(events);
     }
@@ -138,7 +142,7 @@ public sealed class DeleteArchiveTests : IAsyncDisposable
 
         await Assert
             .That(async () =>
-                await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, archive.Version))
+                await pipeline.InvokeAndSettleAsync(new DeleteArchiveCommand(archive.Id, archive.Version, alice.Id))
             )
             .Throws<EventStreamUnexpectedMaxEventIdException>();
 
@@ -150,7 +154,7 @@ public sealed class DeleteArchiveTests : IAsyncDisposable
     public async Task Deleting_AnUnknownArchive_IsNotFound()
     {
         await Assert
-            .That(async () => await Bus.InvokeAsync(new DeleteArchiveCommand(Guid.NewGuid(), 1)))
+            .That(async () => await Bus.InvokeAsync(new DeleteArchiveCommand(Guid.NewGuid(), 1, Guid.NewGuid())))
             .Throws<OfficeRkyv.Api.Shared.Exceptions.NotFoundException>();
     }
 

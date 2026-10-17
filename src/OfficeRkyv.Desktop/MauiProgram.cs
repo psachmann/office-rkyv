@@ -1,13 +1,16 @@
 using DotNetQuery.Core;
 using DotNetQuery.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebView.Maui;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Platforms.Linux.Gtk4.BlazorWebView;
 using Microsoft.Maui.Platforms.Linux.Gtk4.Hosting;
+using OfficeRkyv.Desktop.Auth;
 using OfficeRkyv.Desktop.Files;
 using OfficeRkyv.Desktop.Hosting;
 using OfficeRkyv.UI;
+using OfficeRkyv.UI.Auth;
 using OfficeRkyv.UI.Files;
 using OfficeRkyv.UI.Settings;
 
@@ -45,9 +48,12 @@ public static class MauiProgram
             options.RefetchInterval = TimeSpan.FromSeconds(30); // automatically refetch every 30 seconds
         });
 
-        // What this host supplies: the address of the API (its socket, not a service-discovery name), the
-        // settings, and the environment the shared layout asks for.
-        DesktopApi.AddSocketClients(builder.Services, host.Paths.SocketPath);
+        // What this host supplies: the address of the API (its socket, not a service-discovery name) and the key its
+        // calls are signed with, who is signed in, the settings, and the environment the shared layout asks for.
+        DesktopApi.AddSocketClients(builder.Services, host.Paths.SocketPath, host.CallerTokenKey);
+        builder.Services.AddSingleton<AuthenticationStateProvider>(host.SignIn);
+        builder.Services.AddSingleton(host.SignIn);
+        builder.Services.AddScoped<ISignInService, DesktopSignInService>();
         builder.Services.AddSingleton<IUserSettingsService>(host.Settings);
         builder.Services.AddSingleton<IFileSaver>(new DesktopFileSaver(host.Logger));
         builder.Services.AddSingleton<IHostEnvironment, DesktopHostEnvironment>();

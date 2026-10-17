@@ -1,6 +1,7 @@
 using Google.Rpc;
 using Grpc.Core;
 using OfficeRkyv.Contracts;
+using OfficeRkyv.UI.Auth;
 
 namespace OfficeRkyv.UI.Components.Pages.Users;
 
@@ -18,16 +19,38 @@ namespace OfficeRkyv.UI.Components.Pages.Users;
 /// The refusal means what the UI shows is out of date (the item changed or is gone), so the affected
 /// lists should be loaded again.
 /// </param>
+/// <param name="SignedOut">
+/// The API does not accept the signed-in user (the user was deleted, or the token was refused). The sign-in is
+/// over: see <see cref="EndSignInIfRefusedAsync"/>.
+/// </param>
 internal sealed record WorkspaceErrors(
     string? Name = null,
     string? Title = null,
     string? File = null,
     string? General = null,
     bool ReloadNeeded = false,
-    string? Query = null
+    string? Query = null,
+    bool SignedOut = false
 )
 {
     private const string ActionFailed = "ActionFailed";
+
+    /// <summary>
+    /// Ends the sign-in when the refusal says the API no longer accepts the signed-in user, which shows the
+    /// landing page. It is not an empty inbox or a user without archives: nothing is presented as the user's data
+    /// when the user is gone. Returns whether the sign-in was ended.
+    /// </summary>
+    public static async Task<bool> EndSignInIfRefusedAsync(Exception exception, ISignInService signIn)
+    {
+        if (!From(exception).SignedOut)
+        {
+            return false;
+        }
+
+        await signIn.SignOutAsync();
+
+        return true;
+    }
 
     public static WorkspaceErrors From(Exception exception)
     {
@@ -42,6 +65,7 @@ internal sealed record WorkspaceErrors(
             // The version the client sent is no longer current: someone else changed the item first.
             StatusCode.Aborted => new(General: "ChangedElsewhere", ReloadNeeded: true),
             StatusCode.NotFound => new(General: "NotFound", ReloadNeeded: true),
+            StatusCode.Unauthenticated => new(General: "SignedOut", SignedOut: true),
             StatusCode.FailedPrecondition => FromInvariant(rpc),
             StatusCode.InvalidArgument => FromViolations(rpc),
             _ => new(General: ActionFailed),

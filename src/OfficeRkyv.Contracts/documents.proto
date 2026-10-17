@@ -39,16 +39,18 @@ message DocumentDto {
   string sha256 = 11;
 }
 
-// Lists the owner's non-deleted documents that are in no archive; an unknown owner yields an empty list.
+// Lists the caller's non-deleted documents that are in no archive.
 message ListInboxRequest {
-  string owner_id = 1;
+  reserved 1;
+  reserved "owner_id";
 }
 
 message ListInboxResponse {
   repeated DocumentDto documents = 1;
 }
 
-// Lists the non-deleted documents in the archive; an empty, deleted or unknown archive yields an empty list.
+// Lists the non-deleted documents in the caller's archive; an empty, deleted or unknown archive, or one that belongs
+// to another user, yields an empty list.
 message ListArchiveDocumentsRequest {
   string archive_id = 1;
 }
@@ -57,12 +59,13 @@ message ListArchiveDocumentsResponse {
   repeated DocumentDto documents = 1;
 }
 
-// Finds the owner's non-deleted documents, in the inbox and in every archive, whose title or file name contains
+// Finds the caller's non-deleted documents, in the inbox and in every archive, whose title or file name contains
 // every word of the query, best match first. A word matches anywhere inside a title or a file name, ignoring case.
 // Words of fewer than 3 characters are ignored; a query with no word left is INVALID_ARGUMENT on `query` with the
-// reason `too_short`, and one over 200 characters is `too_long`. An unknown owner yields an empty list.
+// reason `too_short`, and one over 200 characters is `too_long`.
 message SearchDocumentsRequest {
-  string owner_id = 1;
+  reserved 1;
+  reserved "owner_id";
   string query = 2;
 }
 
@@ -90,7 +93,8 @@ message DeleteDocumentRequest {
   int32 version = 2;
 }
 
-// Files the document into an archive of the same owner, from the inbox or from another archive.
+// Files the caller's document into one of the caller's archives, from the inbox or from another archive. A document
+// or archive of another user is NOT_FOUND, as an unknown one.
 message FileDocumentRequest {
   string document_id = 1;
   int32 version = 2;
@@ -101,7 +105,7 @@ message FileDocumentResponse {
   DocumentDto document = 1;
 }
 
-// Returns the document to its owner's inbox.
+// Returns the caller's document to their inbox.
 message UnfileDocumentRequest {
   string document_id = 1;
   int32 version = 2;
@@ -111,7 +115,7 @@ message UnfileDocumentResponse {
   DocumentDto document = 1;
 }
 
-// A new document always starts in the inbox. An upload is one header followed by the content in chunks, in
+// A new document always starts in the caller's inbox. An upload is one header followed by the content in chunks, in
 // chunks well below the message size limit; the header must come first. The response is the created document.
 message UploadDocumentRequest {
   oneof payload {
@@ -121,7 +125,8 @@ message UploadDocumentRequest {
 }
 
 message UploadDocumentHeader {
-  string owner_id = 1;
+  reserved 1;
+  reserved "owner_id";
   string file_name = 2;
   // As the client declared it; empty means none was declared.
   string content_type = 3;

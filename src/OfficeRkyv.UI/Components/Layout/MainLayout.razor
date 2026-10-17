@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inherits LayoutComponentBase
 @inject IHostEnvironment Env
 @inject IStringLocalizer<MainLayout> Localizer
 
@@ -30,13 +31,21 @@
                     />
                 </RadzenPanelMenu>
                 <SectionOutlet SectionId="WorkspaceNavigationSection" />
-                <RadzenPanelMenu class="app-sidebar-bottom">
-                    <RadzenPanelMenuItem
-                        Text="@Localizer["NavSettings"]"
-                        Icon="settings"
-                        Path="/settings"
-                    />
-                </RadzenPanelMenu>
+                <div class="app-sidebar-bottom">
+                    <AuthorizeView Context="auth">
+                        @if (SignedInUser.IdOf(auth.User) is { } userId)
+                        {
+                            <SidebarUser UserId="@userId" />
+                        }
+                    </AuthorizeView>
+                    <RadzenPanelMenu>
+                        <RadzenPanelMenuItem
+                            Text="@Localizer["NavSettings"]"
+                            Icon="settings"
+                            Path="/settings"
+                        />
+                    </RadzenPanelMenu>
+                </div>
             </div>
         </RadzenSidebar>
         <RadzenBody>

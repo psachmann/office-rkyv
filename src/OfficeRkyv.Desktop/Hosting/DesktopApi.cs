@@ -10,6 +10,7 @@ using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
+using OfficeRkyv.UI.Auth;
 using Wolverine.Grpc.Client;
 
 namespace OfficeRkyv.Desktop.Hosting;
@@ -39,8 +40,18 @@ public sealed class DesktopApi : IAsyncDisposable
     public IReadOnlyCollection<string> Addresses =>
         [.. app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses];
 
+    /// <param name="paths">Where the socket, the database and the file content live.</param>
+    /// <param name="callerTokenKey">
+    /// The key the API validates caller tokens with: made by the desktop host when it starts, shared with this
+    /// process's own clients, and known to nothing else.
+    /// </param>
+    /// <param name="minimumLogLevel">The least severe level the API logs.</param>
     /// <exception cref="AlreadyRunningException">Another instance answers on the socket.</exception>
-    public static async Task<DesktopApi> StartAsync(DesktopPaths paths, LogLevel minimumLogLevel = LogLevel.Warning)
+    public static async Task<DesktopApi> StartAsync(
+        DesktopPaths paths,
+        byte[] callerTokenKey,
+        LogLevel minimumLogLevel = LogLevel.Warning
+    )
     {
         Directory.CreateDirectory(paths.DataDirectory);
         CreatePrivateDirectory(paths.RuntimeDirectory);
@@ -61,7 +72,7 @@ public sealed class DesktopApi : IAsyncDisposable
         // window running with no API behind it. The desktop process owns the signals instead.
         builder.Services.AddSingleton<IHostLifetime, NoSignalLifetime>();
 
-        builder.AddOfficeRkyvApi($"Data Source={paths.DatabasePath}", paths.BlobDirectory);
+        builder.AddOfficeRkyvApi($"Data Source={paths.DatabasePath}", paths.BlobDirectory, callerTokenKey);
 
         var app = builder.Build();
         app.MapOfficeRkyvApi();
@@ -72,13 +83,18 @@ public sealed class DesktopApi : IAsyncDisposable
 
     /// <summary>
     /// Registers the gRPC clients the UI's facades use, pointed at the socket. "http://localhost" only
-    /// names the authority; the handler decides where the bytes go.
+    /// names the authority; the handler decides where the bytes go. Every call carries the caller token of the
+    /// signed-in user, signed with <paramref name="callerTokenKey"/>.
     /// </summary>
-    public static IServiceCollection AddSocketClients(IServiceCollection services, string socketPath)
+    public static IServiceCollection AddSocketClients(
+        IServiceCollection services,
+        string socketPath,
+        byte[] callerTokenKey
+    )
     {
-        AddClient<UsersService.UsersServiceClient>(services, socketPath);
-        AddClient<ArchivesService.ArchivesServiceClient>(services, socketPath);
-        AddClient<DocumentsService.DocumentsServiceClient>(services, socketPath);
+        AddClient<UsersService.UsersServiceClient>(services, socketPath, callerTokenKey);
+        AddClient<ArchivesService.ArchivesServiceClient>(services, socketPath, callerTokenKey);
+        AddClient<DocumentsService.DocumentsServiceClient>(services, socketPath, callerTokenKey);
 
         return services;
     }
@@ -89,7 +105,7 @@ public sealed class DesktopApi : IAsyncDisposable
         await app.DisposeAsync();
     }
 
-    private static void AddClient<TClient>(IServiceCollection services, string socketPath)
+    private static void AddClient<TClient>(IServiceCollection services, string socketPath, byte[] callerTokenKey)
         where TClient : class
     {
         var builder = services.AddWolverineGrpcClient<TClient>(options =>
@@ -102,6 +118,12 @@ public sealed class DesktopApi : IAsyncDisposable
             ?? throw new InvalidOperationException(
                 $"The gRPC client {typeof(TClient).Name} has no HTTP client builder."
             );
+
+        // gRPC attaches call credentials only over TLS, unless the channel is told otherwise. Plain HTTP/2 is safe
+        // here: the socket lives in the owner-only runtime directory. The token is still required, so the API has
+        // one code path, and a later desktop sign-in has something to plug into.
+        http.ConfigureChannel(options => options.UnsafeUseInsecureChannelCallCredentials = true);
+        CallerTokenCredentials.AddTo(http, callerTokenKey);
 
         http.ConfigurePrimaryHttpMessageHandler(() =>
             new SocketsHttpHandler

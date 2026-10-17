@@ -2,6 +2,7 @@ using OfficeRkyv.Api.Features.Archives;
 using OfficeRkyv.Api.Features.Documents;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Shared;
+using OfficeRkyv.Api.Shared.Auth;
 using OfficeRkyv.Api.Shared.Blobs;
 using OfficeRkyv.Api.Shared.Errors;
 using Wolverine;
@@ -17,8 +18,8 @@ namespace OfficeRkyv.Api;
 public static class OfficeRkyvApiExtensions
 {
     /// <summary>
-    /// Registers the event store (Fisher on SQLite), the file content store, Wolverine with its error mapping, and
-    /// gRPC.
+    /// Registers the event store (Fisher on SQLite), the file content store, Wolverine with its error mapping,
+    /// caller authentication, and gRPC.
     /// </summary>
     /// <param name="builder">The host's builder.</param>
     /// <param name="connectionString">The SQLite connection string of the event store.</param>
@@ -26,14 +27,22 @@ public static class OfficeRkyvApiExtensions
     /// Where file content lives. It belongs to the database: both are the same user's data, and a database that
     /// is replaced needs its content replaced with it.
     /// </param>
+    /// <param name="callerTokenKey">
+    /// The key the UI host signs caller tokens with (see <see cref="CallerTokens"/>); at least
+    /// <see cref="CallerTokens.MinimumKeyLength"/> bytes. A host reads it from <c>CallerTokens:SigningKey</c>, or
+    /// makes one when only its own process knows both sides.
+    /// </param>
     /// <param name="configureStore">Host-specific store settings, such as telemetry.</param>
     public static WebApplicationBuilder AddOfficeRkyvApi(
         this WebApplicationBuilder builder,
         string connectionString,
         string blobDirectory,
+        byte[] callerTokenKey,
         Action<StoreOptions>? configureStore = null
     )
     {
+        builder.Services.AddCallerAuthentication(callerTokenKey);
+
         builder
             .Services.AddFisher(options =>
             {
@@ -64,13 +73,15 @@ public static class OfficeRkyvApiExtensions
         return builder;
     }
 
-    /// <summary>Maps the API's gRPC services.</summary>
-    public static IEndpointRouteBuilder MapOfficeRkyvApi(this IEndpointRouteBuilder endpoints)
+    /// <summary>Reads the caller token on each call, and maps the API's gRPC services.</summary>
+    public static WebApplication MapOfficeRkyvApi(this WebApplication app)
     {
-        endpoints.MapGrpcService<UsersServiceImpl>();
-        endpoints.MapGrpcService<ArchivesServiceImpl>();
-        endpoints.MapGrpcService<DocumentsServiceImpl>();
+        app.UseAuthentication();
 
-        return endpoints;
+        app.MapGrpcService<UsersServiceImpl>();
+        app.MapGrpcService<ArchivesServiceImpl>();
+        app.MapGrpcService<DocumentsServiceImpl>();
+
+        return app;
     }
 }

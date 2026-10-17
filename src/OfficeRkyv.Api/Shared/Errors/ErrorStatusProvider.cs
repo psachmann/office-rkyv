@@ -47,6 +47,12 @@ internal sealed partial class ErrorStatusProvider(ILogger<ErrorStatusProvider> l
 
             NotFoundException => Plain(StatusCode.NotFound, "The resource was not found."),
 
+            // The same text for a missing, invalid or expired token and for a user that is gone: the reason must
+            // not tell a caller which of them it was.
+            UnauthenticatedException => Plain(StatusCode.Unauthenticated, "The call needs a signed-in user."),
+
+            PermissionDeniedException => Plain(StatusCode.PermissionDenied, "The signed-in user may not do this."),
+
             _ => Unexpected(exception, context),
         };
 

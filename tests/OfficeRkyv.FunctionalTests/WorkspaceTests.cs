@@ -61,7 +61,7 @@ public class WorkspaceTests(AppHostFixture fixture) : PageTest
     }
 
     [Test]
-    public async Task AnUnknownUser_ShowsNotFound_InsteadOfAWorkspace()
+    public async Task TheOldUserAddress_ShowsNotFound_InsteadOfAWorkspace()
     {
         await Page.GotoAsync($"{BaseAddress}users/{Guid.NewGuid()}");
 
@@ -204,22 +204,23 @@ public class WorkspaceTests(AppHostFixture fixture) : PageTest
     }
 
     [Test]
-    public async Task LeavingTheWorkspace_ForTheLandingPageOrSettings_LeavesNoEntriesInTheSidebar()
+    public async Task LeavingTheWorkspace_ForSettingsOrBySigningOut_LeavesNoEntriesInTheSidebar()
     {
         await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Hank {Guid.NewGuid():n}");
         await Workspace.CreateArchiveAsync("Household");
         await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(2);
 
         var settings = new SettingsPage(Page);
-        await settings.SidebarEntry("Home").ClickAsync();
-        await Expect(Page.GetByRole(AriaRole.Heading, new() { Name = "Users" })).ToBeVisibleAsync();
+        await settings.SidebarEntry("Settings").ClickAsync();
+        await Expect(settings.Heading).ToBeVisibleAsync();
         await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(0);
 
         await Page.GoBackAsync();
         await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(2);
 
-        await settings.SidebarEntry("Settings").ClickAsync();
-        await Expect(settings.Heading).ToBeVisibleAsync();
+        // The landing page of a signed-in visitor is their workspace, so it is signing out that leaves it.
+        await Workspace.SignOutButton.ClickAsync();
+        await Expect(Workspace.LandingHeading).ToBeVisibleAsync();
         await Expect(Workspace.WorkspaceEntries).ToHaveCountAsync(0);
     }
 
@@ -290,7 +291,7 @@ public class WorkspaceTests(AppHostFixture fixture) : PageTest
     }
 
     [Test]
-    public async Task AnUnknownUser_ShowsNoEntriesInTheSidebar()
+    public async Task TheOldUserAddress_ShowsNoEntriesInTheSidebar()
     {
         await Page.GotoAsync($"{BaseAddress}users/{Guid.NewGuid()}");
 

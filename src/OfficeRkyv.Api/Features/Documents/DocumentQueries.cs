@@ -1,8 +1,10 @@
 namespace OfficeRkyv.Api.Features.Documents;
 
+// OwnerId is the caller in the queries that have one, filled in by the service.
 public sealed record FindInboxQuery(Guid OwnerId);
 
-public sealed record FindArchiveDocumentsQuery(Guid ArchiveId);
+// OwnerId is the caller: another user's archive has no documents for them.
+public sealed record FindArchiveDocumentsQuery(Guid ArchiveId, Guid OwnerId);
 
 public sealed record FindDocumentByIdQuery(Guid DocumentId);
 

@@ -7,9 +7,13 @@ internal static class DocumentExistence
     /// version, so an unknown id is reported as not found rather than as a stale version. A soft-deleted
     /// document still exists: this passes and the handler applies its own rules.
     /// </summary>
-    public static async Task RequireAsync(IQuerySession session, Guid documentId)
+    /// <remarks>
+    /// A document of another user is answered exactly as an unknown one, and before the version is looked at, so
+    /// nothing about someone else's document shows.
+    /// </remarks>
+    public static async Task RequireAsync(IQuerySession session, Guid documentId, Guid callerId)
     {
-        if (await session.LoadAsync<Document>(documentId) is null)
+        if (await session.LoadAsync<Document>(documentId) is not { } document || document.OwnerId != callerId)
         {
             throw new NotFoundException($"Document '{documentId}' does not exist.");
         }

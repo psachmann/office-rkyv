@@ -18,7 +18,8 @@ Postponed features and decisions: things that were deliberately left out, with t
   - Decided in: [add-document-file-upload](openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D4).
 - [ ] **Folder watcher.** Pick up files dropped into a folder and create documents from them.
   - Already in place: `DocumentIngest` is the single path a file takes, and the title is derived on the server, so the watcher is a second caller.
-  - Still to decide: which user owns a dropped file (there is no authentication; one folder per user is the simple answer), how to wait for a file that is still being written, what happens to the source file afterwards, and whether duplicates are skipped by hash.
+  - Which user owns a dropped file is now a matter of naming the user in the command it sends: the bus takes no caller, and `DocumentIngest` is given the user explicitly, as the development seed does. One folder per user is the simple answer.
+  - Still to decide: how to wait for a file that is still being written, what happens to the source file afterwards, and whether duplicates are skipped by hash.
   - Decided in: [add-document-file-upload](openspec/changes/archive/2026-10-10-add-document-file-upload/proposal.md).
 - [ ] **In-app preview.** Show a document's file without saving it first.
   - Why postponed: the browser or WebView needs a URL to load, which means a content endpoint per host, and WebKitGTK's PDF rendering is unproven on the experimental backend.
@@ -40,16 +41,34 @@ Postponed features and decisions: things that were deliberately left out, with t
   - [ ] **Stemming.** `Rechnungen` does not find `Rechnung`, although `rechnung` finds `Rechnungen`. Why postponed: a trigram index cannot stem, and matching inside a word (`Stromrechnung`) was worth more. Revisit with the Lucene.NET item. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D1).
   - [ ] **Paging the search results.** A search returns the 50 best matches and says that more matched. Do it with the Pagination item below. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D3).
   - [ ] **Showing which part matched.** Fisher can highlight a column and cut a snippet, but only through its LINQ operators, and the search is a raw query (D2). Do it when the words inside files are searched, where a snippet matters most. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D2).
-  - [ ] **A search box on every page.** Search is a field of the workspace, because the sidebar and the user are the workspace's. Revisit with authentication, when there is a signed-in user outside a workspace. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/proposal.md).
+  - [ ] **A search box on every page.** Search is a field of the workspace, because the sidebar and the user are the workspace's. There is now a signed-in user outside the workspace ([add-sign-in](openspec/changes/archive/2026-10-17-add-sign-in/design.md)), so this can be done when a page other than the workspace needs it; the search RPC already acts for the caller. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/proposal.md).
   - [ ] **Evaluate Lucene.NET as the search engine.** Decide when content search is built on the extracted text, with real OCR output to judge by.
     - What it would add: German stemming (`Rechnungen` finds `Rechnung`), `ae`/`ä` normalisation, fuzzy matching for OCR misreadings, compound-word splitting, highlighting and better ranking of long texts.
     - What it costs: the index leaves the SQLite transaction and can drift, so it needs feeding from the events and a rebuild path; backups become database, blobs and index together; the package is still `4.8.0-beta`; compound splitting needs a German dictionary and hyphenation file, and without them `rechnung` is not found inside `Stromrechnung`, which the trigram index can do.
     - Switch if: OCR text is noisy enough that searches miss documents without fuzzy matching, relevance ranking over long texts is visibly poor, or users miss stemming and `ae`/`ä` more than matching inside words.
     - The engine sits behind one handler and one RPC, so a switch touches the API only. The `document-search` spec's "matches anywhere inside a word" would need rewording. Fisher's hybrid vector search is the other option to weigh at the same time.
     - Decided in: the exploration before [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md), which chose FTS5 with a trigram index (D1).
-- [ ] **Authentication and authorization.** Until then the user id in the page address stands in for the signed-in user.
-- [ ] **Sharing documents between users.**
-- [ ] **What happens to a deleted user's documents and archives.** They are left orphaned; the workspace shows not-found, so nothing is reachable in the UI.
+- [ ] **Sharing documents between users.** Today a document or archive belongs to one user, and another user's is answered as not found.
+- [ ] **What happens to a deleted user's documents and archives.** They are left orphaned: the API no longer accepts the deleted user as a caller, so nobody can reach them.
+
+### Signing in
+
+Signing in is choosing a user from the list, a placeholder on purpose ([add-sign-in](openspec/changes/archive/2026-10-17-add-sign-in/design.md)). What is built is the seam passkeys plug into: `ISignInService`, the `AuthenticationStateProvider` and the caller token.
+
+- [ ] **Passkeys for the web.** Use ASP.NET Core Identity's passkey support with a Fisher-backed store.
+  - Why postponed: it needs a credential store of its own and a decision about where the ceremony runs (a Blazor Server circuit cannot answer the browser's WebAuthn calls on a page load), and the placeholder was enough to make the API's isolation between users real first.
+  - What stays: the web host would sign the same principal in through the same cookie, and the API would see the same token.
+  - Decided in: [add-sign-in](openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D5, D6).
+- [ ] **Passkeys or another authenticator for the desktop.** WebKitGTK has no WebAuthn, so the choices are a native authenticator, a password or PIN, or nothing beyond the OS account.
+  - Why postponed: all three routes are open, and what the sign-in would protect has to be decided first, since the data is a file the OS account already owns.
+  - What stays: `DesktopSignIn` is the one place the desktop's user is set, and the API already requires the caller token on the socket.
+  - Decided in: [add-sign-in](openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D7).
+- [ ] **Remember the desktop's last user.** Every start of the desktop app is signed out.
+  - Why postponed: remembering a user without a secret makes the OS account the only protection, which is the question the passkey item above has to answer.
+  - Decided in: [add-sign-in](openspec/changes/archive/2026-10-17-add-sign-in/design.md) (Non-Goals, D7).
+- [ ] **Asymmetric caller keys.** The web host signs caller tokens and the API validates them with one shared HMAC key. With more than one issuer, or an API that is reachable from outside, the web should sign with a private key and the API hold only the public one.
+  - Why postponed: one AppHost starts both processes and hands them one generated key, and a key pair would need managing for no gain yet.
+  - Decided in: [add-sign-in](openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D8).
 - [ ] **Pagination.** Every list is unbounded.
 - [ ] **Push notifications.** After an archive is deleted the UI refreshes the inbox again after a short delay, with the 30-second refetch as the backstop.
 
@@ -60,7 +79,7 @@ All seven were set aside in [add-archives-and-inbox](openspec/changes/archive/20
 - [ ] **Upload as a DotNet Query mutation.** `DocumentsFacade.UploadAsync` is a plain method because a mutation cannot report progress. If the library gains mutation progress, the upload becomes an ordinary mutation and the exception in [docs/ui.md](docs/ui.md#files-upload-and-download) goes away. The proposal for the library is drafted in [dotnet-query-streaming-issue.md](dotnet-query-streaming-issue.md).
 - [ ] **Web download through an HTTP endpoint.** The browser download collects the whole file in memory before saving. Move to a streaming endpoint on the Web host if that is a problem near the 100 MB limit. Decided in [add-document-file-upload](openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D12).
 - [ ] **The client's size check uses the default limit.** The upload dialog refuses files over `FileLimits.DefaultMaxFileSizeBytes`. A server configured with a different `FileStorage:MaxFileSizeBytes` is still the authority, but the quick client-side answer would then be wrong. Fix by exposing the configured limit to the UI.
-- [ ] **The owner is checked after the content is stored.** An upload for an unknown or deleted owner is refused, but leaves an orphan blob. The same holds for an invalid file name. Checking the header first would avoid it; the blob collector makes it harmless.
+- [ ] **The owner is checked after the content is stored, for callers other than the API.** An upload through the API is refused for an unknown or deleted caller before anything is stored. `DocumentIngest` itself (the seed, a later folder watcher) still checks the owner when the command runs, so a refusal there leaves an orphan blob, as an invalid file name does through the API. Checking the header first would avoid it; the blob collector makes it harmless.
 - [ ] **Uploads run one after another.** Chosen because the store has one writer. Revisit if batches feel slow.
 - [ ] **Documents from before file upload are not migrated.** A database with title-only documents shows them without a file and fails to download them. Acceptable while the desktop app has no users but its developer.
 - [ ] **Backups.** The database and its `blobs` folder must be copied together; nothing enforces or helps with that. A SQLite `BLOB` table would restore "one file", at the cost described in the design (D2).
@@ -78,4 +97,3 @@ All seven were set aside in [add-archives-and-inbox](openspec/changes/archive/20
   - `SettingsTests.ChoosingALanguage_ReloadsTheSettingsPageInThatLanguage`: a 2-second timeout waiting for the language dropdown. Not yet listed in [docs/testing.md](docs/testing.md#known-flakiness).
   - `SettingsTests.Settings_IsReachableFromTheSidebar_AtTheBottom_AndMarkedAsTheCurrentPage`: listed there.
 - [ ] **`ApiTelemetryTests` can time out under load.** `Command_ProducesStoreSpanUnderItsHandlerSpan` failed once when both test projects ran at the same time, and passes alone.
-- [ ] **`LandingPageTests` is skipped.** Its `[Skip]` says the expectations need to be switched to TUnit assertions.

@@ -23,7 +23,8 @@ public sealed class DocumentUploadTests : IAsyncDisposable
 
     private PipelineHost pipeline = null!;
 
-    private DocumentsService.DocumentsServiceClient Documents => new(pipeline.Channel);
+    // Every call is made as a user: the API knows the owner from the caller, not from the request.
+    private DocumentsService.DocumentsServiceClient DocumentsOf(UserDto user) => new(pipeline.ChannelFor(user.Id));
 
     private UsersService.UsersServiceClient Users => new(pipeline.Channel);
 
@@ -49,8 +50,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var content = TestDocuments.Bytes(600);
 
         var document = await TestDocuments.UploadAsync(
-            Documents,
-            alice.Id,
+            DocumentsOf(alice),
             "scan.pdf",
             content,
             "application/pdf",
@@ -66,7 +66,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         await Assert.That(document.Size).IsEqualTo(600);
         await Assert.That(document.Sha256).IsEqualTo(Sha256Of(content));
 
-        var inbox = await Documents.ListInboxAsync(new ListInboxRequest { OwnerId = alice.Id });
+        var inbox = await DocumentsOf(alice).ListInboxAsync(new ListInboxRequest());
         await Assert.That(inbox.Documents.Select(d => d.Id)).IsEquivalentTo([document.Id]);
         await Assert.That(inbox.Documents.Single().FileName).IsEqualTo("scan.pdf");
         await Assert.That(inbox.Documents.Single().Size).IsEqualTo(600);
@@ -77,7 +77,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var content = TestDocuments.Bytes(300);
-        var document = await TestDocuments.UploadAsync(Documents, alice.Id, "scan.pdf", content);
+        var document = await TestDocuments.UploadAsync(DocumentsOf(alice), "scan.pdf", content);
 
         // Rebuilt from the events, not read from the snapshot.
         await using var session = pipeline.Store.QuerySession();
@@ -94,8 +94,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var document = await TestDocuments.UploadAsync(
-            Documents,
-            alice.Id,
+            DocumentsOf(alice),
             "Invoice March.pdf",
             TestDocuments.Bytes(10)
         );
@@ -109,8 +108,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var document = await TestDocuments.UploadAsync(
-            Documents,
-            alice.Id,
+            DocumentsOf(alice),
             "a.pdf",
             TestDocuments.Bytes(10),
             title: "  Lease contract  "
@@ -125,8 +123,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var document = await TestDocuments.UploadAsync(
-            Documents,
-            alice.Id,
+            DocumentsOf(alice),
             "scans/2026\\invoice.pdf",
             TestDocuments.Bytes(10)
         );
@@ -140,8 +137,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var document = await TestDocuments.UploadAsync(
-            Documents,
-            alice.Id,
+            DocumentsOf(alice),
             "a.bin",
             TestDocuments.Bytes(10),
             contentType: null
@@ -155,17 +151,18 @@ public sealed class DocumentUploadTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var content = TestDocuments.Bytes(100);
-        var document = await TestDocuments.UploadAsync(Documents, alice.Id, "scan.pdf", content);
+        var document = await TestDocuments.UploadAsync(DocumentsOf(alice), "scan.pdf", content);
 
         var renamed = (
-            await Documents.RenameDocumentAsync(
-                new RenameDocumentRequest
-                {
-                    DocumentId = document.Id,
-                    Version = document.Version,
-                    Title = "April",
-                }
-            )
+            await DocumentsOf(alice)
+                .RenameDocumentAsync(
+                    new RenameDocumentRequest
+                    {
+                        DocumentId = document.Id,
+                        Version = document.Version,
+                        Title = "April",
+                    }
+                )
         ).Document;
 
         await Assert.That(renamed.Title).IsEqualTo("April");
@@ -183,8 +180,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var document = await TestDocuments.UploadAsync(
-            Documents,
-            alice.Id,
+            DocumentsOf(alice),
             "big.bin",
             TestDocuments.Bytes(Limit),
             chunkSize: 300
@@ -200,8 +196,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
 
         var failure = await GrpcFailure.Of(async () =>
             await TestDocuments.UploadAsync(
-                Documents,
-                alice.Id,
+                DocumentsOf(alice),
                 "big.bin",
                 TestDocuments.Bytes(Limit + 1),
                 chunkSize: 300
@@ -210,9 +205,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
         await Assert.That(Violation(failure)).IsEqualTo(("content", ViolationCodes.TooLarge));
-        await Assert
-            .That((await Documents.ListInboxAsync(new ListInboxRequest { OwnerId = alice.Id })).Documents)
-            .IsEmpty();
+        await Assert.That((await DocumentsOf(alice).ListInboxAsync(new ListInboxRequest())).Documents).IsEmpty();
         await Assert.That(Directory.EnumerateFiles(BlobTemporaryDirectory)).IsEmpty();
     }
 
@@ -222,14 +215,12 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var failure = await GrpcFailure.Of(async () =>
-            await TestDocuments.UploadAsync(Documents, alice.Id, "empty.txt", [])
+            await TestDocuments.UploadAsync(DocumentsOf(alice), "empty.txt", [])
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
         await Assert.That(Violation(failure)).IsEqualTo(("content", ViolationCodes.Required));
-        await Assert
-            .That((await Documents.ListInboxAsync(new ListInboxRequest { OwnerId = alice.Id })).Documents)
-            .IsEmpty();
+        await Assert.That((await DocumentsOf(alice).ListInboxAsync(new ListInboxRequest())).Documents).IsEmpty();
     }
 
     [Test]
@@ -238,7 +229,7 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var failure = await GrpcFailure.Of(async () =>
-            await TestDocuments.UploadAsync(Documents, alice.Id, "  ", TestDocuments.Bytes(10), title: "Invoice")
+            await TestDocuments.UploadAsync(DocumentsOf(alice), "  ", TestDocuments.Bytes(10), title: "Invoice")
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
@@ -251,42 +242,49 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var failure = await GrpcFailure.Of(async () =>
-            await TestDocuments.UploadAsync(Documents, alice.Id, "a.pdf", TestDocuments.Bytes(10), title: "   ")
+            await TestDocuments.UploadAsync(DocumentsOf(alice), "a.pdf", TestDocuments.Bytes(10), title: "   ")
         );
 
         await Assert.That(Violation(failure)).IsEqualTo(("title", ViolationCodes.Required));
     }
 
     [Test]
-    public async Task AnUnknownOwner_IsNotFound_AndCreatesNoDocument()
+    public async Task AnUnknownCaller_IsUnauthenticated_AndCreatesNoDocument()
     {
+        var nobody = new UserDto { Id = Guid.NewGuid().ToString() };
+
         var failure = await GrpcFailure.Of(async () =>
-            await TestDocuments.UploadAsync(Documents, Guid.NewGuid().ToString(), "a.pdf", TestDocuments.Bytes(10))
+            await TestDocuments.UploadAsync(DocumentsOf(nobody), "a.pdf", TestDocuments.Bytes(10))
         );
 
-        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.NotFound);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Unauthenticated);
+        await Assert.That(Directory.EnumerateFiles(pipeline.BlobDirectory, "*", SearchOption.AllDirectories)).IsEmpty();
     }
 
     [Test]
-    public async Task ADeletedOwner_IsRefusedWithUserDeleted()
+    public async Task ADeletedCaller_IsUnauthenticated_NotRefusedWithUserDeleted()
     {
         var alice = await CreateUser();
-        await Users.DeleteUserAsync(new DeleteUserRequest { UserId = alice.Id, Version = alice.Version });
-
-        var failure = await GrpcFailure.Of(async () =>
-            await TestDocuments.UploadAsync(Documents, alice.Id, "a.pdf", TestDocuments.Bytes(10))
+        await Users.DeleteUserAsync(
+            new DeleteUserRequest { UserId = alice.Id, Version = alice.Version },
+            PipelineHost.CallOptionsFor(Guid.Parse(alice.Id))
         );
 
-        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.FailedPrecondition);
-        await Assert.That(GrpcFailure.Reason(failure)).IsEqualTo(InvariantCodes.UserDeleted);
+        var failure = await GrpcFailure.Of(async () =>
+            await TestDocuments.UploadAsync(DocumentsOf(alice), "a.pdf", TestDocuments.Bytes(10))
+        );
+
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Unauthenticated);
     }
 
     [Test]
     public async Task AnUploadThatDoesNotStartWithItsHeader_IsInvalid()
     {
+        var alice = await CreateUser();
+
         var failure = await GrpcFailure.Of(async () =>
         {
-            using var call = Documents.UploadDocument();
+            using var call = DocumentsOf(alice).UploadDocument();
             await call.RequestStream.WriteAsync(
                 new UploadDocumentRequest { Chunk = ByteString.CopyFromUtf8("no header") }
             );
@@ -306,12 +304,12 @@ public sealed class DocumentUploadTests : IAsyncDisposable
         var alice = await CreateUser();
         var content = TestDocuments.Bytes(200);
 
-        var first = await TestDocuments.UploadAsync(Documents, alice.Id, "scan.pdf", content);
-        var second = await TestDocuments.UploadAsync(Documents, alice.Id, "scan.pdf", content);
+        var first = await TestDocuments.UploadAsync(DocumentsOf(alice), "scan.pdf", content);
+        var second = await TestDocuments.UploadAsync(DocumentsOf(alice), "scan.pdf", content);
 
         await Assert.That(second.Id).IsNotEqualTo(first.Id);
         await Assert.That(second.Sha256).IsEqualTo(first.Sha256);
-        var inbox = await Documents.ListInboxAsync(new ListInboxRequest { OwnerId = alice.Id });
+        var inbox = await DocumentsOf(alice).ListInboxAsync(new ListInboxRequest());
         await Assert.That(inbox.Documents).Count().IsEqualTo(2);
     }
 
@@ -320,14 +318,13 @@ public sealed class DocumentUploadTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var content = TestDocuments.Bytes(200);
-        var first = await TestDocuments.UploadAsync(Documents, alice.Id, "scan.pdf", content);
-        var second = await TestDocuments.UploadAsync(Documents, alice.Id, "scan.pdf", content);
+        var first = await TestDocuments.UploadAsync(DocumentsOf(alice), "scan.pdf", content);
+        var second = await TestDocuments.UploadAsync(DocumentsOf(alice), "scan.pdf", content);
 
-        await Documents.DeleteDocumentAsync(
-            new DeleteDocumentRequest { DocumentId = first.Id, Version = first.Version }
-        );
+        await DocumentsOf(alice)
+            .DeleteDocumentAsync(new DeleteDocumentRequest { DocumentId = first.Id, Version = first.Version });
 
-        await Assert.That(await TestDocuments.DownloadAsync(Documents, second.Id)).IsEquivalentTo(content);
+        await Assert.That(await TestDocuments.DownloadAsync(DocumentsOf(alice), second.Id)).IsEquivalentTo(content);
     }
 
     // ---- downloading ----
@@ -337,13 +334,13 @@ public sealed class DocumentUploadTests : IAsyncDisposable
     {
         // Several 64 KB chunks and a partial one, so the server's chunking is exercised and not just one message.
         await using var big = await PipelineHost.StartAsync(maxFileSizeBytes: 1_000_000);
-        var client = new DocumentsService.DocumentsServiceClient(big.Channel);
         var users = new UsersService.UsersServiceClient(big.Channel);
         var alice = (
             await users.CreateUserAsync(new CreateUserRequest { Email = "a@example.com", DisplayName = "A" })
         ).User;
+        var client = new DocumentsService.DocumentsServiceClient(big.ChannelFor(alice.Id));
         var content = TestDocuments.Bytes(64 * 1024 * 3 + 123);
-        var document = await TestDocuments.UploadAsync(client, alice.Id, "scan.pdf", content, chunkSize: 50_000);
+        var document = await TestDocuments.UploadAsync(client, "scan.pdf", content, chunkSize: 50_000);
 
         var downloaded = await TestDocuments.DownloadAsync(client, document.Id);
 
@@ -354,8 +351,10 @@ public sealed class DocumentUploadTests : IAsyncDisposable
     [Test]
     public async Task ADownloadOfAnUnknownDocument_IsNotFound_AndDeliversNothing()
     {
+        var alice = await CreateUser();
+
         var failure = await GrpcFailure.Of(async () =>
-            await TestDocuments.DownloadAsync(Documents, Guid.NewGuid().ToString())
+            await TestDocuments.DownloadAsync(DocumentsOf(alice), Guid.NewGuid().ToString())
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.NotFound);
@@ -365,12 +364,13 @@ public sealed class DocumentUploadTests : IAsyncDisposable
     public async Task ADownloadOfADeletedDocument_IsRefusedWithDocumentDeleted()
     {
         var alice = await CreateUser();
-        var document = await TestDocuments.UploadAsync(Documents, alice.Id, "scan.pdf", TestDocuments.Bytes(50));
-        await Documents.DeleteDocumentAsync(
-            new DeleteDocumentRequest { DocumentId = document.Id, Version = document.Version }
-        );
+        var document = await TestDocuments.UploadAsync(DocumentsOf(alice), "scan.pdf", TestDocuments.Bytes(50));
+        await DocumentsOf(alice)
+            .DeleteDocumentAsync(new DeleteDocumentRequest { DocumentId = document.Id, Version = document.Version });
 
-        var failure = await GrpcFailure.Of(async () => await TestDocuments.DownloadAsync(Documents, document.Id));
+        var failure = await GrpcFailure.Of(async () =>
+            await TestDocuments.DownloadAsync(DocumentsOf(alice), document.Id)
+        );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.FailedPrecondition);
         await Assert.That(GrpcFailure.Reason(failure)).IsEqualTo(InvariantCodes.DocumentDeleted);
@@ -380,10 +380,12 @@ public sealed class DocumentUploadTests : IAsyncDisposable
     public async Task ADocumentWhoseContentIsMissing_IsAnInternalFault_WithoutLeakingDetails()
     {
         var alice = await CreateUser();
-        var document = await TestDocuments.UploadAsync(Documents, alice.Id, "scan.pdf", TestDocuments.Bytes(50));
+        var document = await TestDocuments.UploadAsync(DocumentsOf(alice), "scan.pdf", TestDocuments.Bytes(50));
         File.Delete(Path.Combine(pipeline.BlobDirectory, document.Sha256[..2], document.Sha256));
 
-        var failure = await GrpcFailure.Of(async () => await TestDocuments.DownloadAsync(Documents, document.Id));
+        var failure = await GrpcFailure.Of(async () =>
+            await TestDocuments.DownloadAsync(DocumentsOf(alice), document.Id)
+        );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Internal);
         await Assert.That(failure.Status.Detail).DoesNotContain(document.Id);

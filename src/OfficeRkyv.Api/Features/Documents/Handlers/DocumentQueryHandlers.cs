@@ -16,9 +16,15 @@ public static class FindInboxHandler
 
 public static class FindArchiveDocumentsHandler
 {
+    // A document is only ever filed into an archive of its own owner, so asking for the caller's documents in
+    // the archive is empty for anyone else's archive, as it is for an unknown one.
     public static Task<IReadOnlyList<Document>> Handle(FindArchiveDocumentsQuery query, IQuerySession session) =>
         session
             .Query<Document>()
-            .Where(document => document.ArchiveId == query.ArchiveId && document.Status != EntityStatus.Deleted)
+            .Where(document =>
+                document.ArchiveId == query.ArchiveId
+                && document.OwnerId == query.OwnerId
+                && document.Status != EntityStatus.Deleted
+            )
             .ToListAsync();
 }

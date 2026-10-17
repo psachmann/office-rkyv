@@ -61,15 +61,6 @@
   <data name="Title" xml:space="preserve">
     <value>Arbeitsbereich</value>
   </data>
-  <data name="NotFoundTitle" xml:space="preserve">
-    <value>Benutzer nicht gefunden</value>
-  </data>
-  <data name="NotFoundText" xml:space="preserve">
-    <value>Es gibt keinen Benutzer mit dieser ID, oder der Benutzer wurde gelöscht.</value>
-  </data>
-  <data name="BackToUsers" xml:space="preserve">
-    <value>Zurück zu den Benutzern</value>
-  </data>
   <data name="LoadFailed" xml:space="preserve">
     <value>Der Arbeitsbereich konnte nicht geladen werden. Bitte versuche es erneut.</value>
   </data>

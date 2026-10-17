@@ -3,6 +3,7 @@ using Google.Rpc;
 using Grpc.Core;
 using OfficeRkyv.Api.Features.Documents;
 using OfficeRkyv.Api.Features.Documents.Handlers;
+using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Shared;
 using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Archives;
@@ -21,11 +22,12 @@ public sealed class DocumentSearchTests : IAsyncDisposable
 {
     private PipelineHost pipeline = null!;
 
-    private DocumentsService.DocumentsServiceClient Documents => new(pipeline.Channel);
+    // Every call is made as a user: the API knows the owner from the caller, not from the request.
+    private DocumentsService.DocumentsServiceClient DocumentsOf(UserDto user) => new(pipeline.ChannelFor(user.Id));
 
     private UsersService.UsersServiceClient Users => new(pipeline.Channel);
 
-    private ArchivesService.ArchivesServiceClient Archives => new(pipeline.Channel);
+    private ArchivesService.ArchivesServiceClient ArchivesOf(UserDto user) => new(pipeline.ChannelFor(user.Id));
 
     [Before(Test)]
     public async Task SetUp() => pipeline = await PipelineHost.StartAsync();
@@ -36,18 +38,17 @@ public sealed class DocumentSearchTests : IAsyncDisposable
     // A document made by an upload of a small file, so its title and file name are chosen separately.
     private Task<DocumentDto> Upload(UserDto owner, string title, string? fileName = null) =>
         TestDocuments.UploadAsync(
-            Documents,
-            owner.Id,
+            DocumentsOf(owner),
             fileName ?? $"{title}.pdf",
             TestDocuments.Bytes(10),
             title: title
         );
 
-    private async Task<SearchDocumentsResponse> Search(string ownerId, string query) =>
-        await Documents.SearchDocumentsAsync(new SearchDocumentsRequest { OwnerId = ownerId, Query = query });
+    private async Task<SearchDocumentsResponse> Search(UserDto user, string query) =>
+        await DocumentsOf(user).SearchDocumentsAsync(new SearchDocumentsRequest { Query = query });
 
     private async Task<string[]> Titles(UserDto owner, string query) =>
-        [.. (await Search(owner.Id, query)).Documents.Select(document => document.Title)];
+        [.. (await Search(owner, query)).Documents.Select(document => document.Title)];
 
     private static (string Field, string Reason) Violation(RpcException failure) =>
         GrpcFailure.Detail<BadRequest>(failure).FieldViolations.Select(v => (v.Field, v.Reason)).Single();
@@ -115,7 +116,7 @@ public sealed class DocumentSearchTests : IAsyncDisposable
         var alice = await CreateUser();
         await Upload(alice, "Invoice March");
 
-        var response = await Search(alice.Id, "garden");
+        var response = await Search(alice, "garden");
 
         await Assert.That(response.Documents).IsEmpty();
         await Assert.That(response.HasMore).IsFalse();
@@ -128,20 +129,21 @@ public sealed class DocumentSearchTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var taxes = (
-            await Archives.CreateArchiveAsync(new CreateArchiveRequest { OwnerId = alice.Id, Name = "Taxes 2026" })
+            await ArchivesOf(alice).CreateArchiveAsync(new CreateArchiveRequest { Name = "Taxes 2026" })
         ).Archive;
         await Upload(alice, "Invoice March");
         var april = await Upload(alice, "Invoice April");
-        await Documents.FileDocumentAsync(
-            new FileDocumentRequest
-            {
-                DocumentId = april.Id,
-                Version = april.Version,
-                ArchiveId = taxes.Id,
-            }
-        );
+        await DocumentsOf(alice)
+            .FileDocumentAsync(
+                new FileDocumentRequest
+                {
+                    DocumentId = april.Id,
+                    Version = april.Version,
+                    ArchiveId = taxes.Id,
+                }
+            );
 
-        var documents = (await Search(alice.Id, "invoice")).Documents.ToDictionary(document => document.Title);
+        var documents = (await Search(alice, "invoice")).Documents.ToDictionary(document => document.Title);
 
         await Assert.That(documents.Keys).IsEquivalentTo(["Invoice March", "Invoice April"]);
         await Assert.That(documents["Invoice April"].ArchiveId).IsEqualTo(taxes.Id);
@@ -156,7 +158,7 @@ public sealed class DocumentSearchTests : IAsyncDisposable
         await Upload(alice, "Invoice");
         await Upload(bob, "Invoice");
 
-        var response = await Search(alice.Id, "invoice");
+        var response = await Search(alice, "invoice");
 
         await Assert.That(response.Documents.Select(document => document.OwnerId)).IsEquivalentTo([alice.Id]);
     }
@@ -167,22 +169,22 @@ public sealed class DocumentSearchTests : IAsyncDisposable
         var alice = await CreateUser();
         var march = await Upload(alice, "Invoice March");
         await Upload(alice, "Invoice April");
-        await Documents.DeleteDocumentAsync(
-            new DeleteDocumentRequest { DocumentId = march.Id, Version = march.Version }
-        );
+        await DocumentsOf(alice)
+            .DeleteDocumentAsync(new DeleteDocumentRequest { DocumentId = march.Id, Version = march.Version });
 
         await Assert.That(await Titles(alice, "invoice")).IsEquivalentTo(["Invoice April"]);
     }
 
     [Test]
-    public async Task AnUnknownOwner_GivesAnEmptyResult_NotAFailure()
+    public async Task ACallerWhoIsNoUser_IsRefusedAsUnauthenticated()
     {
         var alice = await CreateUser();
         await Upload(alice, "Invoice");
+        var nobody = new UserDto { Id = Guid.NewGuid().ToString() };
 
-        var response = await Search(Guid.NewGuid().ToString(), "invoice");
+        var failure = await GrpcFailure.Of(() => Search(nobody, "invoice"));
 
-        await Assert.That(response.Documents).IsEmpty();
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Unauthenticated);
     }
 
     // ---- staying current ----
@@ -203,14 +205,15 @@ public sealed class DocumentSearchTests : IAsyncDisposable
         // The file name stays as it was, so it must not contain the word searched for as the old title.
         var document = await Upload(alice, "Invoice March", "scan0001.pdf");
 
-        await Documents.RenameDocumentAsync(
-            new RenameDocumentRequest
-            {
-                DocumentId = document.Id,
-                Version = document.Version,
-                Title = "Electricity bill",
-            }
-        );
+        await DocumentsOf(alice)
+            .RenameDocumentAsync(
+                new RenameDocumentRequest
+                {
+                    DocumentId = document.Id,
+                    Version = document.Version,
+                    Title = "Electricity bill",
+                }
+            );
 
         await Assert.That(await Titles(alice, "invoice")).IsEmpty();
         await Assert.That(await Titles(alice, "electricity")).IsEquivalentTo(["Electricity bill"]);
@@ -233,6 +236,10 @@ public sealed class DocumentSearchTests : IAsyncDisposable
         {
             await before.ApplyAllConfiguredChangesToDatabaseAsync();
             await using var session = before.LightweightSession();
+            session.Events.StartStream<User>(
+                ownerId,
+                new UserCreated("old@example.com", "old@example.com", "Old user")
+            );
             session.Events.StartStream<Document>(
                 Guid.NewGuid(),
                 new DocumentCreated(
@@ -248,9 +255,9 @@ public sealed class DocumentSearchTests : IAsyncDisposable
         }
 
         await using var restarted = await PipelineHost.StartAsync(databasePath: path);
-        var response = await new DocumentsService.DocumentsServiceClient(restarted.Channel).SearchDocumentsAsync(
-            new SearchDocumentsRequest { OwnerId = ownerId.ToString(), Query = "rechnung" }
-        );
+        var response = await new DocumentsService.DocumentsServiceClient(
+            restarted.ChannelFor(ownerId)
+        ).SearchDocumentsAsync(new SearchDocumentsRequest { Query = "rechnung" });
 
         await Assert.That(response.Documents.Select(document => document.Title)).IsEquivalentTo(["Stromrechnung März"]);
     }
@@ -267,7 +274,7 @@ public sealed class DocumentSearchTests : IAsyncDisposable
             await Upload(alice, $"Invoice {i:000}");
         }
 
-        var response = await Search(alice.Id, "invoice");
+        var response = await Search(alice, "invoice");
 
         await Assert.That(response.Documents.Count).IsEqualTo(SearchDocumentsHandler.Limit);
         await Assert.That(response.HasMore).IsTrue();
@@ -283,7 +290,7 @@ public sealed class DocumentSearchTests : IAsyncDisposable
             await Upload(alice, $"Invoice {i}");
         }
 
-        var response = await Search(alice.Id, "invoice");
+        var response = await Search(alice, "invoice");
 
         await Assert.That(response.Documents.Count).IsEqualTo(3);
         await Assert.That(response.HasMore).IsFalse();
@@ -315,7 +322,7 @@ public sealed class DocumentSearchTests : IAsyncDisposable
     {
         var alice = await CreateUser();
 
-        var failure = await GrpcFailure.Of(() => Search(alice.Id, query));
+        var failure = await GrpcFailure.Of(() => Search(alice, query));
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
         await Assert.That(Violation(failure)).IsEqualTo(("query", ViolationCodes.TooShort));
@@ -326,11 +333,11 @@ public sealed class DocumentSearchTests : IAsyncDisposable
     {
         var alice = await CreateUser();
 
-        var failure = await GrpcFailure.Of(() => Search(alice.Id, new string('a', SearchTerms.MaxQueryLength + 1)));
+        var failure = await GrpcFailure.Of(() => Search(alice, new string('a', SearchTerms.MaxQueryLength + 1)));
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
         await Assert.That(Violation(failure)).IsEqualTo(("query", ViolationCodes.TooLong));
-        await Assert.That((await Search(alice.Id, new string('a', SearchTerms.MaxQueryLength))).Documents).IsEmpty();
+        await Assert.That((await Search(alice, new string('a', SearchTerms.MaxQueryLength))).Documents).IsEmpty();
     }
 
     [Test]

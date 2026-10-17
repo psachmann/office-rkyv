@@ -1,0 +1,8 @@
+@inject NavigationManager Navigation
+
+@* Where a signed-out visitor who opened a page that needs a user is sent. Replaces the history entry, so back does
+   not return to the address that just turned them away. *@
+
+@code {
+    protected override void OnInitialized() => Navigation.NavigateTo("/", replace: true);
+}

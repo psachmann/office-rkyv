@@ -36,7 +36,7 @@ As the project files have it:
 The rules behind the table:
 
 - **`UI` never references `Api`.** It talks to the API only through the generated gRPC clients from `Contracts`, in both hosts, including the desktop where the API is in the same process.
-- **`UI` never references a host.** What differs per host reaches it through an interface the host implements (`IUserSettingsService`) or a registration the host makes (DotNetQuery options, client addresses).
+- **`UI` never references a host.** What differs per host reaches it through an interface the host implements (`IUserSettingsService`, `ISignInService`) or a registration the host makes (DotNetQuery options, client addresses, the `AuthenticationStateProvider`).
 - **`Web` does not reference `Api`.** The web host is a separate process and finds the API by service discovery.
 - **`Contracts` holds only what crosses the wire.** Domain types stay in `Api`.
 
@@ -46,9 +46,10 @@ The rules behind the table:
 page or dialog (UI)
   -> DotNetQuery query or mutation
   -> facade (UI/Shared)
-  -> generated gRPC client (Contracts)
+  -> generated gRPC client (Contracts)   adds the caller token of the signed-in user
         ~~ network (web) or unix socket (desktop) ~~
-  -> <Feature>ServiceImpl (Api)       maps the request to a command or query
+  -> JwtBearer authentication (Api)      validates the token
+  -> <Feature>ServiceImpl (Api)       resolves the caller, maps the request to a command or query
   -> Wolverine                        runs validators, then the handler
   -> handler (Api/Features/.../Handlers)
   -> Fisher session                   appends events, updates the snapshot
@@ -57,16 +58,18 @@ page or dialog (UI)
 
 An upload and a download are streams. The upload service method reads the header, and `DocumentIngest` writes the content to the blob store before it dispatches the command that creates the document; a download streams the blob of an existing document back. See [api.md](api.md#a-streaming-service-method).
 
+**The caller.** The UI host issues the token, the API validates it, and neither trusts a user id in a request: the owner of what a call creates, lists or changes is the user the token names (a JWT signed with HMAC-SHA256, valid for five minutes and issued per call; the names and limits are `CallerTokens` in `Contracts`). The key is one string both processes read from `CallerTokens:SigningKey`; the AppHost generates one per run and hands it to both, the desktop makes one in memory at every start. How a user becomes signed in differs per host (see below); the API's side is in [api.md](api.md#the-caller), the UI's in [ui.md](ui.md#signing-in).
+
 A failure anywhere below the service becomes a gRPC status with a stable code in one place (`ErrorStatusProvider` and the validation adapter). The UI turns the code into localized text. The API side of this is in [api.md](api.md), the UI side in [ui.md](ui.md).
 
 ## One API composition
 
 `OfficeRkyvApiExtensions` has the two calls every process that hosts the API makes:
 
-- `AddOfficeRkyvApi(connectionString, blobDirectory, configureStore)` registers the event store (Fisher on SQLite), the file content store (a directory of files named by their SHA-256), Wolverine with the error mapping, and gRPC. The blob directory belongs to the database: both are one user's data, and a database that is replaced needs its content replaced with it.
-- `MapOfficeRkyvApi()` maps the gRPC services.
+- `AddOfficeRkyvApi(connectionString, blobDirectory, callerTokenKey, configureStore)` registers the event store (Fisher on SQLite), the file content store (a directory of files named by their SHA-256), Wolverine with the error mapping, caller authentication (JwtBearer, validating tokens signed with `callerTokenKey`), and gRPC. The blob directory belongs to the database: both are one user's data, and a database that is replaced needs its content replaced with it. A key shorter than `CallerTokens.MinimumKeyLength` is refused.
+- `MapOfficeRkyvApi()` reads the caller token on each call and maps the gRPC services.
 
-The API server (`src/OfficeRkyv.Api/Program.cs`), the desktop (`DesktopApi`) and the pipeline tests (`PipelineHost`) all call these, so they run the same pipeline. A host adds only what is its own around them: service defaults and telemetry, ports or a socket, and where the data lives (the database file and the blob directory). Register a new feature inside these two methods, never in a host.
+The API server (`src/OfficeRkyv.Api/Program.cs`), the desktop (`DesktopApi`) and the pipeline tests (`PipelineHost`) all call these, so they run the same pipeline. A host adds only what is its own around them: service defaults and telemetry, ports or a socket, where the data lives (the database file and the blob directory), and the key of the caller tokens. Register a new feature inside these two methods, never in a host.
 
 The API server adds one thing of its own beyond service defaults and telemetry: the development seed (`AddDevelopmentSeedData()` in `src/OfficeRkyv.Api/Program.cs`). In the Development environment it creates a demo user (`demo@example.com`) with an empty archive and three inbox documents, each from a sample PDF in `src/OfficeRkyv.Api/Data`, through the same ingest the upload uses and once per database: when the demo user exists it adds nothing. It is deliberately not part of the shared calls, so the desktop app, which is also started in Development by `just desktop` but keeps the user's real data, and the pipeline tests never seed. `Seed__DemoData=false` switches it off, and outside Development it never runs, whatever the setting says.
 
@@ -80,6 +83,8 @@ The API server adds one thing of its own beyond service defaults and telemetry: 
 | Database | A throwaway SQLite database per AppHost run | One file in the user's data directory |
 | File content | `<database file>.blobs`, beside the throwaway database, so it has its lifetime | `blobs/` in the user's data directory |
 | Settings | Cookies (`WebUserSettingsService`) | `settings.json` (`DesktopUserSettingsService`) |
+| Signed-in user | A cookie, set by `/account/sign-in` (`WebSignInService`) | In memory for the running app, so every start is signed out (`DesktopSignIn`) |
+| Caller token key | `CallerTokens__SigningKey`, from the AppHost's generated parameter | 32 random bytes made at start, known to this process only |
 | Saving a download | A browser download (`WebFileSaver`) | A GTK save dialog (`DesktopFileSaver`) |
 | Language change | Sets a cookie and reloads the page | Applied in place |
 | Telemetry | Service defaults; exported when an OTLP endpoint is configured | None; a console logger |
@@ -104,3 +109,4 @@ The web host stays the harness for development and for the functional tests. The
 - [structured-error-codes](../openspec/changes/archive/2026-09-28-structured-error-codes/design.md) (D5): `Contracts` as a class library shared by API and UI.
 - [add-linux-desktop-app](../openspec/changes/archive/2026-09-30-add-linux-desktop-app/design.md) (D1, D2, D3): the project layout, what moved into `UI`, and the API composition as extension methods.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D2, D3): where file content lives and how each host chooses its directory.
+- [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D1, D7, D8): the caller token, the desktop's in-memory sign-in and key, and the key from configuration.

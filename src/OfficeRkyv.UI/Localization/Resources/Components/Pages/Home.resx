@@ -73,12 +73,6 @@
   <data name="EmptyText" xml:space="preserve">
     <value>Create the first user to get started.</value>
   </data>
-  <data name="ColumnEmail" xml:space="preserve">
-    <value>Email</value>
-  </data>
-  <data name="ColumnDisplayName" xml:space="preserve">
-    <value>Display name</value>
-  </data>
   <data name="LoadFailed" xml:space="preserve">
     <value>The users could not be loaded. Please try again.</value>
   </data>

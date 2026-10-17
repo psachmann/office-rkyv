@@ -4,8 +4,9 @@
 @inject ArchivesFacade Archives
 @inject IQueryClient QueryClient
 @inject DialogService DialogService
+@inject ISignInService SignIn
 
-@* Creates an archive for OwnerId, or renames Archive when one is given. *@
+@* Creates an archive for the signed-in user, or renames Archive when one is given. *@
 <RadzenTemplateForm TItem="ArchiveModel" Data="@model" Submit="@Submit">
     <RadzenStack Gap="1rem">
         @if (errors.General is not null)
@@ -41,10 +42,7 @@
 </RadzenTemplateForm>
 
 @code {
-    /// <summary>The user the new archive belongs to. Ignored when renaming.</summary>
-    [Parameter] public Guid OwnerId { get; set; }
-
-    /// <summary>The archive to rename. Null creates a new one.</summary>
+    /// <summary>The archive to rename. Null creates a new one, for the signed-in user.</summary>
     [Parameter] public ArchiveDto? Archive { get; set; }
 
     private readonly ArchiveModel model = new();
@@ -95,7 +93,7 @@
         }
         else
         {
-            createArchive!.Execute(new CreateArchiveRequest { OwnerId = OwnerId.ToString(), Name = model.Name });
+            createArchive!.Execute(new CreateArchiveRequest { Name = model.Name });
         }
     }
 
@@ -103,6 +101,7 @@
     {
         errors = WorkspaceErrors.From(exception);
         isBusy = false;
+        _ = WorkspaceErrors.EndSignInIfRefusedAsync(exception, SignIn);
 
         // The archive changed or is gone: show what is there now, behind the dialog.
         if (errors.ReloadNeeded)

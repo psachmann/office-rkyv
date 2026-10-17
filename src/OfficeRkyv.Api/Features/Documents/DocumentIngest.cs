@@ -7,7 +7,7 @@ using Wolverine;
 
 namespace OfficeRkyv.Api.Features.Documents;
 
-/// <param name="OwnerId">The user the document will belong to.</param>
+/// <param name="OwnerId">The user the document will belong to: the caller, for an upload.</param>
 /// <param name="FileName">As the client named it; only its last path segment is kept.</param>
 /// <param name="ContentType">As the client declared it; null or blank means none was declared.</param>
 /// <param name="Title">Null means the server derives it from the file name.</param>

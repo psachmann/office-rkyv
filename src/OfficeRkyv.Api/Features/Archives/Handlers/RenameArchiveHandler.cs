@@ -3,7 +3,7 @@ namespace OfficeRkyv.Api.Features.Archives.Handlers;
 public static class RenameArchiveHandler
 {
     public static Task ValidateAsync(RenameArchiveCommand command, IQuerySession session) =>
-        ArchiveExistence.RequireAsync(session, command.ArchiveId);
+        ArchiveExistence.RequireAsync(session, command.ArchiveId, command.CallerId);
 
     [DeciderFunction]
     public static IEnumerable<object> Handle(RenameArchiveCommand command, Archive archive)

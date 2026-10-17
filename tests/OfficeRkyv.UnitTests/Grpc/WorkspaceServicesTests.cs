@@ -17,9 +17,10 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
 
     private UsersService.UsersServiceClient Users => new(pipeline.Channel);
 
-    private ArchivesService.ArchivesServiceClient Archives => new(pipeline.Channel);
+    // Every call is made as a user: the API knows the owner from the caller, not from the request.
+    private ArchivesService.ArchivesServiceClient ArchivesOf(UserDto user) => new(pipeline.ChannelFor(user.Id));
 
-    private DocumentsService.DocumentsServiceClient Documents => new(pipeline.Channel);
+    private DocumentsService.DocumentsServiceClient DocumentsOf(UserDto user) => new(pipeline.ChannelFor(user.Id));
 
     [Before(Test)]
     public async Task SetUp() => pipeline = await PipelineHost.StartAsync();
@@ -28,10 +29,10 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
         (await Users.CreateUserAsync(new CreateUserRequest { Email = email, DisplayName = email })).User;
 
     private async Task<ArchiveDto> CreateArchive(UserDto owner, string name = "Taxes") =>
-        (await Archives.CreateArchiveAsync(new CreateArchiveRequest { OwnerId = owner.Id, Name = name })).Archive;
+        (await ArchivesOf(owner).CreateArchiveAsync(new CreateArchiveRequest { Name = name })).Archive;
 
     private Task<DocumentDto> CreateDocument(UserDto owner, string title = "Invoice") =>
-        TestDocuments.UploadAsync(Documents, owner.Id, $"{title}.pdf", TestDocuments.Bytes(10), title: title);
+        TestDocuments.UploadAsync(DocumentsOf(owner), $"{title}.pdf", TestDocuments.Bytes(10), title: title);
 
     // ---- users: find by id ----
 
@@ -58,7 +59,10 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
     public async Task FindUserById_ForADeletedUser_IsUnsetWithoutAnError()
     {
         var alice = await CreateUser();
-        await Users.DeleteUserAsync(new DeleteUserRequest { UserId = alice.Id, Version = alice.Version });
+        await Users.DeleteUserAsync(
+            new DeleteUserRequest { UserId = alice.Id, Version = alice.Version },
+            PipelineHost.CallOptionsFor(Guid.Parse(alice.Id))
+        );
 
         var response = await Users.FindUserByIdAsync(new FindUserByIdRequest { UserId = alice.Id });
 
@@ -74,29 +78,27 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
 
         var created = await CreateArchive(alice, "Taxes");
         var renamed = (
-            await Archives.RenameArchiveAsync(
-                new RenameArchiveRequest
-                {
-                    ArchiveId = created.Id,
-                    Version = created.Version,
-                    Name = "Taxes 2026",
-                }
-            )
+            await ArchivesOf(alice)
+                .RenameArchiveAsync(
+                    new RenameArchiveRequest
+                    {
+                        ArchiveId = created.Id,
+                        Version = created.Version,
+                        Name = "Taxes 2026",
+                    }
+                )
         ).Archive;
-        var listed = (await Archives.ListArchivesAsync(new ListArchivesRequest { OwnerId = alice.Id })).Archives;
+        var listed = (await ArchivesOf(alice).ListArchivesAsync(new ListArchivesRequest())).Archives;
 
         await Assert.That(created.OwnerId).IsEqualTo(alice.Id);
         await Assert.That(renamed.Name).IsEqualTo("Taxes 2026");
         await Assert.That(renamed.Version).IsGreaterThan(created.Version);
         await Assert.That(listed.Select(archive => archive.Name)).IsEquivalentTo(["Taxes 2026"]);
 
-        await Archives.DeleteArchiveAsync(
-            new DeleteArchiveRequest { ArchiveId = created.Id, Version = renamed.Version }
-        );
+        await ArchivesOf(alice)
+            .DeleteArchiveAsync(new DeleteArchiveRequest { ArchiveId = created.Id, Version = renamed.Version });
 
-        await Assert
-            .That((await Archives.ListArchivesAsync(new ListArchivesRequest { OwnerId = alice.Id })).Archives)
-            .IsEmpty();
+        await Assert.That((await ArchivesOf(alice).ListArchivesAsync(new ListArchivesRequest())).Archives).IsEmpty();
     }
 
     [Test]
@@ -104,19 +106,19 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var created = await CreateArchive(alice);
-        await Archives.DeleteArchiveAsync(
-            new DeleteArchiveRequest { ArchiveId = created.Id, Version = created.Version }
-        );
+        await ArchivesOf(alice)
+            .DeleteArchiveAsync(new DeleteArchiveRequest { ArchiveId = created.Id, Version = created.Version });
 
         var failure = await GrpcFailure.Of(async () =>
-            await Archives.RenameArchiveAsync(
-                new RenameArchiveRequest
-                {
-                    ArchiveId = created.Id,
-                    Version = created.Version + 1,
-                    Name = "Back",
-                }
-            )
+            await ArchivesOf(alice)
+                .RenameArchiveAsync(
+                    new RenameArchiveRequest
+                    {
+                        ArchiveId = created.Id,
+                        Version = created.Version + 1,
+                        Name = "Back",
+                    }
+                )
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.FailedPrecondition);
@@ -130,7 +132,7 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var failure = await GrpcFailure.Of(async () =>
-            await Archives.CreateArchiveAsync(new CreateArchiveRequest { OwnerId = alice.Id, Name = "  " })
+            await ArchivesOf(alice).CreateArchiveAsync(new CreateArchiveRequest { Name = "  " })
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
@@ -144,24 +146,26 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
     {
         var alice = await CreateUser();
         var created = await CreateArchive(alice);
-        await Archives.RenameArchiveAsync(
-            new RenameArchiveRequest
-            {
-                ArchiveId = created.Id,
-                Version = created.Version,
-                Name = "Newer",
-            }
-        );
-
-        var failure = await GrpcFailure.Of(async () =>
-            await Archives.RenameArchiveAsync(
+        await ArchivesOf(alice)
+            .RenameArchiveAsync(
                 new RenameArchiveRequest
                 {
                     ArchiveId = created.Id,
                     Version = created.Version,
-                    Name = "Late",
+                    Name = "Newer",
                 }
-            )
+            );
+
+        var failure = await GrpcFailure.Of(async () =>
+            await ArchivesOf(alice)
+                .RenameArchiveAsync(
+                    new RenameArchiveRequest
+                    {
+                        ArchiveId = created.Id,
+                        Version = created.Version,
+                        Name = "Late",
+                    }
+                )
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Aborted);
@@ -178,63 +182,56 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
         var created = await CreateDocument(alice, "Invoice March");
         await Assert.That(created.HasArchiveId).IsFalse();
         await Assert
-            .That(
-                (await Documents.ListInboxAsync(new ListInboxRequest { OwnerId = alice.Id })).Documents.Select(d =>
-                    d.Id
-                )
-            )
+            .That((await DocumentsOf(alice).ListInboxAsync(new ListInboxRequest())).Documents.Select(d => d.Id))
             .IsEquivalentTo([created.Id]);
 
         var filed = (
-            await Documents.FileDocumentAsync(
-                new FileDocumentRequest
-                {
-                    DocumentId = created.Id,
-                    Version = created.Version,
-                    ArchiveId = archive.Id,
-                }
-            )
+            await DocumentsOf(alice)
+                .FileDocumentAsync(
+                    new FileDocumentRequest
+                    {
+                        DocumentId = created.Id,
+                        Version = created.Version,
+                        ArchiveId = archive.Id,
+                    }
+                )
         ).Document;
         await Assert.That(filed.ArchiveId).IsEqualTo(archive.Id);
         await Assert
             .That(
                 (
-                    await Documents.ListArchiveDocumentsAsync(
-                        new ListArchiveDocumentsRequest { ArchiveId = archive.Id }
-                    )
+                    await DocumentsOf(alice)
+                        .ListArchiveDocumentsAsync(new ListArchiveDocumentsRequest { ArchiveId = archive.Id })
                 ).Documents.Select(d => d.Id)
             )
             .IsEquivalentTo([created.Id]);
 
         var unfiled = (
-            await Documents.UnfileDocumentAsync(
-                new UnfileDocumentRequest { DocumentId = created.Id, Version = filed.Version }
-            )
+            await DocumentsOf(alice)
+                .UnfileDocumentAsync(new UnfileDocumentRequest { DocumentId = created.Id, Version = filed.Version })
         ).Document;
         await Assert.That(unfiled.HasArchiveId).IsFalse();
 
         var renamed = (
-            await Documents.RenameDocumentAsync(
-                new RenameDocumentRequest
-                {
-                    DocumentId = created.Id,
-                    Version = unfiled.Version,
-                    Title = "Invoice April",
-                }
-            )
+            await DocumentsOf(alice)
+                .RenameDocumentAsync(
+                    new RenameDocumentRequest
+                    {
+                        DocumentId = created.Id,
+                        Version = unfiled.Version,
+                        Title = "Invoice April",
+                    }
+                )
         ).Document;
         await Assert.That(renamed.Title).IsEqualTo("Invoice April");
 
-        await Documents.DeleteDocumentAsync(
-            new DeleteDocumentRequest { DocumentId = created.Id, Version = renamed.Version }
-        );
-        await Assert
-            .That((await Documents.ListInboxAsync(new ListInboxRequest { OwnerId = alice.Id })).Documents)
-            .IsEmpty();
+        await DocumentsOf(alice)
+            .DeleteDocumentAsync(new DeleteDocumentRequest { DocumentId = created.Id, Version = renamed.Version });
+        await Assert.That((await DocumentsOf(alice).ListInboxAsync(new ListInboxRequest())).Documents).IsEmpty();
     }
 
     [Test]
-    public async Task Documents_FilingIntoAnotherUsersArchive_IsFailedPrecondition_WithAReason()
+    public async Task Documents_FilingIntoAnotherUsersArchive_IsNotFound_NotAnOwnerMismatch()
     {
         var alice = await CreateUser("alice@example.com");
         var bob = await CreateUser("bob@example.com");
@@ -242,18 +239,18 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
         var document = await CreateDocument(alice);
 
         var failure = await GrpcFailure.Of(async () =>
-            await Documents.FileDocumentAsync(
-                new FileDocumentRequest
-                {
-                    DocumentId = document.Id,
-                    Version = document.Version,
-                    ArchiveId = bobsArchive.Id,
-                }
-            )
+            await DocumentsOf(alice)
+                .FileDocumentAsync(
+                    new FileDocumentRequest
+                    {
+                        DocumentId = document.Id,
+                        Version = document.Version,
+                        ArchiveId = bobsArchive.Id,
+                    }
+                )
         );
 
-        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.FailedPrecondition);
-        await Assert.That(GrpcFailure.Reason(failure)).IsEqualTo(InvariantCodes.ArchiveOwnerMismatch);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.NotFound);
     }
 
     [Test]
@@ -263,14 +260,15 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
         var document = await CreateDocument(alice);
 
         var failure = await GrpcFailure.Of(async () =>
-            await Documents.FileDocumentAsync(
-                new FileDocumentRequest
-                {
-                    DocumentId = document.Id,
-                    Version = document.Version,
-                    ArchiveId = Guid.NewGuid().ToString(),
-                }
-            )
+            await DocumentsOf(alice)
+                .FileDocumentAsync(
+                    new FileDocumentRequest
+                    {
+                        DocumentId = document.Id,
+                        Version = document.Version,
+                        ArchiveId = Guid.NewGuid().ToString(),
+                    }
+                )
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.NotFound);
@@ -282,7 +280,7 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
         var alice = await CreateUser();
 
         var failure = await GrpcFailure.Of(async () =>
-            await TestDocuments.UploadAsync(Documents, alice.Id, "a.pdf", TestDocuments.Bytes(3), title: "")
+            await TestDocuments.UploadAsync(DocumentsOf(alice), "a.pdf", TestDocuments.Bytes(3), title: "")
         );
 
         await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.InvalidArgument);
@@ -292,15 +290,17 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
     }
 
     [Test]
-    public async Task Documents_ForADeletedOwner_IsFailedPrecondition_WithUserDeleted()
+    public async Task Documents_ForADeletedCaller_IsUnauthenticated_NotUserDeleted()
     {
         var alice = await CreateUser();
-        await Users.DeleteUserAsync(new DeleteUserRequest { UserId = alice.Id, Version = alice.Version });
+        await Users.DeleteUserAsync(
+            new DeleteUserRequest { UserId = alice.Id, Version = alice.Version },
+            PipelineHost.CallOptionsFor(Guid.Parse(alice.Id))
+        );
 
         var failure = await GrpcFailure.Of(async () => await CreateDocument(alice));
 
-        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.FailedPrecondition);
-        await Assert.That(GrpcFailure.Reason(failure)).IsEqualTo(InvariantCodes.UserDeleted);
+        await Assert.That(failure.StatusCode).IsEqualTo(StatusCode.Unauthenticated);
     }
 
     [Test]
@@ -309,28 +309,26 @@ public sealed class WorkspaceServicesTests : IAsyncDisposable
         var alice = await CreateUser();
         var archive = await CreateArchive(alice, "Household");
         var document = await CreateDocument(alice);
-        await Documents.FileDocumentAsync(
-            new FileDocumentRequest
-            {
-                DocumentId = document.Id,
-                Version = document.Version,
-                ArchiveId = archive.Id,
-            }
-        );
-        var current = (
-            await Archives.ListArchivesAsync(new ListArchivesRequest { OwnerId = alice.Id })
-        ).Archives.Single();
+        await DocumentsOf(alice)
+            .FileDocumentAsync(
+                new FileDocumentRequest
+                {
+                    DocumentId = document.Id,
+                    Version = document.Version,
+                    ArchiveId = archive.Id,
+                }
+            );
+        var current = (await ArchivesOf(alice).ListArchivesAsync(new ListArchivesRequest())).Archives.Single();
 
-        await Archives.DeleteArchiveAsync(
-            new DeleteArchiveRequest { ArchiveId = archive.Id, Version = current.Version }
-        );
+        await ArchivesOf(alice)
+            .DeleteArchiveAsync(new DeleteArchiveRequest { ArchiveId = archive.Id, Version = current.Version });
 
         // The cascade is asynchronous, so poll: it must land, but not necessarily before the delete returns.
         var deadline = DateTime.UtcNow.AddSeconds(10);
         IReadOnlyList<string> inbox;
         do
         {
-            inbox = (await Documents.ListInboxAsync(new ListInboxRequest { OwnerId = alice.Id }))
+            inbox = (await DocumentsOf(alice).ListInboxAsync(new ListInboxRequest()))
                 .Documents.Select(d => d.Id)
                 .ToList();
             if (inbox.Count > 0)

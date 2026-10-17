@@ -4,6 +4,7 @@
 @inject DocumentsFacade Documents
 @inject IQueryClient QueryClient
 @inject DialogService DialogService
+@inject ISignInService SignIn
 
 @* Renames Document. A document is created by uploading its file, which is UploadDocumentsDialog's job. *@
 <RadzenTemplateForm TItem="DocumentModel" Data="@model" Submit="@Submit">
@@ -77,6 +78,7 @@
     {
         errors = WorkspaceErrors.From(exception);
         isBusy = false;
+        _ = WorkspaceErrors.EndSignInIfRefusedAsync(exception, SignIn);
 
         // The document changed or is gone: show what is there now, behind the dialog.
         if (errors.ReloadNeeded)

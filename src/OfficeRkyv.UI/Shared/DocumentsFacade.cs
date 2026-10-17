@@ -27,23 +27,17 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
     // that archive has to send the new one - so the archive list is refreshed too.
     private static readonly string[] FilingKinds = [.. DocumentKinds, WorkspaceKeys.Archives];
 
-    /// <summary>The owner's unfiled documents, queried by owner id.</summary>
+    /// <summary>
+    /// The signed-in user's unfiled documents. The query is asked with the user's id, which only keys the cache:
+    /// the API answers for the caller.
+    /// </summary>
     public IQuery<Guid, IReadOnlyList<DocumentDto>> FindInbox { get; } =
         queryClient.CreateQuery(
             new QueryOptions<Guid, IReadOnlyList<DocumentDto>>
             {
                 KeyFactory = WorkspaceKeys.ForInbox,
-                Fetcher = async (ownerId, ct) =>
-                    [
-                        .. (
-                            await documentService.ListInboxAsync(
-                                new ListInboxRequest { OwnerId = ownerId.ToString() },
-                                null,
-                                null,
-                                ct
-                            )
-                        ).Documents,
-                    ],
+                Fetcher = async (_, ct) =>
+                    [.. (await documentService.ListInboxAsync(new ListInboxRequest(), null, null, ct)).Documents],
             }
         );
 
@@ -68,8 +62,9 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
         );
 
     /// <summary>
-    /// The owner's documents, from the inbox and every archive, whose title or file name contains every word of the
-    /// query, best match first. Not called for a query the server would refuse as too short.
+    /// The signed-in user's documents, from the inbox and every archive, whose title or file name contains every word
+    /// of the query, best match first. Not called for a query the server would refuse as too short. The search
+    /// carries the user's id for its cache key only: the API answers for the caller.
     /// </summary>
     public IQuery<DocumentSearch, DocumentSearchResult> SearchDocuments { get; } =
         queryClient.CreateQuery(
@@ -79,7 +74,7 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
                 Fetcher = async (search, ct) =>
                 {
                     var response = await documentService.SearchDocumentsAsync(
-                        new SearchDocumentsRequest { OwnerId = search.OwnerId.ToString(), Query = search.Query },
+                        new SearchDocumentsRequest { Query = search.Query },
                         null,
                         null,
                         ct
@@ -91,7 +86,7 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
         );
 
     /// <summary>
-    /// Uploads one file as a new document and returns it. This is a method and not a mutation because a
+    /// Uploads one file as a new document of the signed-in user and returns it. This is a method and not a mutation because a
     /// mutation has no progress to report: <paramref name="onProgress"/> gets the number of bytes sent so far.
     /// A refusal is thrown as the typed client throws every refusal, so <c>WorkspaceErrors</c> explains it.
     /// </summary>
@@ -100,7 +95,6 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
     /// because the call is over, and the call's own result says why, so that is what is thrown.
     /// </remarks>
     public async Task<DocumentDto> UploadAsync(
-        Guid ownerId,
         string fileName,
         string? contentType,
         Stream content,
@@ -115,12 +109,7 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
             await call.RequestStream.WriteAsync(
                 new UploadDocumentRequest
                 {
-                    Header = new UploadDocumentHeader
-                    {
-                        OwnerId = ownerId.ToString(),
-                        FileName = fileName,
-                        ContentType = contentType ?? "",
-                    },
+                    Header = new UploadDocumentHeader { FileName = fileName, ContentType = contentType ?? "" },
                 },
                 cancellation
             );
