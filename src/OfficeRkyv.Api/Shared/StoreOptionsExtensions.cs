@@ -1,6 +1,7 @@
 using Fisher.Storage.FullText;
 using OfficeRkyv.Api.Features.Archives;
 using OfficeRkyv.Api.Features.Documents;
+using OfficeRkyv.Api.Features.TextExtraction;
 using OfficeRkyv.Api.Features.Users;
 
 namespace OfficeRkyv.Api.Shared;
@@ -16,6 +17,7 @@ public static class StoreOptionsExtensions
         options.Projections.Snapshot<User>(SnapshotLifecycle.Inline);
         options.Projections.Snapshot<Archive>(SnapshotLifecycle.Inline);
         options.Projections.Snapshot<Document>(SnapshotLifecycle.Inline);
+        options.Projections.Snapshot<TextExtraction>(SnapshotLifecycle.Inline);
     }
 
     /// <summary>

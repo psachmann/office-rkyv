@@ -29,6 +29,7 @@
     <!-- Experimental backend, "will change between releases": pinned exactly, bumped deliberately. -->
     <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4" Version="0.1.0-preview.12.26421.1" />
     <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4.BlazorWebView" Version="0.1.0-preview.12.26421.1" />
+    <PackageVersion Include="PdfPig" Version="0.1.16" />
     <PackageVersion Include="Radzen.Blazor" Version="11.5.1" />
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />

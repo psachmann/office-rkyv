@@ -16,7 +16,9 @@ Each aggregate has a folder under `Features/` with the same files:
 | `ArchivesServiceImpl.cs` | The gRPC service. It resolves the caller, maps, dispatches on `IMessageBus`, and maps back. No logic. |
 | `Handlers/` | One static handler class per command or query, the validators, and the existence check. |
 
-What features share is under `Shared/`: `EntityBase` and `EntityStatus`, the exceptions, the error mapping, the caller (`Shared/Auth`), the text rules for validators, the snapshot registration, the telemetry subscription, and the blob store for file content (`Shared/Blobs`).
+What features share is under `Shared/`: `EntityBase` and `EntityStatus`, the exceptions, the error mapping, the caller (`Shared/Auth`), the text rules for validators, the snapshot registration, the telemetry subscription, the blob store for file content and the text beside it (`Shared/Blobs`), and what reads a file's text (`Shared/Extraction`: the extractor, the two OCR programs, the runner for external programs).
+
+A feature does not need a service. `Features/TextExtraction` has an aggregate, its event, a message, a handler and a query, and no gRPC service or mapper: nothing in the contract exposes the extraction yet, and the tests and a later search use the query. It is keyed by a file content's SHA-256 and not by a document, which sets it apart from the other aggregates: see [Background work](#background-work).
 
 The service names its RPCs after the resource (`ListArchives`, `RenameArchive`); the split into commands and queries is the server's own business and does not show in the contract.
 
@@ -72,6 +74,8 @@ The store is Fisher on SQLite. Every aggregate has an Inline snapshot, registere
 - **A list that decides nothing is a query, not an aggregate.** The inbox is "the owner's documents with no archive". It has no stream.
 - **File content is not an event.** Fisher stores every snapshot and event body as JSON text, so bytes would be base64 inside it, loaded with every inbox query and kept forever. The bytes live in the blob store, a directory of files named by their SHA-256 (`Shared/Blobs`); the event (`DocumentCreated`) records only the facts about them: file name, content type, size and hash. A document has exactly one file and no event changes it.
 - **Content first, then the event.** An upload writes the blob (into `tmp/`, renamed to its hash when complete) and only then appends the event. A crash in between leaves a blob nothing refers to, which is harmless; the other order would leave a document with no file. Nothing deletes a blob yet: another document may share it, so removal is a separate, later change.
+- **Extracted text is not an event either.** The text of a file is kept beside its blob as `<blobs>/ab/<sha256>.txt` (`TextStore`, UTF-8, pages separated by a form feed, an unread page kept as an empty one), and `TextExtractionCompleted` records only the outcome and counts. The text is written before the event, the same order as content, so a crash in between leaves a text with no outcome and the extraction runs again over it. A text is removed with its blob, by the blob collector that does not exist yet.
+- **Facts about content belong to the content.** What was found in a file is the same for every document with that file, so it is an aggregate keyed by the content's hash (`TextExtraction.Sha256` is its `[NaturalKey]`), not an event on a document. An event on the document would also move the version its writers hold, and the first rename after every upload would fail as stale.
 - **Uniqueness is claimed by the store.** A unique value is a `[NaturalKey]` on the aggregate (`User.NormalizedEmail`); the store refuses the second stream inside the append, so there is no check-then-write race.
 - **Concurrency is the expected version.** The client echoes the `version` it read; a stale one fails the append and reaches the client as `ABORTED`.
 - **Cascades go through the outbox, one stream per message.** Deleting an archive appends `ArchiveDeleted` and returns one `ReturnDocumentToInbox` per member document. Wolverine stores those messages in the transaction of the event and delivers them afterwards, so the documents return shortly after the call has answered, not as part of it. A cascade message is idempotent, takes no expected version, guards on the state it expects (`FromArchiveId`), and retries on a concurrency conflict.
@@ -79,6 +83,30 @@ The store is Fisher on SQLite. Every aggregate has an Inline snapshot, registere
 - **Never touch every member stream in one transaction.** That is what the cascade is for.
 
 Transactions are applied by Wolverine (`AutoApplyTransactions`); a handler calls `SaveChangesAsync` itself only when it needs the result before returning.
+
+## Background work
+
+Work that follows a request and is not part of its answer is a message on a local queue that is durable and sequential. Text extraction (`Features/TextExtraction`) is the example: the upload answers, and `ExtractText(Sha256)` reads the file's text afterwards.
+
+- **The queue is configured where the API is composed.** `options.LocalQueueFor<ExtractText>().UseDurableInbox().Sequential()` in `AddOfficeRkyvApi`, so the server, the desktop and the tests share it. Durable: the message is stored in the database file and handled after a restart if the app stopped first (Wolverine recovers it a few seconds after start). Sequential: one at a time, because OCR takes seconds a page and all of a core, and it makes the handler the only writer of its aggregate.
+- **The message names the content, not a document, and holds an id or a hash only.** That is the key of what the handler writes, and it keeps file names and titles out of Wolverine's spans.
+- **The message is stored in the transaction of the event that causes it.** A handler that saves the session itself (`CreateDocumentHandler`, which returns the snapshot) does this: it is marked `[NonTransactional]`, takes `IFisherOutbox`, calls `outbox.Enroll(session)`, publishes on the outbox, saves, and then flushes the outbox (`((MessageContext)outbox).FlushOutgoingMessagesAsync()`, since the interface does not expose it). Without the flush the message is stored but only delivered after the next start. The alternatives fail: a publish on the injected `IMessageBus` together with the handler's own save is stored twice by Wolverine's transaction and throws, and a message cascaded from the return value is stored after the event has committed. A decider handler, which does not save, returns the message in `OutgoingMessages`, as the archive deletion does.
+- **A handler of such a message is idempotent.** It looks for its result first and does nothing when it exists, so a message delivered twice, or a second upload of the same file, is harmless. A subject that cannot be found (content missing from the blob store) is logged by the component that looked and the message is consumed; the handler does not throw.
+- **Stopping the app does not lose the message.** Wolverine lets a running handler finish and cancels it only when the shutdown timeout is over, so a handler with long work also watches `IHostApplicationLifetime.ApplicationStopping`. A cancellation that Wolverine did not issue itself would move the message to the error queue, so the handler is marked `[ScheduleRetry(typeof(OperationCanceledException), 5)]`, which keeps it stored for the next start.
+- **No parallel consumers.** `Sequential()` is one line to change when a server host wants more; the natural key on the result is what would then refuse a duplicate.
+
+## Running an external program
+
+Reading a scan runs `pdftoppm` and `tesseract` (`Shared/Extraction`). Any program the API runs follows the same rules, through `IProgramRunner`:
+
+- **A file name and an argument list, no shell.** An argument is never read as shell syntax. The paths passed are built by the app from a content hash, never from a name a user chose.
+- **A process of its own.** A program that crashes is an exit code. This matters on the desktop, where the API shares its process with the window; a native OCR library would take the app down with it.
+- **A time limit, and the whole process tree is killed** when it passes (`TextExtraction:TimeLimit`, 120 seconds) and when the host stops. Cancelling throws `OperationCanceledException`; the program's own failures never throw.
+- **The result is a value:** `Exited` with the exit code, `NotStarted` (not installed or not allowed to run) or `TimedOut`, with what the program wrote to standard output and error.
+- **What a program wrote is never logged.** For a scan it is the document's text. A failure is logged with the content hash, the page number and the exit code (Warning).
+- **A missing program is not an error.** `OcrProgramsStartCheck` runs each program once at start and logs one Information line (versions and languages) or one Warning (what is missing; scanned pages will not be read), and never stops the host. A page that needs OCR and cannot get it is counted as unread in the outcome, and the pages with a text layer are still kept. `NotStarted` is not logged per page, since the start check has said so.
+- **Where the programs are and which languages are read** is the `TextExtraction` configuration section: `Languages` (`deu+eng`), `TesseractPath` and `PdftoppmPath` (`tesseract` and `pdftoppm`, found on `PATH`, or paths so that a packaged app can point at the programs it ships) and `TimeLimit`.
+- **The programs sit behind two interfaces,** `IPageRenderer` (a page of a PDF to an image) and `IImageReader` (an image to text), so that the rules of `TextExtractor` (which pages go to OCR, what is counted) are tested with fakes; see [testing.md](testing.md#pipeline-tests).
 
 ## Search
 
@@ -148,3 +176,4 @@ The required behaviour is the `api-error-mapping` spec in `openspec/specs`.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D1 to D10): file facts on the creation event, the blob store, content first, the streaming RPCs, the ingest component, limits while reading, the download.
 - [add-document-title-search](../openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D1 to D4): the trigram index on the snapshot, the word rule, the raw FTS5 query that can rank several words, existing documents indexed by the migration.
 - [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D1 to D4): the caller token, the caller resolved in the services, commands carrying the acting user, the open user service.
+- [add-document-text-extraction](../openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (D1 to D7): background work as a message on a durable sequential queue, the kind of file read from its bytes, the per-page rule, an aggregate keyed by content hash, the text beside its blob, external programs run as processes, unread pages counted and missing programs not an error.

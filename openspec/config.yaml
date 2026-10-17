@@ -11,8 +11,9 @@ context: |
 
   Projects (src/):
   - Contracts: the .proto files and the error codes, shared by API and UI.
-  - Api: gRPC services, one folder per feature under Features/, and the blob store for file content under
-    Shared/. Composed by AddOfficeRkyvApi and MapOfficeRkyvApi for every process that hosts it.
+  - Api: gRPC services, one folder per feature under Features/, and the blob store for file content, with the
+    text read from it, under Shared/. Composed by AddOfficeRkyvApi and MapOfficeRkyvApi for every process that
+    hosts it.
   - UI: Razor class library with all pages, facades and localization. Knows no host.
   - Web: Blazor Server host of UI. Also the development and functional-test harness.
   - Desktop: Linux GTK4 host of UI with the API in the same process. Experimental backend.
@@ -31,6 +32,9 @@ context: |
   A file upload is a client-streaming call: DocumentIngest writes the content to the blob store (a directory
   beside the database, named by SHA-256), then dispatches the create command that records the file's facts.
   A download streams the blob back; each host hands it to the user (browser download, GTK save dialog).
+  After the upload has answered, a durable background message reads the file's text (the text layer of a PDF
+  page, OCR by the external programs tesseract and pdftoppm for a page without one) and keeps it beside the blob;
+  the programs are optional, and what they could not read is counted.
 
   Guideline docs are the source of truth for conventions. Read the ones a change touches before
   writing an artifact:

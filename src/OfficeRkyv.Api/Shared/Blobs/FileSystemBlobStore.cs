@@ -8,10 +8,11 @@ namespace OfficeRkyv.Api.Shared.Blobs;
 /// &lt;directory&gt;/ab/abcdef...    finished content: its SHA-256, in a folder of its first two hex digits
 /// </code>
 /// <c>tmp</c> is inside the directory so that the final rename never crosses a filesystem and is atomic.
+/// <see cref="TextStore"/> keeps the text read from a blob beside it, as <c>ab/abcdef....txt</c>.
 /// </summary>
 public sealed class FileSystemBlobStore : IBlobStore
 {
-    private const string TemporaryFolder = "tmp";
+    internal const string TemporaryFolder = "tmp";
     private const int Sha256HexLength = 64;
 
     private readonly string directory;
@@ -103,6 +104,16 @@ public sealed class FileSystemBlobStore : IBlobStore
         }
     }
 
+    /// <summary>
+    /// The path of the stored content, or null when this hash is not stored. For the programs that read a file by
+    /// path and cannot be given a stream; the path is one the store built from a hash, never from a name.
+    /// </summary>
+    internal string? PathOfStored(string sha256) =>
+        IsSha256(sha256) && File.Exists(PathOf(sha256)) ? PathOf(sha256) : null;
+
+    /// <summary>A new, unused path in <c>tmp</c>, for a file that is written there and then renamed or deleted.</summary>
+    internal string NewTemporaryPath() => Path.Combine(temporaryDirectory, Guid.NewGuid().ToString("n"));
+
     /// <summary>Deletes what an upload that never finished left in <c>tmp</c>, and returns how many files that was.</summary>
     public int RemoveLeftovers()
     {
@@ -134,6 +145,6 @@ public sealed class FileSystemBlobStore : IBlobStore
     private string PathOf(string sha256) => Path.Combine(directory, sha256[..2], sha256);
 
     // The hash comes from a recorded fact, not from a client, but it names a path, so it is checked anyway.
-    private static bool IsSha256(string value) =>
+    internal static bool IsSha256(string value) =>
         value.Length == Sha256HexLength && value.All(character => char.IsAsciiHexDigitLower(character));
 }

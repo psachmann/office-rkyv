@@ -15,6 +15,7 @@ Postponed features and decisions: things that were deliberately left out, with t
 - [ ] **Blob collector.** Remove file content that no active document refers to.
   - Why postponed: it is the only code that destroys user data, and a blob may be shared by several documents, so "is it still referenced" races with a concurrent upload of the same file.
   - What piles up until then: content of deleted documents, of uploads refused after their content was complete (unknown or deleted owner, invalid file name), and of uploads cut off by a crash.
+  - It also removes the extracted text (`<hash>.txt` beside the blob) with its blob. The content's extraction outcome stays an event stream; whether the collector forgets it too is that change's to decide. [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (D5) left this to it.
   - Decided in: [add-document-file-upload](openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D4).
 - [ ] **Folder watcher.** Pick up files dropped into a folder and create documents from them.
   - Already in place: `DocumentIngest` is the single path a file takes, and the title is derived on the server, so the watcher is a second caller.
@@ -29,12 +30,38 @@ Postponed features and decisions: things that were deliberately left out, with t
   - Options: refuse, or warn and ask. The hash is recorded on every document, so either can be added without reading files again.
   - Decided in: [add-document-file-upload](openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D9).
 - [ ] **Resumable uploads.** An interrupted upload starts over. Listed as a non-goal in the same design.
-- [ ] **Content inspection.** The content type is recorded as the client declared it; nothing sniffs the bytes, scans for malware or extracts text. Text extraction is the prerequisite for search.
+- [ ] **Content inspection.** The content type is recorded as the client declared it; nothing scans the bytes for malware or corrects the recorded type. Text extraction reads the first bytes to decide whether a file is a PDF or an image, but it only decides what to read and changes nothing. Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (D2).
+
+#### Text extraction
+
+The text of every PDF and image is extracted and kept in the background ([add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md)). What was left out of it:
+
+- [ ] **Extracting again.** A content whose extraction needs to be done again: after the OCR programs were installed, with other languages or a newer OCR engine, and for documents created before text extraction existed (they have no outcome at all).
+  - Why postponed: it is a feature of its own (what triggers it, whether it replaces a text, what it shows the user), and a backfill at the first start after an update would run OCR over a whole archive unannounced.
+  - What is in place: the outcome records `UnreadPageCount`, so the contents worth extracting again are those with unread pages; the text is a second event on the content's stream; the handler is idempotent per content. The query it needs is the same for both cases: contents without a complete outcome.
+  - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (D4, D7, D8).
+- [ ] **Showing the text and the outcome.** Neither the extracted text nor the outcome is in the gRPC contract or the UI; a page cannot say "not read" or show what was found.
+  - Why postponed: nothing uses it before search or a preview exists. `FindTextExtractionByHash` and `TextStore` are the API side of it.
+  - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (Non-Goals).
+- [ ] **A searchable PDF as output.** OCR can produce a copy of a scan with its text layer, so the page can be selected and searched in any viewer.
+  - Why postponed: it needs a preview or a download of the derived file to be useful, and OCRmyPDF (a Python application with Ghostscript and qpdf behind it) is heavy to package. It can sit behind the same two interfaces.
+  - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (D6).
+- [ ] **Further formats.** Office documents, plain text and other formats are recorded as unsupported.
+  - Why postponed: each is a reader of its own, and PDF and images are what a scanner and a phone produce.
+  - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (Non-Goals).
+- [ ] **Shipping the OCR programs with a packaged app.** `tesseract` and `pdftoppm` must be on `PATH`; the dev shells provide them. A Nix package or a Flatpak would have to include them and point `TextExtraction:TesseractPath` and `TextExtraction:PdftoppmPath` at them. Same family as the GSettings item under Desktop.
+  - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (Non-Goals, D6).
+- [ ] **A sandbox for the OCR programs.** They parse files a user chose and run with the user's rights, as separate processes with fixed arguments and no shell, and nothing more.
+  - Why postponed: no sandbox exists for a plain process on every target; worth revisiting when the app is packaged.
+  - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (Risks).
+- [ ] **Tuning the reading of real scans.** Three knobs, all changeable without changing what is stored: tesseract's page segmentation (`--psm`) for invoices and letters; the rule for taking a text layer (a page with a stamp or header of 20 letters over a scanned body is taken as text; only OCR-ing pages that contain an image would catch it); and a page cap or a second queue for very large scans, which hold up everything behind them.
+  - Why postponed: to be judged on real scans once the feature has run for a while.
+  - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (Risks, Open Questions).
 
 ### Documents and users
 
 - [ ] **Tags and other metadata.**
-- [ ] **Search the words inside files.** The workspace finds documents by title and file name ([add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md)). The text of a file is extracted and kept by [add-document-text-extraction](openspec/changes/add-document-text-extraction/proposal.md), which builds no search; this item puts it into the search.
+- [ ] **Search the words inside files.** The workspace finds documents by title and file name ([add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md)). The text of a file is now extracted and kept, page by page, beside the blob ([add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md)), and no search uses it yet; this item puts it into the search.
   - To decide there: whether the text goes into a search type of its own (one extraction is shared by every document with that content, while owner and archive belong to each document) or into `Document`, and whether the `.txt` files stay as the source the index is rebuilt from.
   - Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (D1).
   - [ ] **Accent folding.** `Marz` does not find `März`, and `ae` does not find `ä`. Why postponed: Fisher's tokenizer choice does not expose FTS5's diacritics option for a trigram index, and a German user types the umlaut. Revisit with the Lucene.NET item. Decided in: [add-document-title-search](openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (Risks).

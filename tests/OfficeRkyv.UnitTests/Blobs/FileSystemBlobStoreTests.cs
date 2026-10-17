@@ -110,6 +110,36 @@ public sealed class FileSystemBlobStoreTests : IDisposable
     }
 
     [Test]
+    public async Task AStoredBlob_HasAPath_WhoseFileHoldsTheContent()
+    {
+        var content = TestDocuments.Bytes(500);
+        var result = await store.WriteAsync(Chunks(content, 200), maxBytes: 10_000);
+
+        var path = store.PathOfStored(result.Sha256!);
+
+        await Assert.That(path).IsEqualTo(Path.Combine(directory, result.Sha256![..2], result.Sha256));
+        await Assert.That(File.ReadAllBytes(path!)).IsEquivalentTo(content);
+    }
+
+    [Test]
+    public async Task AnUnknownHash_HasNoPath_AndSoDoesAnythingThatIsNotAHash()
+    {
+        await Assert.That(store.PathOfStored(new string('a', 64))).IsNull();
+        await Assert.That(store.PathOfStored("../../etc/passwd")).IsNull();
+        await Assert.That(store.PathOfStored("")).IsNull();
+    }
+
+    [Test]
+    public async Task ATemporaryPath_IsInTmp_AndIsNewEachTime()
+    {
+        var first = store.NewTemporaryPath();
+        var second = store.NewTemporaryPath();
+
+        await Assert.That(Path.GetDirectoryName(first)).IsEqualTo(TemporaryDirectory);
+        await Assert.That(second).IsNotEqualTo(first);
+    }
+
+    [Test]
     public async Task LeftoversOfACrash_AreRemovedWhenTheHostStarts_AndOneWarningSaysHowMany()
     {
         File.WriteAllText(Path.Combine(TemporaryDirectory, "half-written-1"), "x");

@@ -18,7 +18,7 @@ The required behaviour for traces and metrics is the `observability` spec in `op
 
 ### Verifying
 
-A string name that is wrong fails silently, so the subscription is tested, at the pipeline level: `ApiTelemetryTests` builds a host with the same `AddApiTelemetry` the app calls, adds the in-memory exporter, makes real gRPC calls and checks the spans and metrics that come out, including that no event-store span carries the email address that was sent. A change to the API's telemetry extends that test.
+A string name that is wrong fails silently, so the subscription is tested, at the pipeline level: `ApiTelemetryTests` builds a host with the same `AddApiTelemetry` the app calls, adds the in-memory exporter, makes real gRPC calls and checks the spans and metrics that come out, including that no event-store span carries the email address that was sent, and that the extraction after an upload is traced as the handling of `ExtractText` with no span carrying the text it read. A change to the API's telemetry extends that test.
 
 The web side (the query spans, and one trace id from the UI through the API) is checked by hand in the Aspire dashboard. Its subscription is two lines guarded by a compile-time constant.
 
@@ -27,9 +27,9 @@ The web side (the query spans, and one trace id from the UI through the API) is 
 - **Log at the edges.** A log line is for the life of a host (started, listening, stopped, a setting applied) and for a failure nobody expected. The story of one request is in its trace, so handlers do not log.
 - **Expected refusals are not logged.** A validation failure, a missing resource, a refused business rule, an unauthenticated call and a refused user change are answers, not faults. Nor is a sign-in ticket that was redeemed or refused. `UseApiErrorMapping` filters Wolverine's gRPC interceptor to Error for that reason, and `ErrorStatusProvider` logs only what nothing else claimed.
 - **Levels:**
-  - Information: the life of a host.
-  - Warning: a fault the app continues after, such as an unreadable settings file, or unfinished upload files found and removed from the blob store's `tmp` folder at start.
-  - Error: an unexpected failure, with the exception; for a download whose content is missing from the blob store, the document's id.
+  - Information: the life of a host, such as the OCR programs found at start with their versions and languages (`OcrProgramsStartCheck`).
+  - Warning: a fault the app continues after, such as an unreadable settings file, unfinished files found and removed from the blob store's `tmp` folder at start, the OCR programs missing at start (scanned pages will not be read), or an OCR program that failed or ran out of time on a page (the content hash, the page number and the exit code).
+  - Error: an unexpected failure, with the exception; for a download whose content is missing from the blob store, the document's id; for an extraction whose content is missing, the content's hash.
 - **Every message is a `[LoggerMessage]` method.** Never call `logger.LogInformation(...)` and its siblings directly. The analyzer rule CA1848 is a warning (`.editorconfig`), and a warning fails the Release build that the pre-push hook runs.
 
 ### Writing a log message
@@ -62,6 +62,7 @@ internal sealed partial class ErrorStatusProvider(ILogger<ErrorStatusProvider> l
 ## What must never appear in a span or a log
 
 - Document contents.
+- The text extracted from a document's file, by its text layer or by OCR: it is the content in another form. An extraction is traced like any message, by the type (`ExtractText`) and the content's hash, and its outcome event holds only counts (`ApiTelemetryTests` checks that no span has the text). An external program's output is never logged either: a failure names the hash, the page and the exit code (see [api.md](api.md#running-an-external-program)).
 - The name of a document's file and the title of a document, which say as much as the content does.
 - What a user searched for, which is as revealing as a title. A search is traced like any call, by the method and the message type; the query text is in neither (`Search_LeavesTheQueryOnNoSpan`). It is also in the page address of the web host (`?q=`), and ASP.NET Core's instrumentation redacts query-string values on the request span by default (`?q=Redacted`, keys kept; `AQueryString_HasItsValuesRedactedOnTheServerSpan_AndKeepsItsKeys`). Do not turn that off. Aspire does, for the processes it starts (`OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION`), so under `just dev` the local dashboard shows the query in the clear; that is a development setting and not the app's.
 - A caller token, a sign-in cookie, or a sign-in ticket, or any part of one. ASP.NET Core's instrumentation records no request headers by default, so the `Authorization` header and the cookie stay out of spans; do not add them to the instrumentation. The token is checked on no span (`ACallerToken_AppearsOnNoSpan_NotEvenInPart`). A sign-in ticket is in the address of `/account/sign-in`, which the query redaction below covers outside Aspire's development setting (and a ticket works once, for 60 seconds).
@@ -79,3 +80,4 @@ Identify things by id (a document by its id, file content by its hash). The spec
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (Telemetry and logs): no new source or meter for file transfer, and the file name and title kept out of spans and logs.
 - [add-document-title-search](../openspec/changes/archive/2026-10-17-add-document-title-search/design.md) (Telemetry and logs): no new source, meter or log message for search, and the search query kept out of spans and logs.
 - [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (Telemetry and logs): no new source or meter, tokens and cookies kept out of spans and logs, IdentityModel's PII switches off, and the desktop's two messages.
+- [add-document-text-extraction](../openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (Telemetry and logs): no new source or meter, extracted text kept out of spans and logs, and the start check, the failed page and the missing content as the examples of their levels.

@@ -1,8 +1,8 @@
 namespace OfficeRkyv.Api.Shared.Blobs;
 
 /// <summary>
-/// Clears what an upload killed by a crash left in the blob store's <c>tmp</c> folder, once when the host
-/// starts. Nothing is writing then, so everything in there is a leftover.
+/// Clears what an upload or an extraction killed by a crash left in the blob store's <c>tmp</c> folder, once when
+/// the host starts. Nothing is writing then, so everything in there is a leftover.
 /// </summary>
 internal sealed partial class BlobStoreCleanupService(
     FileSystemBlobStore store,
@@ -25,7 +25,7 @@ internal sealed partial class BlobStoreCleanupService(
 
     [LoggerMessage(
         Level = LogLevel.Warning,
-        Message = "Removed {Count} unfinished upload file(s) left in the blob store's tmp folder"
+        Message = "Removed {Count} unfinished file(s) left in the blob store's tmp folder"
     )]
     private static partial void LogLeftoversRemoved(ILogger logger, int count);
 }

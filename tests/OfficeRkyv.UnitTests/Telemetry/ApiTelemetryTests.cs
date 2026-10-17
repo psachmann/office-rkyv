@@ -14,15 +14,18 @@ using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
 using OfficeRkyv.Api.Features.Archives;
 using OfficeRkyv.Api.Features.Documents;
+using OfficeRkyv.Api.Features.TextExtraction;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Shared;
 using OfficeRkyv.Api.Shared.Auth;
 using OfficeRkyv.Api.Shared.Blobs;
 using OfficeRkyv.Api.Shared.Errors;
+using OfficeRkyv.Api.Shared.Extraction;
 using OfficeRkyv.Api.Shared.Telemetry;
 using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.Contracts.Users;
+using OfficeRkyv.UnitTests.Extraction;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Wolverine;
@@ -44,6 +47,7 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
     private readonly string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():n}.db");
     private readonly List<Activity> activities = [];
     private readonly List<Metric> metrics = [];
+    private readonly FakeOcr ocr = new();
     private WebApplication host = null!;
     private GrpcChannel channel = null!;
 
@@ -84,12 +88,19 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
             options.Durability.Mode = DurabilityMode.Solo;
             options.Policies.AutoApplyTransactions();
             options.UseApiErrorMapping();
+            options.LocalQueueFor<ExtractText>().UseDurableInbox().Sequential();
         });
         builder.Services.AddGrpc();
 
         // What an upload needs besides the store: where the content goes, and the component that stores it.
         builder.Services.AddOptions<FileStorageOptions>();
-        builder.Services.AddSingleton<IBlobStore>(new FileSystemBlobStore(path + ".blobs"));
+        var blobs = new FileSystemBlobStore(path + ".blobs");
+        builder.Services.AddSingleton(blobs);
+        builder.Services.AddSingleton<IBlobStore>(blobs);
+        builder.Services.AddSingleton(new TextStore(path + ".blobs"));
+        builder.Services.AddSingleton<IPageRenderer>(ocr);
+        builder.Services.AddSingleton<IImageReader>(ocr);
+        builder.Services.AddSingleton<TextExtractor>();
         builder.Services.AddSingleton<DocumentIngest>();
 
         // The services read the caller from the token, so this host validates tokens as the API does.
@@ -178,6 +189,36 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
     }
 
     [Test]
+    public async Task AnUpload_IsFollowedByItsExtraction_WhichIsTraced_AndLeavesNoExtractedTextOnAnySpan()
+    {
+        // One page has a text layer and one is read by OCR, so that both sources of text are covered.
+        const string layerText = "Confidential diagnosis for Ada Lovelace";
+        const string ocrText = "Handwritten note about the treatment";
+        ocr.TextOfPage[2] = ocrText;
+        var user = (
+            await Client.CreateUserAsync(new CreateUserRequest { Email = "ada@example.com", DisplayName = "Ada" })
+        ).User;
+        using var asUser = PipelineHost.ChannelFor(address, Guid.Parse(user.Id));
+        var documents = new DocumentsService.DocumentsServiceClient(asUser);
+
+        var document = await TestDocuments.UploadAsync(documents, "results.pdf", TestPdfs.WithPages(layerText, ""));
+        var outcome = await WaitForExtraction(document.Sha256);
+        var spans = await WaitForServerSpans(2);
+        var extractionSpans = await WaitForExtractionSpans();
+
+        // The extraction is traced like any message: a span for handling `ExtractText`, with the event store below it.
+        var leaked = spans
+            .Concat(extractionSpans)
+            .Distinct()
+            .Where(span => Everything(span).Any(text => text.Contains(layerText) || text.Contains(ocrText)))
+            .ToList();
+
+        await Assert.That(outcome.OcrPageCount).IsEqualTo(1);
+        await Assert.That(extractionSpans.Count).IsGreaterThan(0);
+        await Assert.That(leaked.Count).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task AQueryString_HasItsValuesRedactedOnTheServerSpan_AndKeepsItsKeys()
     {
         const string searched = "Stromrechnung";
@@ -261,6 +302,50 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
 
         await Assert.That(exported.Any(metric => metric.Name == "fisher.write_lock.wait")).IsTrue();
         await Assert.That(exported.Any(metric => metric.MeterName.StartsWith("Wolverine"))).IsTrue();
+    }
+
+    private async Task<TextExtraction> WaitForExtraction(string sha256)
+    {
+        for (var attempt = 0; attempt < 200; attempt++)
+        {
+            await using var scope = host.Services.CreateAsyncScope();
+            var found = await scope
+                .ServiceProvider.GetRequiredService<IMessageBus>()
+                .InvokeAsync<TextExtraction?>(new FindTextExtractionByHashQuery(sha256));
+
+            if (found is not null)
+            {
+                return found;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new TimeoutException("The extraction never completed.");
+    }
+
+    // The span of a handled message ends after the handler has committed, so it can land a moment after the outcome.
+    private async Task<List<Activity>> WaitForExtractionSpans()
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            var found = activities
+                .ToArray()
+                .Where(span =>
+                    span.Source.Name == WolverineSource
+                    && Everything(span).Any(text => text.Contains(nameof(ExtractText)))
+                )
+                .ToList();
+
+            if (found.Count > 0)
+            {
+                return found;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new TimeoutException("No span for handling ExtractText arrived.");
     }
 
     // A server span stops after the response is written, so it can land a moment after the client returns.

@@ -47,6 +47,15 @@
               # since they aren't built by nixpkgs).
               powershell
               openspec.packages.${system}.default
+              # OCR for text extraction (the API runs both as separate processes): German and English only,
+              # which is what the default `TextExtraction:Languages` asks for.
+              (tesseract.override {
+                enableLanguages = [
+                  "deu"
+                  "eng"
+                ];
+              })
+              poppler-utils
             ];
             DOTNET_ROOT = "${dotnet}/share/dotnet";
             # .NET (and thus Aspire) loads ICU dynamically.

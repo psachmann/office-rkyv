@@ -10,9 +10,9 @@ Extracts the text of a document's file and keeps it, so that later features such
 The system SHALL extract the text of a document's file after the document has been created, without the client asking for it. The upload SHALL be answered without waiting for the extraction, which MAY complete shortly afterwards. Once it has completed, the system SHALL hold an extraction outcome for that file content, which is one of `extracted`, `unsupported` or `unreadable`.
 
 #### Scenario: An upload is followed by an extraction
-- **WHEN** a client uploads a PDF whose single page has a text layer reading `Invoice 4711 for March`
+- **WHEN** a client uploads a PDF whose single page has a text layer reading `Invoice 4711 for March 2026`
 - **THEN** the upload returns the created document
-- **AND** once the extraction has been processed, the outcome for that content is `extracted` and the kept text contains `Invoice 4711 for March`
+- **AND** once the extraction has been processed, the outcome for that content is `extracted` and the kept text contains `Invoice 4711 for March 2026`
 
 ### Requirement: A PDF page with a text layer uses it, and a page without one is read by OCR
 For a PDF the system SHALL decide page by page. A page whose text layer holds at least 20 letters or digits SHALL contribute that text layer and SHALL NOT be read by OCR. Any other page SHALL be read by OCR, and the OCR result SHALL be that page's text. The outcome SHALL record the number of pages and the number of pages read by OCR.

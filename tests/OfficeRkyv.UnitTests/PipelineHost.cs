@@ -12,10 +12,15 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OfficeRkyv.Api;
+using OfficeRkyv.Api.Features.TextExtraction;
+using OfficeRkyv.Api.Features.TextExtraction.Handlers;
 using OfficeRkyv.Api.Shared.Blobs;
+using OfficeRkyv.Api.Shared.Extraction;
 using OfficeRkyv.Contracts;
 using OfficeRkyv.UI.Auth;
+using OfficeRkyv.UnitTests.Extraction;
 using Wolverine;
+using Wolverine.Runtime;
 using Wolverine.Tracking;
 
 namespace OfficeRkyv.UnitTests;
@@ -35,6 +40,7 @@ public sealed class PipelineHost : IAsyncDisposable
     /// </summary>
     public string BlobDirectory => path + ".blobs";
     private WebApplication host = null!;
+    private bool stopped;
 
     private PipelineHost(string? databasePath) =>
         path = databasePath ?? Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():n}.db");
@@ -48,6 +54,76 @@ public sealed class PipelineHost : IAsyncDisposable
     public IMessageBus Bus => scope.ServiceProvider.GetRequiredService<IMessageBus>();
 
     public IDocumentStore Store => host.Services.GetRequiredService<IDocumentStore>();
+
+    /// <summary>The database file, for starting a host on the same data once this one is stopped.</summary>
+    public string DatabasePath => path;
+
+    /// <summary>The text store of this host, over the same directory as its blob store.</summary>
+    public TextStore Texts => host.Services.GetRequiredService<TextStore>();
+
+    /// <summary>The extraction outcome recorded for the content, or null while there is none.</summary>
+    public async Task<TextExtraction?> FindExtractionAsync(string sha256)
+    {
+        await using var queryScope = host.Services.CreateAsyncScope();
+
+        return await queryScope
+            .ServiceProvider.GetRequiredService<IMessageBus>()
+            .InvokeAsync<TextExtraction?>(new FindTextExtractionByHashQuery(sha256));
+    }
+
+    /// <summary>
+    /// Waits until the extraction of the content has been processed, which is when its outcome exists. The
+    /// extraction runs in the background after an upload has been answered, so a test that asserts on its result
+    /// waits here first.
+    /// </summary>
+    public async Task<TextExtraction> WaitForExtractionAsync(string sha256, TimeSpan? timeout = null)
+    {
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(30));
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await FindExtractionAsync(sha256) is { } outcome)
+            {
+                return outcome;
+            }
+
+            await Task.Delay(25);
+        }
+
+        throw new TimeoutException($"No extraction outcome for {sha256} appeared.");
+    }
+
+    /// <summary>
+    /// Waits until every extraction that has been queued is processed, whether or not it recorded an outcome. For
+    /// a test that has to know that a second message for the same content has been handled and did nothing.
+    /// </summary>
+    public async Task WaitForExtractionsToSettleAsync(TimeSpan? timeout = null)
+    {
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(30));
+        var admin = host.Services.GetRequiredService<IWolverineRuntime>().Storage.Admin;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if ((await admin.FetchCountsAsync()).Incoming == 0)
+            {
+                return;
+            }
+
+            await Task.Delay(25);
+        }
+
+        throw new TimeoutException("Queued extractions were still not processed.");
+    }
+
+    /// <summary>
+    /// Stops the host and keeps its data, so that <see cref="StartAsync"/> can start another on the same
+    /// <see cref="DatabasePath"/>. Disposing the host still deletes the data.
+    /// </summary>
+    public async Task StopKeepingDataAsync()
+    {
+        stopped = true;
+        await host.StopAsync();
+    }
 
     public IHost Host => host;
 
@@ -141,15 +217,20 @@ public sealed class PipelineHost : IAsyncDisposable
     /// An existing database file to start on, with the blob directory beside it, instead of a new one: a test that
     /// needs data written by an earlier version, or by an earlier host. The host deletes both when it is disposed.
     /// </param>
+    /// <param name="ocr">
+    /// Stands in for the OCR programs, so that no test needs them installed; without it the host would run the real
+    /// ones if they are on <c>PATH</c>. Real-program tests leave it out.
+    /// </param>
     public static async Task<PipelineHost> StartAsync(
         string? environmentName = null,
         Action<WebApplicationBuilder>? configure = null,
         long? maxFileSizeBytes = null,
-        string? databasePath = null
+        string? databasePath = null,
+        FakeOcr? ocr = null
     )
     {
         var pipeline = new PipelineHost(databasePath);
-        await pipeline.StartCoreAsync(environmentName, configure, maxFileSizeBytes);
+        await pipeline.StartCoreAsync(environmentName, configure, maxFileSizeBytes, ocr);
 
         return pipeline;
     }
@@ -157,7 +238,8 @@ public sealed class PipelineHost : IAsyncDisposable
     private async Task StartCoreAsync(
         string? environmentName,
         Action<WebApplicationBuilder>? configure,
-        long? maxFileSizeBytes
+        long? maxFileSizeBytes,
+        FakeOcr? ocr
     )
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environmentName });
@@ -169,6 +251,13 @@ public sealed class PipelineHost : IAsyncDisposable
         if (maxFileSizeBytes is { } limit)
         {
             builder.Services.Configure<FileStorageOptions>(options => options.MaxFileSizeBytes = limit);
+        }
+
+        if (ocr is not null)
+        {
+            // Later registrations win: the pages are rendered and read by the fake and not by programs.
+            builder.Services.AddSingleton<IPageRenderer>(ocr);
+            builder.Services.AddSingleton<IImageReader>(ocr);
         }
 
         configure?.Invoke(builder);
@@ -193,7 +282,11 @@ public sealed class PipelineHost : IAsyncDisposable
             channel.Dispose();
         }
 
-        await host.StopAsync();
+        if (!stopped)
+        {
+            await host.StopAsync();
+        }
+
         await host.DisposeAsync();
         File.Delete(path);
 

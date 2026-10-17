@@ -62,6 +62,20 @@ The message carries only the hash. It names the content, not a document, which i
 
 *Depends on:* task 1.1, which checks that `WolverineFx.Fisher` persists a durable local queue on SQLite. If it does not, the fallback is a hosted service that, at start, publishes `ExtractText` for every distinct hash among the documents that has no outcome; D4 makes that idempotent. The task records which applies before anything is built on it.
 
+*Spike result (task 1.1), on WolverineFx.Fisher 6.41.0:*
+
+- **The queue is persisted.** With `LocalQueueFor<T>().UseDurableInbox().Sequential()`, a message that was stored but not handled when the first host stopped was handled by a second host started on the same database file, about 2 seconds after its start (Wolverine's recovery of stored envelopes). **No fallback needed**: the hosted service that publishes `ExtractText` at start is not built (task 1.2).
+- **A publish on the injected `IMessageBus`, together with the handler's own `SaveChangesAsync`, does not work.** Wolverine's transaction middleware commits the session once more after the handler returns and stores the message's envelope a second time, which fails with `UNIQUE constraint failed: wolverine_incoming_envelopes.id`. A cascaded return value would be stored in that second commit, after the event was committed, which is the window this decision rules out.
+- **What works** keeps the handler's own save and its return value: the handler is marked `[NonTransactional]` (`Wolverine.Attributes`), takes `IFisherOutbox` (`Wolverine.Fisher`), calls `outbox.Enroll(session)` before the publish, publishes with `outbox.PublishAsync(new ExtractText(sha256))`, calls `session.SaveChangesAsync()`, and then `((MessageContext)outbox).FlushOutgoingMessagesAsync()`. Verified in the spike:
+  - the message is stored in the transaction of the event: a handler that published and then threw before the save left no event, and its message was never handled;
+  - after the flush the message is handled by the running host within 0.2 seconds. Without the flush, the message is stored but delivered only by the recovery at the next start (nothing was handled in 30 seconds);
+  - a message stored but not handled when the host stopped is handled after a restart on the same data (above).
+- The flush needs the concrete `MessageContext` (`IFisherOutbox` does not expose it); `FisherOutbox` derives from it. Task 5.4 uses this shape and notes the cast in a comment.
+- **Stopping the app in the middle of an extraction** (found while writing the restart test, task 6.6). Wolverine lets a running handler finish and cancels it only when the host's shutdown timeout is over (30 seconds by default), whatever token `StopAsync` is given; for a window that is closed during a scan that is a hang. Two things follow, both in `ExtractTextHandler`:
+  - the handler also watches `IHostApplicationLifetime.ApplicationStopping`, so the running program is killed as soon as the host begins to stop (the runner kills the process tree on cancellation);
+  - a cancellation that Wolverine did not issue itself is treated as a failure of the message, which moves it to the error queue and loses the extraction. The handler is marked `[ScheduleRetry(typeof(OperationCanceledException), 5)]` (`Wolverine.Attributes`), which keeps the message stored with a due time, so the next start picks it up. The restart test covers this: a stop during a read, and a second host on the same data that finishes it.
+- A kill of the process (no graceful stop) leaves the message stored and unfinished, which is what the first spike checked with a handler that ignored the stop. It is not a separate test: stopping a host whose handler ignores cancellation waits out the 30 seconds.
+
 ### D2. The kind of file is read from its first bytes
 
 The extractor looks at the leading bytes of the content: `%PDF-` is a PDF, and the PNG, JPEG and TIFF signatures are images. Anything else is `unsupported`. The recorded content type is neither read nor changed.
@@ -163,6 +177,21 @@ Settings are bound from a `TextExtraction` configuration section: the languages 
 - A PDF renderer as a NuGet package (PDFium). Rejected: it brings the native library into the process again.
 
 *Verified at:* pipeline with fakes (every scenario about pages); pipeline with the real programs for one journey (D9); unit for the argument lists and for how an exit code, a timeout and a missing program become "unread".
+
+*Spike result (task 1.3), in the dev shell with tesseract 5.5.3 (German and English data) and poppler 26.06.0, on a blob-style path without an extension:*
+
+| Use | Argument list | Output |
+|---|---|---|
+| Render page *n* | `pdftoppm -f n -l n -r 300 -png -singlefile <blob path> <tmp>/<name>` | writes `<tmp>/<name>.png` (the `.png` is added by the program); nothing on stdout or stderr |
+| Read an image | `tesseract <image path> stdout -l deu+eng` | the text on stdout, ending in a newline, with no form feed; an image with no text gives empty output |
+| Version | `tesseract --version` | stdout, first line `tesseract 5.5.3` |
+| Languages | `tesseract --list-langs` | stdout: a header line `List of available languages in "<dir>" (2):`, then one code per line (`deu`, `eng`) |
+| Version | `pdftoppm -v` | **stderr** (stdout is empty), first line `pdftoppm version 26.06.0` |
+
+- **Exit codes.** `tesseract`: 0 on success, including an empty page; 1 for a missing input, an input that is not an image (`Error in findFileFormatStream: truncated file`) and a language that is not installed (`Failed loading language 'xxx'`). `pdftoppm`: 0 on success; 1 for a missing or damaged PDF; 99 for a page outside the document (`Wrong page range given`), and no file is written. Both write their messages to stderr.
+- **No extension needed.** Both programs recognise the format from the content, so the blob's path (`<blobs>/ab/<hash>`) is passed as it is; the rendered page is a file with `.png`, which this change names itself.
+- **The runner captures stderr as well as stdout**, because `pdftoppm -v` answers on stderr. Neither is ever logged; only the exit code is.
+- **The start check parses**: the version from the first line of `tesseract --version` and of `pdftoppm -v` (the text is only shown in the log line), and the languages as the lines after the header of `tesseract --list-langs`. A configured language is the `deu+eng` string split at `+`.
 
 ### D7. A page that cannot be read is counted; missing programs are not an error
 

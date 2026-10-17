@@ -38,6 +38,15 @@ The desktop offers the same landing page and sign-in as the web, with the same t
 - **The dialog needs a GSettings schema, and its absence kills the process.** GTK's file dialog reads `org.gtk.gtk4.Settings.FileChooser`. Where no schema is installed (on NixOS, nothing puts GTK's on `XDG_DATA_DIRS` by itself) GLib does not throw, it aborts: `GLib-GIO-ERROR: No GSettings schemas are installed on the system` and exit code 134, which no `catch` sees. Two things answer it, and neither should be removed alone: the `desktop` dev shell adds GTK's and `gsettings-desktop-schemas`' schema directories to `XDG_DATA_DIRS` (`flake.nix`), and `DesktopFileSaver` looks the schema up before opening the dialog and takes the Downloads fallback, with a Warning, when it is missing.
 - **Not verified automatically.** Playwright cannot drive WebKitGTK, so a save is checked by hand; the name rules are unit-tested (`DownloadPaths`).
 
+## Reading scanned documents
+
+The desktop hosts the API, so it extracts the text of every uploaded PDF and image too, in the background ([api.md](api.md#background-work)); the window does not wait for it. A PDF page that has a text layer is read from it. A page that has none, and every image, is read by OCR, which runs `pdftoppm` and `tesseract` as separate processes ([api.md](api.md#running-an-external-program)), so a crash in them is an exit code and not the end of the window.
+
+- **They must be on `PATH`.** `nix develop .#desktop` (what `just desktop` enters) provides both, with German and English language data. Run outside the dev shell, the app needs them installed with the system's package manager, or set `TextExtraction__TesseractPath` and `TextExtraction__PdftoppmPath` to where they are.
+- **Without them the app works as before.** It logs one Warning at start that scanned pages will not be read; uploads and downloads are unaffected; a PDF's text layers are still extracted; a page that needed OCR is counted as not read in the outcome, and nothing reads it again later (re-extraction is in `TODOS.md`).
+- **Evidence for a by-hand check** is in the app's stdout (Development): one Information line at start, `Scanned pages will be read by OCR: tesseract <version>, pdftoppm <version>, languages deu+eng`, or the Warning; then no Warning or Error after an upload. The text is a `<hash>.txt` file beside the blob in `blobs/`.
+- **Quitting during a scan** stops the OCR program at once and leaves the extraction to be finished the next time the app starts.
+
 ## Logging
 
 The desktop host has no generic host for its own startup, so `DesktopHost.Initialize` creates one console logger (category `OfficeRkyv.Desktop`) and hands it to the parts that log. Outside Development it logs warnings and above; in Development it logs information too, which is the evidence a manual check relies on. The messages follow the convention in [observability.md](observability.md#logging).
@@ -48,3 +57,4 @@ The desktop host has no generic host for its own startup, so `DesktopHost.Initia
 - [add-linux-desktop-app](../openspec/changes/archive/2026-09-30-add-linux-desktop-app/design.md) (D1, D3, D6, D8): the project layout, the API in the process, the host, and why the desktop is checked by hand.
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D12): saving a downloaded file as the host's job, and the fallback.
 - [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D7): the app-wide in-memory sign-in, and the key made at start.
+- [add-document-text-extraction](../openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (D1, D6, D7): the desktop extracts too, the OCR programs as processes, and the app working without them.

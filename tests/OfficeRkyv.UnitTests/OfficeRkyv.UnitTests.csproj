@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="DotNetQuery.Extensions.DependencyInjection" />
     <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
+    <PackageReference Include="PdfPig" />
     <PackageReference Include="TUnit" />
     <PackageReference Include="TUnit.Mocks" />
   </ItemGroup>

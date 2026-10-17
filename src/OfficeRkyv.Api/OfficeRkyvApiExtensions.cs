@@ -1,10 +1,12 @@
 using OfficeRkyv.Api.Features.Archives;
 using OfficeRkyv.Api.Features.Documents;
+using OfficeRkyv.Api.Features.TextExtraction;
 using OfficeRkyv.Api.Features.Users;
 using OfficeRkyv.Api.Shared;
 using OfficeRkyv.Api.Shared.Auth;
 using OfficeRkyv.Api.Shared.Blobs;
 using OfficeRkyv.Api.Shared.Errors;
+using OfficeRkyv.Api.Shared.Extraction;
 using Wolverine;
 using Wolverine.Fisher;
 
@@ -61,14 +63,27 @@ public static class OfficeRkyvApiExtensions
             options.Durability.Mode = DurabilityMode.Solo;
             options.Policies.AutoApplyTransactions();
             options.UseApiErrorMapping();
+
+            // Durable, so an extraction that was waiting when the app stopped is done after it starts again.
+            // Sequential, because OCR takes seconds a page and all of a core, and because it makes the handler
+            // the only writer of extraction outcomes.
+            options.LocalQueueFor<ExtractText>().UseDurableInbox().Sequential();
         });
         builder.Services.AddGrpc();
 
         builder.Services.AddOptions<FileStorageOptions>().BindConfiguration(FileStorageOptions.SectionName);
         builder.Services.AddSingleton(_ => new FileSystemBlobStore(blobDirectory));
         builder.Services.AddSingleton<IBlobStore>(services => services.GetRequiredService<FileSystemBlobStore>());
+        builder.Services.AddSingleton(_ => new TextStore(blobDirectory));
         builder.Services.AddSingleton<DocumentIngest>();
         builder.Services.AddHostedService<BlobStoreCleanupService>();
+
+        builder.Services.AddOptions<TextExtractionOptions>().BindConfiguration(TextExtractionOptions.SectionName);
+        builder.Services.AddSingleton<IProgramRunner, ProgramRunner>();
+        builder.Services.AddSingleton<IPageRenderer, PdftoppmPageRenderer>();
+        builder.Services.AddSingleton<IImageReader, TesseractImageReader>();
+        builder.Services.AddSingleton<TextExtractor>();
+        builder.Services.AddHostedService<OcrProgramsStartCheck>();
 
         return builder;
     }
