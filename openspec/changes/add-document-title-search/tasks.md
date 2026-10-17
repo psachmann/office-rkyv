@@ -1,0 +1,51 @@
+# Tasks
+
+## 1. Spike
+
+- [ ] 1.1 Spike design D2 and D4 in a throwaway pipeline test: declare the trigram index of D1 on `Document`, create documents titled `Invoice April`, `April invoice`, `Stromrechnung März` and `ÄRGER`, and record in `design.md` (1) whether two chained `Where(d => d.NgramSearch(...))` calls are accepted and ANDed, (2) whether `NgramSearch("invoice april")` matches `April invoice` (phrase or not), (3) whether `ärger` finds `ÄRGER` (case folding beyond ASCII), (4) whether `OrderByRelevance().ThenBy(d => d.Title).Take(n)` runs after them, and (5) whether documents written by a store *without* the index are found after a store *with* it starts on the same file, or whether `CheckFullTextIndexAsync<Document>` fails there. Update D2 with the predicate shape that works (or the `IAdvancedSql` fallback) and D4 with "filled by the migration" or "start check needed". Remove the throwaway code; done when both decisions say which applies.
+
+## 2. API
+
+- [ ] 2.1 Add the word rule `SearchTerms` of design D2 as a pure function in `Features/Documents`: trim, split on whitespace, drop words with no letter or digit, drop words of fewer than 3 characters. Cover it with unit tests: several spaces and tabs between words, a word of 2 and of 3 characters, digits counted, a punctuation-only word, `ä` counted as one character, an empty and a whitespace-only query. Verify they pass.
+- [ ] 2.2 Add `ViolationCodes.TooShort` (`too_short`) to `OfficeRkyv.Contracts`, and `SearchDocuments` with `SearchDocumentsRequest` (`owner_id`, `query`) and `SearchDocumentsResponse` (`repeated DocumentDto documents`, `bool has_more`) to `documents.proto`, with comments in the style of the file. Verify `just build` succeeds.
+- [ ] 2.3 Declare the trigram full-text index on `Document.Title` and `Document.FileName` in `StoreOptionsExtensions`, in a method `AddOfficeRkyvApi` calls next to `AddAggregateSnapshots` (design D1). Verify the API starts on a new database (`dotnet test --project tests/OfficeRkyv.UnitTests` stays green, since every pipeline test starts one).
+- [ ] 2.4 Add `SearchDocumentsQuery`, its validator (`query`: `too_long` over 200 characters after trimming, `too_short` when `SearchTerms` leaves no word), its handler in the shape task 1.1 recorded (owner, not deleted, one search predicate per word, best match first then title, 51 taken, 50 returned with `HasMore`), the mapping, and the `SearchDocuments` service method that maps, dispatches and maps back. Verify `just build` succeeds.
+- [ ] 2.5 Only if task 1.1 found that existing documents are not indexed: add the hosted service of design D4, registered in `AddOfficeRkyvApi`, that runs `CheckFullTextIndexAsync<Document>()` at start and `RebuildFullTextIndexAsync<Document>()` when it fails, without logging the content of any document. Otherwise mark this task done with "not needed, see D4". Verify `just build` succeeds.
+
+## 3. Pipeline tests
+
+- [ ] 3.1 Add pipeline tests, through the generated gRPC client, for the scenarios of "A user's documents can be searched by title and file name" in the `document-search` spec: a word inside a longer word, case, every word, any order, the file name, one word in each field, no match. Verify they pass.
+- [ ] 3.2 Add pipeline tests for "A search covers all of the owner's live documents and nobody else's": inbox and archive together (with the archive id on the result), another user's documents, a deleted document, an unknown owner. Verify they pass.
+- [ ] 3.3 Add pipeline tests for the first two scenarios of "Search results follow every change to a document": found right after `TestDocuments.UploadAsync` has answered, and found by the new title but not the old one after a rename. Verify they pass.
+- [ ] 3.4 Add pipeline tests for "Results are ordered by relevance and limited": 51 matches give 50 and `has_more`, 3 matches give 3 and no `has_more`, `Invoice` before the long title. Verify they pass.
+- [ ] 3.5 Add pipeline tests for "Short and over-long queries are refused", reading the status, field and code with `GrpcFailure`: `ab`, an empty and a whitespace-only query (`too_short`), 201 characters (`too_long`), `an 4711` finding `Invoice 4711`, and `invoice OR "*` neither refused nor matching `Invoice March`. Verify they pass.
+- [ ] 3.6 Extend the pipeline test class `ApiTelemetryTests` with a search for `Stromrechnung` over a document with that title, asserting that the request and handler spans are emitted and that no span attribute or event contains `Stromrechnung` (the scenario "No span carries the query"). Verify it passes.
+
+## 4. Existing data
+
+- [ ] 4.1 Let `PipelineHost` start a store without the full-text index, and start a second time on an existing database file and blob directory (reuse the restart option of `add-document-text-extraction` if it has landed by then). Add the pipeline test for "Documents from before search": create documents with the index switched off, stop, start a normal host on the same file, and search for them. Verify it passes, with the start check of task 2.5 if that task was needed.
+
+## 5. UI
+
+- [ ] 5.1 Add `WorkspaceKeys.Search` and `ForSearch(DocumentSearch)`, the `SearchDocuments` query on `DocumentsFacade` (argument `DocumentSearch(Guid OwnerId, string Query)`, result with the documents and `HasMore`), the search kind in `DocumentKinds`, and the search kind in both invalidations of the archive deletion in `ArchivesFacade` (design D6). Cover with UI-logic tests through the fake clients, holding a subscription open: a rename, a delete, a filing, an unfiling and an upload each refetch an open search, and an archive deletion refetches it now and after the settle delay. Verify they pass.
+- [ ] 5.2 Add the `too_short` case to `WorkspaceErrors` with its key in `Workspace.resx` and `Workspace.de.resx`. Cover the mapping with a UI-logic test, and verify `TranslationCompletenessTests` (unit) passes.
+- [ ] 5.3 Add the search to `Workspace.razor` (design D5 and D6): the query from `?q=` through `[SupplyParameterFromQuery]`; a search field with a localized accessible name above the list; a 300 ms pause before navigating, adding a history entry for the first query and replacing it afterwards; clearing navigates without `q`; with 1 or 2 characters the hint and no call; otherwise the results through `Transition`, using the existing rows plus a location cell (inbox or archive name, from the loaded archives) with `data-testid="document-location"`, a no-results message (`search-no-results`), a "more matched" note (`search-more`), the hint (`search-hint`), and the page's existing loading and failure states. All text from `Workspace.resx` and `Workspace.de.resx`, German wording per `docs/ui.md` ("Suche", "Eingang"). Verify `just build` succeeds and `TranslationCompletenessTests` (unit) passes.
+
+## 6. Functional tests
+
+- [ ] 6.1 Extend the page object `WorkspacePage` with the search field (by role and accessible name), `SearchAsync(text)`, the location of a result row, and the hint, no-results and "more" locators. Verify the functional project builds.
+- [ ] 6.2 Add functional tests in `WorkspaceTests` for the scenarios of "Documents can be searched from the workspace" in the `user-workspace` delta: across the inbox and an archive with their locations, while an archive is selected, no match, too short, clearing, selecting an entry clears the search, and renaming a result. Each test creates its own user. Verify they pass with `just test` (rerun once before blaming the change if only the known flaky `SettingsTests` fail).
+- [ ] 6.3 Add functional tests for "The search is kept in the page address": reloading keeps the search, and opening the workspace address with `?q=invoice` shows the results. Verify they pass.
+
+## 7. By hand
+
+- [ ] 7.1 Check the desktop by hand: with a desktop data directory that holds documents from before this change, run `just desktop`, type part of a known title into the search field, and confirm the document is listed with its location. Observe in the app's stdout no Warning or Error line from the start and the search, and no line containing the typed word.
+- [ ] 7.2 Check the web host by hand: run `just dev`, open a workspace with `?q=Stromrechnung` in the address, and confirm in the Aspire dashboard that the page request's span shows the query value as `Redacted` and that no span or structured log of the web host or the API contains `Stromrechnung`.
+
+## 8. Docs
+
+- [ ] 8.1 Update `docs/api.md`: the full-text index declared in the shared store configuration on the snapshot that holds the fields, and why trigram; a search as a query with a validator; one search predicate per word, deletion filtered by the handler; how existing rows are indexed (as task 1.1 settled it). Add the "Decided in" entry. Verify the doc describes the code as built.
+- [ ] 8.2 Update `docs/ui.md`: page state in the address with the history rule; search as you type with the pause; the search kind in the invalidation lists of both facades. Add the "Decided in" entry. Verify the names match the code.
+- [ ] 8.3 Update `docs/observability.md`: the search query in the list of what must never appear in a span or a log. Verify it matches the test of task 3.6.
+- [ ] 8.4 Update `docs/testing.md` only if task 4.1 added a `PipelineHost` option that the doc does not describe yet (starting without the index, or again on the same data). Otherwise mark done with "nothing new". Verify the helper names match the code.
+- [ ] 8.5 Update `TODOS.md`: narrow "Search" to the words inside files, pointing at `add-document-text-extraction`; add, each with its reason and this design as "Decided in", accent folding, stemming, pagination of search results beyond 50, and highlighting the matched part. Verify every non-goal of `design.md` is either there or decided against.

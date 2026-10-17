@@ -34,6 +34,12 @@ Postponed features and decisions: things that were deliberately left out, with t
 
 - [ ] **Tags and other metadata.**
 - [ ] **Search.**
+  - [ ] **Evaluate Lucene.NET as the search engine.** Decide when content search is built on the extracted text, with real OCR output to judge by.
+    - What it would add: German stemming (`Rechnungen` finds `Rechnung`), `ae`/`ä` normalisation, fuzzy matching for OCR misreadings, compound-word splitting, highlighting and better ranking of long texts.
+    - What it costs: the index leaves the SQLite transaction and can drift, so it needs feeding from the events and a rebuild path; backups become database, blobs and index together; the package is still `4.8.0-beta`; compound splitting needs a German dictionary and hyphenation file, and without them `rechnung` is not found inside `Stromrechnung`, which the trigram index can do.
+    - Switch if: OCR text is noisy enough that searches miss documents without fuzzy matching, relevance ranking over long texts is visibly poor, or users miss stemming and `ae`/`ä` more than matching inside words.
+    - The engine sits behind one handler and one RPC, so a switch touches the API only. The `document-search` spec's "matches anywhere inside a word" would need rewording. Fisher's hybrid vector search is the other option to weigh at the same time.
+    - Decided in: the exploration before [add-document-title-search](openspec/changes/add-document-title-search/design.md), which chose FTS5 with a trigram index (D1).
 - [ ] **Authentication and authorization.** Until then the user id in the page address stands in for the signed-in user.
 - [ ] **Sharing documents between users.**
 - [ ] **What happens to a deleted user's documents and archives.** They are left orphaned; the workspace shows not-found, so nothing is reachable in the UI.
