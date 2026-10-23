@@ -35,8 +35,6 @@
                     @WorkspaceNavigation
                 </SectionContent>
 
-                <RadzenText TextStyle="TextStyle.H3" data-testid="workspace-heading">@found.User.DisplayName</RadzenText>
-
                 @if (errorKey is not null)
                 {
                     <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="true" Close="@(() => errorKey = null)" data-testid="workspace-error">@ErrorLocalizer[errorKey]</RadzenAlert>

@@ -84,6 +84,7 @@ public static class OfficeRkyvApiExtensions
         builder.Services.AddSingleton<IImageReader, TesseractImageReader>();
         builder.Services.AddSingleton<TextExtractor>();
         builder.Services.AddHostedService<OcrProgramsStartCheck>();
+        builder.Services.AddHostedService<ContentTextIndexer>();
 
         return builder;
     }

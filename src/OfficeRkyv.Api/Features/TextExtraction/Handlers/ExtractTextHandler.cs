@@ -60,6 +60,9 @@ public static class ExtractTextHandler
         if (result.Outcome is TextExtractionOutcome.Extracted)
         {
             await texts.WriteAsync(message.Sha256, result.Pages, stopping.Token);
+
+            // The searchable copy commits with the outcome below, so an outcome is never without it.
+            session.Store(ContentText.From(message.Sha256, result.Pages));
         }
 
         session.Events.StartStream<TextExtraction>(

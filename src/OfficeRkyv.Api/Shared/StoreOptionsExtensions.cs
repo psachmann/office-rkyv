@@ -21,12 +21,16 @@ public static class StoreOptionsExtensions
     }
 
     /// <summary>
-    /// Declares the full-text indexes. A document's title and file name are searched by what is inside a word
-    /// (<c>rechnung</c> in <c>Stromrechnung</c>), which only a trigram index can match. The store keeps the index
-    /// current in the transaction that writes the snapshot, and fills it from the documents that already exist.
+    /// Declares the full-text indexes: one over a document's title and file name, and one over the extracted text
+    /// of a file content. Both are searched by what is inside a word (<c>rechnung</c> in <c>Stromrechnung</c>),
+    /// which only a trigram index can match. The store keeps each index current in the transaction that writes its
+    /// row, and fills it from the rows that already exist.
     /// </summary>
-    public static void AddSearchIndexes(this StoreOptions options) =>
+    public static void AddSearchIndexes(this StoreOptions options)
+    {
         options
             .Schema.For<Document>()
             .FullTextIndex(FullTextTokenizer.Trigram, document => document.Title, document => document.FileName);
+        options.Schema.For<ContentText>().FullTextIndex(FullTextTokenizer.Trigram, text => text.Text);
+    }
 }

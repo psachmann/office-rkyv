@@ -219,6 +219,43 @@ public sealed class ApiTelemetryTests : IAsyncDisposable
     }
 
     [Test]
+    public async Task ExtractedText_ThatIsSearchable_AppearsOnNoSpan_OfTheExtractionOrTheSearch()
+    {
+        const string word = "Zahnarztrechnung";
+        var user = (
+            await Client.CreateUserAsync(new CreateUserRequest { Email = "ada@example.com", DisplayName = "Ada" })
+        ).User;
+        using var asUser = PipelineHost.ChannelFor(address, Guid.Parse(user.Id));
+        var documents = new DocumentsService.DocumentsServiceClient(asUser);
+
+        var document = await TestDocuments.UploadAsync(
+            documents,
+            "scan0001.pdf",
+            TestPdfs.WithPages($"{word} fuer Maerz 2026"),
+            title: "Scan"
+        );
+        await WaitForExtraction(document.Sha256);
+        var extractionSpans = await WaitForExtractionSpans();
+
+        // The word is only in the text of the file, so finding the document proves that the text is in the index.
+        var response = await documents.SearchDocumentsAsync(new SearchDocumentsRequest { Query = "zahnarzt" });
+        var spans = await WaitForServerSpans(3);
+
+        var server = ServerSpanFor(spans, "SearchDocuments");
+        var below = spans.Where(span => IsDescendantOf(spans, span, server)).ToList();
+        var leaked = spans
+            .Concat(extractionSpans)
+            .Distinct()
+            .Where(span => Everything(span).Any(text => text.Contains(word, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        await Assert.That(response.Documents.Select(found => found.Title)).IsEquivalentTo(["Scan"]);
+        await Assert.That(below.Any(span => span.Source.Name == WolverineSource)).IsTrue();
+        await Assert.That(extractionSpans.Count).IsGreaterThan(0);
+        await Assert.That(leaked.Count).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task AQueryString_HasItsValuesRedactedOnTheServerSpan_AndKeepsItsKeys()
     {
         const string searched = "Stromrechnung";

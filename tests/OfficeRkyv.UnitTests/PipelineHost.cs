@@ -71,6 +71,32 @@ public sealed class PipelineHost : IAsyncDisposable
             .InvokeAsync<TextExtraction?>(new FindTextExtractionByHashQuery(sha256));
     }
 
+    /// <summary>The searchable text kept for the content, or null while there is none.</summary>
+    public async Task<ContentText?> FindContentTextAsync(string sha256)
+    {
+        await using var query = Store.QuerySession();
+
+        return await query.LoadAsync<ContentText>(sha256);
+    }
+
+    /// <summary>
+    /// Waits until the host has made the texts that were extracted before it started searchable (the start-up work
+    /// of <c>ContentTextIndexer</c>), which runs in the background after the host has started.
+    /// </summary>
+    public Task WaitForIndexingAsync() =>
+        host.Services.GetServices<IHostedService>().OfType<ContentTextIndexer>().Single().ExecuteTask
+        ?? Task.CompletedTask;
+
+    /// <summary>How many contents have searchable text.</summary>
+    public async Task<int> CountContentTextsAsync()
+    {
+        await using var query = Store.QuerySession();
+
+        return (
+            await query.AdvancedSql.QueryAsync<string>("select id from fi_doc_contenttext", CancellationToken.None)
+        ).Count;
+    }
+
     /// <summary>
     /// Waits until the extraction of the content has been processed, which is when its outcome exists. The
     /// extraction runs in the background after an upload has been answered, so a test that asserts on its result
