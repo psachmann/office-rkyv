@@ -1,0 +1,255 @@
+@using System.Reactive.Linq
+@using System.Reactive.Subjects
+@using Microsoft.AspNetCore.Components.Authorization
+@using OfficeRkyv.UI.Components.Pages.Users
+@using OfficeRkyv.UI.Files
+@implements IAsyncDisposable
+@inject IStringLocalizer<SearchDialog> Localizer
+@inject IStringLocalizer<WorkspaceErrors> ErrorLocalizer
+@inject ArchivesFacade Archives
+@inject DocumentsFacade Documents
+@inject IQueryClient QueryClient
+@inject IFileSaver FileSaver
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ISignInService SignIn
+@inject IJSRuntime JS
+
+@* The search dialog: a field, and under it what the search found. It opens from the header's search button and on
+   Ctrl+K, and it keeps its state to itself - nothing of a search is in the page address. *@
+<div @ref="container">
+    <RadzenStack Gap="1rem">
+        <RadzenTextBox @ref="field" Value="@searchText" @oninput="@OnSearchInput" MaxLength="@SearchTerms.MaxQueryLength"
+                       Placeholder="@Localizer["SearchPlaceholder"]" aria-label="@Localizer["SearchLabel"]" class="rz-w-100" />
+
+        @if (downloadErrorKey is not null)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="true" Close="@(() => downloadErrorKey = null)" data-testid="search-download-error">@ErrorLocalizer[downloadErrorKey]</RadzenAlert>
+        }
+
+        @if (!HasSearchableWord)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" data-testid="search-hint">@Localizer["SearchHint"]</RadzenAlert>
+        }
+        else
+        {
+            <Transition Query="@Documents.SearchDocuments">
+                <Content Context="result">
+                    <Transition Query="@Archives.FindArchives">
+                        <Content Context="archives">
+                            @Results(result, archives)
+                        </Content>
+                        <Loading>
+                            <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                        </Loading>
+                        <Failure>
+                            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" data-testid="search-failed">@Localizer["SearchFailed"]</RadzenAlert>
+                        </Failure>
+                    </Transition>
+                </Content>
+                <Loading>
+                    <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                </Loading>
+                <Failure Context="error">
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="false" data-testid="search-failed">@SearchFailureText(error)</RadzenAlert>
+                </Failure>
+            </Transition>
+        }
+    </RadzenStack>
+</div>
+
+@code {
+    // How long typing has to rest before the search is run: one search per pause, not one per key.
+    private static readonly TimeSpan SearchPause = TimeSpan.FromMilliseconds(300);
+
+    private readonly CompositeDisposable disposables = [];
+    private readonly Subject<string> typed = new();
+    private ElementReference container;
+    private RadzenTextBox field = null!;
+    private IJSObjectReference? module;
+    private Guid userId;
+    private string searchText = "";
+
+    // What the results on show are for: the text once typing has rested. Only a query with a word the server
+    // would match is sent; anything else shows the hint and sends nothing.
+    private string appliedQuery = "";
+
+    private string? downloadErrorKey;
+
+    private bool HasSearchableWord => SearchTerms.From(appliedQuery).Count > 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A user the API does not accept is no longer signed in, as on the workspace page.
+        WatchForSignOut(Documents.SearchDocuments);
+        WatchForSignOut(Archives.FindArchives);
+
+        disposables.Add(typed);
+        disposables.Add(typed.Throttle(SearchPause).Subscribe(text => _ = InvokeAsync(() => ApplySearch(text))));
+
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (SignedInUser.IdOf(state.User) is { } id)
+        {
+            userId = id;
+            Archives.FindArchives.SetArgs(userId);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            await field.Element.FocusAsync();
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/OfficeRkyv.UI/js/search-dialog.js");
+            await module.InvokeVoidAsync("listenForResultKeys", container);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException)
+        {
+            // The dialog was closed before the page got to it (Escape right after opening): its elements are gone,
+            // and an exception here would take the whole circuit down.
+        }
+    }
+
+    private void WatchForSignOut<TArgs, TData>(IQuery<TArgs, TData> query)
+        where TData : class =>
+        disposables.Add(query.Failure.Subscribe(error => _ = InvokeAsync(() => WorkspaceErrors.EndSignInIfRefusedAsync(error, SignIn))));
+
+    private void OnSearchInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? "";
+        typed.OnNext(searchText);
+    }
+
+    private void ApplySearch(string text)
+    {
+        appliedQuery = text.Trim();
+
+        if (HasSearchableWord && userId != Guid.Empty)
+        {
+            Documents.SearchDocuments.SetArgs(new DocumentSearch(userId, appliedQuery));
+        }
+
+        StateHasChanged();
+    }
+
+    // Takes the user to where the document is. DialogService closes its dialogs when the address changes, but a
+    // document in the entry that is already open changes nothing, so the dialog is closed here as well.
+    private void Choose(DocumentDto document)
+    {
+        DialogService.Close();
+        Navigation.NavigateTo(document.HasArchiveId ? WorkspaceAddresses.Archive(document.ArchiveId) : WorkspaceAddresses.Inbox);
+    }
+
+    // The refusal (unknown or deleted document) is thrown by opening the stream, so it is shown in the dialog and
+    // nothing has been handed to the host yet. It is not a failed search, so it has its own place.
+    private async Task Download(DocumentDto document)
+    {
+        downloadErrorKey = null;
+
+        try
+        {
+            await using var content = await Documents.OpenDownloadAsync(document);
+            var saved = await FileSaver.SaveAsync(document.FileName, document.ContentType, content);
+
+            // The host says where the file went when it can: the desktop does, a browser has its own list.
+            if (saved.Location is { } location)
+            {
+                NotificationService.Notify(
+                    new NotificationMessage { Severity = NotificationSeverity.Success, Summary = Localizer["SavedTo", location] }
+                );
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            var errors = WorkspaceErrors.From(exception);
+            downloadErrorKey = errors.General ?? "ActionFailed";
+            _ = WorkspaceErrors.EndSignInIfRefusedAsync(exception, SignIn);
+
+            // The item changed or is gone: what is shown is out of date, so load it again.
+            if (errors.ReloadNeeded)
+            {
+                QueryClient.Invalidate(
+                    WorkspaceKeys.Archives,
+                    WorkspaceKeys.Inbox,
+                    WorkspaceKeys.ArchiveDocuments,
+                    WorkspaceKeys.Search
+                );
+            }
+        }
+    }
+
+    private string LocationName(DocumentDto document, IReadOnlyList<ArchiveDto> archives) =>
+        document.HasArchiveId
+            ? archives.FirstOrDefault(archive => archive.Id == document.ArchiveId)?.Name ?? string.Empty
+            : Localizer["InboxName"].Value;
+
+    // What a refused search says: the text for its own refusal, and the general one otherwise.
+    private string SearchFailureText(Exception error) =>
+        WorkspaceErrors.From(error).Query is { } key ? ErrorLocalizer[key].Value : Localizer["SearchFailed"].Value;
+
+    private RenderFragment Results(DocumentSearchResult result, IReadOnlyList<ArchiveDto> archives) =>
+        @<RadzenStack Gap="0.5rem">
+            @if (result.Documents.Count == 0)
+            {
+                <RadzenCard data-testid="search-no-results">
+                    <RadzenStack Gap="0.5rem" AlignItems="AlignItems.Center" class="rz-p-4">
+                        <RadzenText TextStyle="TextStyle.H6">@Localizer["SearchNoResultsTitle"]</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body2">@Localizer["SearchNoResultsText"]</RadzenText>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+            else
+            {
+                <RadzenStack Gap="0.25rem" role="list" aria-label="@Localizer["ResultsLabel"]">
+                    @foreach (var document in result.Documents)
+                    {
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" role="listitem">
+                            <div class="search-result">
+                                <RadzenButton data-search-result Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                                              Click="@(() => Choose(document))">
+                                    <span class="search-result-text">
+                                        <span class="search-result-title">@document.Title</span>
+                                        <span class="search-result-file">@document.FileName (@FileSize.Format(document.Size))</span>
+                                    </span>
+                                    <span class="search-result-location" data-testid="search-result-location">@LocationName(document, archives)</span>
+                                </RadzenButton>
+                            </div>
+                            <RadzenButton Icon="download" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                          Click="@(() => Download(document))"
+                                          aria-label="@Localizer["DownloadAria", document.Title]" />
+                        </RadzenStack>
+                    }
+                </RadzenStack>
+            }
+
+            @if (result.HasMore)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" AllowClose="false" data-testid="search-more">@Localizer["SearchMore"]</RadzenAlert>
+            }
+        </RadzenStack>;
+
+    public async ValueTask DisposeAsync()
+    {
+        disposables.Dispose();
+
+        if (module is not null)
+        {
+            try
+            {
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit is gone, and the page with it.
+            }
+        }
+    }
+}

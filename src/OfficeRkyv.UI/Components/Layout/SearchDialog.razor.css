@@ -1,0 +1,42 @@
+/* A result is one wide button: title and file name on the left, where the document is on the right. Radzen's button
+   upper-cases and centres its content and has no layout for that. Its root element and inner box do not carry this
+   component's scope attribute, hence ::deep. */
+.search-result {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result ::deep .rz-button {
+  width: 100%;
+  text-transform: none;
+  text-align: start;
+}
+
+.search-result ::deep .rz-button .rz-button-box {
+  width: 100%;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.search-result-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.search-result-title {
+  font-weight: var(--rz-text-subtitle2-font-weight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-file,
+.search-result-location {
+  font-size: var(--rz-text-caption-font-size);
+  color: var(--rz-text-secondary-color);
+}
+
+.search-result-location {
+  flex-shrink: 0;
+}

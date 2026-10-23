@@ -1,0 +1,51 @@
+/* The button is a Radzen component, whose root element and inner box do not carry this component's scope attribute:
+   ::deep. Radzen upper-cases and centres a button's text; here it is a field's placeholder, so neither. The header
+   is coloured, so the icon, text and key-cap take the header's colour (a Radzen button sets its own, and its children inherit it). */
+.header-search-wrap ::deep .header-search {
+  width: 100%;
+  border-color: color-mix(in srgb, var(--rz-header-color) 50%, transparent);
+  text-transform: none;
+}
+
+.header-search-wrap ::deep .header-search .rz-button-box {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.header-search-icon,
+.header-search-text,
+.header-search-key {
+  color: var(--rz-header-color);
+}
+
+.header-search-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.header-search-key {
+  border: 1px solid color-mix(in srgb, var(--rz-header-color) 50%, transparent);
+  border-radius: var(--rz-border-radius);
+  padding: 0 0.375rem;
+  font-family: inherit;
+  font-size: var(--rz-text-caption-font-size);
+  opacity: 0.85;
+}
+
+/* On a narrow window only the icon is left; the button keeps its accessible name. */
+@media (max-width: 40rem) {
+  .header-search-text,
+  .header-search-key {
+    display: none;
+  }
+
+  .header-search-wrap ::deep .header-search {
+    width: auto;
+  }
+}

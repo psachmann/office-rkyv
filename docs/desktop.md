@@ -47,6 +47,10 @@ The desktop hosts the API, so it extracts the text of every uploaded PDF and ima
 - **Evidence for a by-hand check** is in the app's stdout (Development): one Information line at start, `Scanned pages will be read by OCR: tesseract <version>, pdftoppm <version>, languages deu+eng`, or the Warning; then no Warning or Error after an upload. The text is a `<hash>.txt` file beside the blob in `blobs/`.
 - **Quitting during a scan** stops the OCR program at once and leaves the extraction to be finished the next time the app starts.
 
+## The search shortcut
+
+Ctrl+K opens the search dialog in the desktop as it does in the browser (see [ui.md](ui.md#search-a-dialog-from-the-header)); the script and the dialog are the UI library's, so the desktop has no code of its own for it. Whether WebKitGTK delivers the key to the page, and whether the dialog's field gets the focus, cannot be tested without the window, so it is checked by hand: `just desktop`, sign in, press Ctrl+K on the workspace and on the settings page. The page console is forwarded to stdout in Development, and shows `search shortcut registered` once after sign-in and `search shortcut pressed` for each press; no `pressed` line means the key never reached the page.
+
 ## Logging
 
 The desktop host has no generic host for its own startup, so `DesktopHost.Initialize` creates one console logger (category `OfficeRkyv.Desktop`) and hands it to the parts that log. Outside Development it logs warnings and above; in Development it logs information too, which is the evidence a manual check relies on. The messages follow the convention in [observability.md](observability.md#logging).
@@ -58,3 +62,4 @@ The desktop host has no generic host for its own startup, so `DesktopHost.Initia
 - [add-document-file-upload](../openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D12): saving a downloaded file as the host's job, and the fallback.
 - [add-sign-in](../openspec/changes/archive/2026-10-17-add-sign-in/design.md) (D7): the app-wide in-memory sign-in, and the key made at start.
 - [add-document-text-extraction](../openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (D1, D6, D7): the desktop extracts too, the OCR programs as processes, and the app working without them.
+- [add-header-search-dialog](../openspec/changes/archive/2026-10-23-add-header-search-dialog/design.md) (D5): the Ctrl+K shortcut on the desktop, checked by hand.

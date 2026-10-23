@@ -15,10 +15,18 @@
 <CascadingValue Value="@CultureInfo.CurrentUICulture">
     <RadzenLayout>
         <RadzenHeader>
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
-                <RadzenSidebarToggle Click="@(() => IsExpanded = !IsExpanded)" />
-                <RadzenLabel Text="@Localizer["AppTitle"]" />
-            </RadzenStack>
+            <div class="app-header">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+                    <RadzenSidebarToggle Click="@(() => IsExpanded = !IsExpanded)" />
+                    <RadzenLabel Text="@Localizer["AppTitle"]" />
+                </RadzenStack>
+                <AuthorizeView Context="auth">
+                    @if (SignedInUser.IdOf(auth.User) is not null)
+                    {
+                        <HeaderSearch />
+                    }
+                </AuthorizeView>
+            </div>
         </RadzenHeader>
         <RadzenSidebar @bind-Expanded="@IsExpanded">
             <div class="app-sidebar">

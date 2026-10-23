@@ -1,0 +1,90 @@
+@implements IAsyncDisposable
+@inject IStringLocalizer<HeaderSearch> Localizer
+@inject DialogService DialogService
+@inject IJSRuntime JS
+
+@* The header's search: a button that looks like a field and opens the search dialog, which is where the typing
+   happens. The same dialog opens on Ctrl+K / Cmd+K (see search-shortcut.js). Shown while a user is signed in. *@
+<div class="header-search-wrap">
+    <RadzenButton Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base" Click="@OpenAsync" class="header-search"
+                  aria-label="@Localizer["SearchLabel"]" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">
+        <i class="rzi header-search-icon" aria-hidden="true">search</i>
+        <span class="header-search-text">@Localizer["SearchPlaceholder"]</span>
+        <kbd class="header-search-key">@Localizer["ShortcutLabel"]</kbd>
+    </RadzenButton>
+</div>
+
+@code {
+    private IJSObjectReference? module;
+    private DotNetObjectReference<HeaderSearch>? self;
+
+    // The open dialog: the task ends when it closes. There is never more than one.
+    private Task? dialog;
+
+    private bool IsOpen => dialog is { IsCompleted: false };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        self = DotNetObjectReference.Create(this);
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/OfficeRkyv.UI/js/search-shortcut.js");
+        await module.InvokeVoidAsync("register", self);
+    }
+
+    /// <summary>Called by the script when Ctrl+K or Cmd+K was pressed; <paramref name="aDialogIsOpen"/> is any dialog, ours too.</summary>
+    [JSInvokable]
+    public Task OnShortcut(bool aDialogIsOpen) =>
+        InvokeAsync(async () =>
+        {
+            if (IsOpen)
+            {
+                await module!.InvokeVoidAsync("focusSearchField");
+            }
+            else if (!aDialogIsOpen)
+            {
+                await OpenAsync();
+            }
+        });
+
+    private Task OpenAsync()
+    {
+        if (!IsOpen)
+        {
+            dialog = DialogService.OpenAsync<SearchDialog>(
+                Localizer["SearchLabel"],
+                options: new DialogOptions
+                {
+                    Width = "36rem",
+                    Top = "10vh",
+                    CssClass = "search-dialog",
+                    CloseDialogOnEsc = true,
+                    CloseDialogOnOverlayClick = true,
+                }
+            );
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        self?.Dispose();
+
+        if (module is not null)
+        {
+            try
+            {
+                await module.InvokeVoidAsync("unregister");
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit is gone, and the listener with the page.
+            }
+        }
+    }
+}

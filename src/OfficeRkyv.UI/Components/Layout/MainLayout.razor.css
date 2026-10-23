@@ -52,3 +52,24 @@
   margin-top: auto;
   border-top: 1px solid var(--rz-base-300);
 }
+
+/* The header is three parts, so the search sits in the middle of the window and not between its neighbours: the
+   title and toggle on the left, the search in the middle (a signed-out visitor has none, and the middle stays empty),
+   and an empty part on the right that balances the left. ::deep because the search is a component of its own. */
+.app-header {
+  display: grid;
+  grid-template-columns: 1fr minmax(2.5rem, 28rem) 1fr;
+  align-items: center;
+  height: 100%;
+}
+
+.app-header ::deep .header-search-wrap {
+  grid-column: 2;
+}
+
+/* On a narrow window the search is only an icon, so the middle part is as wide as that and not as wide as it could be. */
+@media (max-width: 40rem) {
+  .app-header {
+    grid-template-columns: 1fr auto;
+  }
+}

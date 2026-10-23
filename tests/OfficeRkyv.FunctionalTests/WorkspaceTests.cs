@@ -319,163 +319,16 @@ public class WorkspaceTests(AppHostFixture fixture) : PageTest
         await Expect(Workspace.DeleteArchiveButton("Taxes")).ToHaveCountAsync(0);
     }
 
-    // ---- search ----
-
-    // Invoice March and Lease in the inbox, Invoice April in the archive Taxes 2026.
-    private async Task OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync(string user)
+    [Test]
+    public async Task AnOldSearchAddress_OpensTheWorkspaceWithTheInboxSelected()
     {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"{user} {Guid.NewGuid():n}");
-        await Workspace.CreateArchiveAsync("Taxes 2026");
-        await Workspace.CreateDocumentAsync("Invoice April");
-        await Workspace.FileDocumentIntoAsync("Invoice April", "Taxes 2026");
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeHiddenAsync();
+        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Judith {Guid.NewGuid():n}");
         await Workspace.CreateDocumentAsync("Invoice March");
-        await Workspace.CreateDocumentAsync("Lease");
-        await Expect(Workspace.InboxCount).ToHaveTextAsync("2");
-    }
 
-    [Test]
-    public async Task Searching_FindsDocumentsInTheInboxAndInArchives_AndSaysWhereEachIs()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Judith");
-
-        await Workspace.SearchAsync("invoice");
-
-        await Expect(Workspace.DocumentRow("Invoice March")).ToBeVisibleAsync();
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
-        await Expect(Workspace.DocumentRow("Lease")).ToBeHiddenAsync();
-        await Expect(Workspace.DocumentLocation("Invoice March")).ToHaveTextAsync("Inbox");
-        await Expect(Workspace.DocumentLocation("Invoice April")).ToHaveTextAsync("Taxes 2026");
-        await Expect(Workspace.SearchHeading).ToBeVisibleAsync();
-    }
-
-    [Test]
-    public async Task Searching_WhileAnArchiveIsSelected_StillFindsTheInbox()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Kai");
-        await Workspace.ArchiveEntry("Taxes 2026").ClickAsync();
-        await Expect(Workspace.Selection).ToHaveTextAsync("Taxes 2026");
-
-        await Workspace.SearchAsync("lease");
-
-        await Expect(Workspace.DocumentRow("Lease")).ToBeVisibleAsync();
-    }
-
-    [Test]
-    public async Task AWordThatMatchesNothing_ShowsTheNoResultsMessage_NotTheEmptyInbox()
-    {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Lena {Guid.NewGuid():n}");
-
-        await Workspace.SearchAsync("garden");
-
-        await Expect(Workspace.SearchNoResults).ToBeVisibleAsync();
-        await Expect(Workspace.EmptyState).ToBeHiddenAsync();
-    }
-
-    [Test]
-    public async Task AQueryOfTwoCharacters_ShowsTheHint_AndNoResults()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Mira");
-
-        await Workspace.SearchAsync("in");
-
-        await Expect(Workspace.SearchHint).ToBeVisibleAsync();
-        await Expect(Workspace.DocumentRow("Invoice March")).ToBeHiddenAsync();
-        await Expect(Workspace.SearchNoResults).ToBeHiddenAsync();
-    }
-
-    [Test]
-    public async Task ClearingTheSearch_ShowsTheSelectedListAgain()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Nora");
-        await Workspace.SearchAsync("invoice");
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
-
-        await Workspace.SearchAsync("");
+        // The search is a dialog now and keeps nothing in the address, so a leftover q is not read.
+        await Page.GotoAsync($"{BaseAddress}workspace?q=lease");
 
         await Expect(Workspace.Selection).ToHaveTextAsync("Inbox");
         await Expect(Workspace.DocumentRow("Invoice March")).ToBeVisibleAsync();
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeHiddenAsync();
-    }
-
-    [Test]
-    public async Task SelectingAnEntry_ClearsTheSearch()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Otto");
-        await Workspace.SearchAsync("invoice");
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
-
-        await Workspace.ArchiveEntry("Taxes 2026").ClickAsync();
-
-        await Expect(Workspace.SearchField).ToHaveValueAsync("");
-        await Expect(Workspace.Selection).ToHaveTextAsync("Taxes 2026");
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
-    }
-
-    [Test]
-    public async Task DeletingAResult_RemovesItFromTheResults_WithoutAReload()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Pia");
-        await Workspace.SearchAsync("invoice");
-        // Invoice April is in an archive, so it is only listed once the search has run.
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
-
-        await Workspace.DeleteDocumentAsync("Invoice March");
-
-        await Expect(Workspace.DocumentRow("Invoice March")).ToBeHiddenAsync();
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
-    }
-
-    [Test]
-    public async Task TheSearch_IsKeptInTheAddress_SoAReloadAndAnOpenedAddressKeepIt()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Quinn");
-        var workspaceAddress = Page.Url;
-
-        await Workspace.SearchAsync("invoice");
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
-        await Expect(Page).ToHaveURLAsync(new Regex("[?&]q=invoice$"));
-
-        await Page.ReloadAsync();
-        await Expect(Workspace.SearchField).ToHaveValueAsync("invoice");
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
-
-        await Page.GotoAsync($"{workspaceAddress}?q=lease");
-        await Expect(Workspace.SearchField).ToHaveValueAsync("lease");
-        await Expect(Workspace.DocumentRow("Lease")).ToBeVisibleAsync();
-    }
-
-    [Test]
-    public async Task GoingBack_LeavesTheSearch_NotOneCharacterOfIt()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Rosa");
-
-        // The first query adds a history entry, the change after it replaces that entry.
-        await Workspace.SearchAsync("invoice");
-        await Expect(Page).ToHaveURLAsync(new Regex("[?&]q=invoice$"));
-        await Workspace.SearchAsync("invoice march");
-        await Expect(Page).ToHaveURLAsync(new Regex("[?&]q=invoice(%20|\\+)march$"));
-
-        await Page.GoBackAsync();
-
-        await Expect(Workspace.SearchField).ToHaveValueAsync("");
-        await Expect(Workspace.Selection).ToHaveTextAsync("Inbox");
-    }
-
-    [Test]
-    public async Task Typing_ThatANavigationInterrupts_IsNotAppliedToThePageThatWasOpened()
-    {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Sven");
-
-        // The click comes before the search has been applied, so the typing belongs to the page that was left.
-        await Workspace.SearchAsync("invoice");
-        await Workspace.ArchiveEntry("Taxes 2026").ClickAsync();
-        await Expect(Workspace.Selection).ToHaveTextAsync("Taxes 2026");
-
-        // Longer than the page waits after typing: what must not happen is a search that arrives late.
-        await Task.Delay(TimeSpan.FromSeconds(1));
-        await Expect(Page).Not.ToHaveURLAsync(new Regex("[?&]q="));
-        await Expect(Workspace.SearchField).ToHaveValueAsync("");
-        await Expect(Workspace.Selection).ToHaveTextAsync("Taxes 2026");
     }
 }

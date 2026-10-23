@@ -154,28 +154,4 @@
   <data name="SavedTo" xml:space="preserve">
     <value>Gespeichert unter {0}</value>
   </data>
-  <data name="SearchLabel" xml:space="preserve">
-    <value>Dokumente durchsuchen</value>
-  </data>
-  <data name="SearchPlaceholder" xml:space="preserve">
-    <value>Nach Titel oder Dateiname suchen...</value>
-  </data>
-  <data name="SearchResults" xml:space="preserve">
-    <value>Suchergebnisse</value>
-  </data>
-  <data name="SearchHint" xml:space="preserve">
-    <value>Gib mindestens 3 Zeichen ein, um zu suchen.</value>
-  </data>
-  <data name="SearchNoResultsTitle" xml:space="preserve">
-    <value>Keine Dokumente gefunden</value>
-  </data>
-  <data name="SearchNoResultsText" xml:space="preserve">
-    <value>Versuche andere Wörter oder prüfe die Schreibweise.</value>
-  </data>
-  <data name="SearchMore" xml:space="preserve">
-    <value>Es gibt weitere Treffer. Verfeinere deine Suche, um sie zu sehen.</value>
-  </data>
-  <data name="ColumnLocation" xml:space="preserve">
-    <value>Ablageort</value>
-  </data>
 </root>

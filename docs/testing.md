@@ -72,7 +72,8 @@ In practice the page objects (`WorkspacePage`, `SettingsPage`) find an element t
 - **Assert with Playwright's `Expect`**, which waits, for anything on the page; TUnit assertions for everything else.
 - **Files are set on the upload dialog's input** (`WorkspacePage.UploadAsync`, from byte arrays), and a download is the Playwright download event (`WorkspacePage.DownloadAsync`): compare its suggested name and the bytes it saved with the originals.
 - **A document row is found by its exact title cell** (`DocumentRow`), because the row also shows the file name, which a rename does not change.
-- **A search is debounced, so wait for something only the results show.** The page runs the search once typing has rested and puts it in the address. A document that the plain inbox shows too proves nothing; wait for one that is in an archive, or for the address (`?q=`), before acting on the results.
+- **A search is debounced, so wait for something only the results show.** `SearchTests` drives the header and the search dialog through `SearchDialogPage`. The dialog runs the search once typing has rested, and a document that the inbox shows too proves nothing; wait for one that is in an archive before acting on the results.
+- **The page is not interactive until its circuit connects, so a click or a key before that does nothing.** `SearchDialogPage.OpenWithTheControlAsync` and `OpenWithTheShortcutAsync` repeat the action until the dialog is there (and look first whether it already is: a click would hit the dialog's overlay). A negative check, such as the shortcut opening nothing, first opens and closes the dialog once so the shortcut is known to be registered, then waits a second for what must not happen.
 
 ## By hand: the desktop
 
