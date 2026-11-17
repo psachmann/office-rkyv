@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="DotNetQuery.Extensions.DependencyInjection" />
+    <PackageReference Include="Fetchling.Extensions.DependencyInjection" />
     <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="TUnit" />

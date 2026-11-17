@@ -36,7 +36,7 @@ As the project files have it:
 The rules behind the table:
 
 - **`UI` never references `Api`.** It talks to the API only through the generated gRPC clients from `Contracts`, in both hosts, including the desktop where the API is in the same process.
-- **`UI` never references a host.** What differs per host reaches it through an interface the host implements (`IUserSettingsService`, `ISignInService`) or a registration the host makes (DotNetQuery options, client addresses, the `AuthenticationStateProvider`).
+- **`UI` never references a host.** What differs per host reaches it through an interface the host implements (`IUserSettingsService`, `ISignInService`) or a registration the host makes (Fetchling options, client addresses, the `AuthenticationStateProvider`).
 - **`Web` does not reference `Api`.** The web host is a separate process and finds the API by service discovery.
 - **`Contracts` holds only what crosses the wire.** Domain types stay in `Api`.
 
@@ -44,7 +44,7 @@ The rules behind the table:
 
 ```
 page or dialog (UI)
-  -> DotNetQuery query or mutation
+  -> Fetchling query or mutation
   -> facade (UI/Shared)
   -> generated gRPC client (Contracts)   adds the caller token of the signed-in user
         ~~ network (web) or unix socket (desktop) ~~
@@ -73,11 +73,11 @@ A failure anywhere below the service becomes a gRPC status with a stable code in
 
 The API server (`src/OfficeRkyv.Api/Program.cs`), the desktop (`DesktopApi`) and the pipeline tests (`PipelineHost`) all call these, so they run the same pipeline. A host adds only what is its own around them: service defaults and telemetry, ports or a socket, where the data lives (the database file and the blob directory), and the key of the caller tokens. Register a new feature inside these two methods, never in a host.
 
-The API server adds one thing of its own beyond service defaults and telemetry: the development seed (`AddDevelopmentSeedData()` in `src/OfficeRkyv.Api/Program.cs`). In the Development environment it creates a demo user (`demo@example.com`) with an empty archive and three inbox documents, each from a sample PDF in `src/OfficeRkyv.Api/Data`, through the same ingest the upload uses and once per database: when the demo user exists it adds nothing. It is deliberately not part of the shared calls, so the desktop app, which is also started in Development by `just desktop` but keeps the user's real data, and the pipeline tests never seed. `Seed__DemoData=false` switches it off, and outside Development it never runs, whatever the setting says.
+The API server adds one thing of its own beyond service defaults and telemetry: the development seed (`AddDevelopmentSeedData()` in `src/OfficeRkyv.Api/Program.cs`). In the Development environment it creates a demo user (`demo@example.com`) with an empty archive and three inbox documents, each from a sample PDF in `src/OfficeRkyv.Api/Data`, through the same ingest the upload uses and once per database: when the demo user exists it adds nothing. It is deliberately not part of the shared calls, so the desktop app, which is also started in Development by `mise run desktop` but keeps the user's real data, and the pipeline tests never seed. `Seed__DemoData=false` switches it off, and outside Development it never runs, whatever the setting says.
 
 ## Programs the API runs
 
-Reading the text of a scan needs two programs on `PATH`, run as separate processes: `pdftoppm` (poppler) renders a page of a PDF to an image, and `tesseract` reads an image (German and English by default). They are optional. Without them the app starts and works as before: a PDF page that has a text layer is still extracted, and a page that needs OCR is counted as not read in the extraction's outcome. The API says which it found, once, in its log at start. `nix develop` and `nix develop .#desktop` provide both; a user who runs the desktop app outside the dev shell installs them with their system's package manager. Shipping them with a packaged app is later work (`TODOS.md`). The rules for running them are in [api.md](api.md#running-an-external-program).
+Reading the text of a scan needs two programs on `PATH`, run as separate processes: `pdftoppm` (poppler) renders a page of a PDF to an image, and `tesseract` reads an image (German and English by default). They are optional. Without them the app starts and works as before: a PDF page that has a text layer is still extracted, and a page that needs OCR is counted as not read in the extraction's outcome. The API says which it found, once, in its log at start. Install both with the system's package manager (see [Tooling](#tooling)). Shipping them with a packaged app is later work (`TODOS.md`). The rules for running them are in [api.md](api.md#running-an-external-program).
 
 ## Two hosts
 
@@ -100,9 +100,9 @@ The web host stays the harness for development and for the functional tests. The
 
 ## Tooling
 
-- **Dev shell:** everything runs inside the Nix dev shell (`nix develop`, or direnv through `.envrc`). It provides the .NET 10 SDK, `just`, the protobuf tools, the OpenSpec CLI, and the two programs that read scans: `tesseract` (German and English language data only) and poppler's `pdftoppm`. A second shell, `.#desktop`, adds the GTK libraries that only running the desktop app needs.
-- **Recipes:** `just` lists them. `just setup` once, `just dev` for the web app through the AppHost, `just desktop`, `just build`, `just test`, `just format`.
-- **Formatting:** CSharpier, through `just format`. The pre-commit hook formats the staged files.
+- **Tools:** `mise install` provides the .NET 10 SDK (pinned in `mise.toml`). Everything else comes from the system's package manager. The two programs that read scans are `tesseract` (German and English language data) and poppler's `pdftoppm`; on Fedora: `dnf install tesseract tesseract-langpack-deu tesseract-langpack-eng poppler-utils`. Only running the desktop app needs GTK4 and WebKitGTK (`dnf install gtk4 webkitgtk6.0`). The OpenSpec CLI is installed on its own (`openspec`).
+- **Tasks:** `mise tasks` lists them (they live in `mise.toml`, which also pins the .NET SDK). `mise run setup` once, `mise run dev` for the web app through the AppHost, `mise run desktop`, `mise run build`, `mise run test`, `mise run format`.
+- **Formatting:** CSharpier, through `mise run format`. The pre-commit hook formats the staged files.
 - **Pre-push:** `dotnet test --configuration Release`. Release treats warnings as errors (`Directory.Build.props`), so an analyzer warning fails the push.
 - **Build settings:** `Directory.Build.props` sets the target framework, nullable reference types and the .NET analyzers for every project. `.editorconfig` holds the style and the analyzer severities.
 - **Package versions:** central, in `Directory.Packages.props`. A project file names a package without a version.

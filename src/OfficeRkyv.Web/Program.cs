@@ -1,7 +1,7 @@
 using System.Text;
-using DotNetQuery.Core;
-using DotNetQuery.Core.Observability;
-using DotNetQuery.Extensions.DependencyInjection;
+using Fetchling.Core;
+using Fetchling.Core.Observability;
+using Fetchling.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Localization;
 using OfficeRkyv.Contracts;
@@ -27,7 +27,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddOfficeRkyvUi();
-builder.Services.AddDotNetQuery(options =>
+builder.Services.AddFetchling(options =>
 {
     options.ExecutionMode = QueryExecutionMode.Ssr;
     options.StaleTime = TimeSpan.Zero; // data is immediately stale
@@ -35,7 +35,7 @@ builder.Services.AddDotNetQuery(options =>
     options.RefetchInterval = TimeSpan.FromSeconds(30); // automatically refetch every 30 seconds
 });
 
-// DotNetQuery uses one name for both its ActivitySource and its Meter (see the observability spec).
+// Fetchling uses one name for both its ActivitySource and its Meter (see the observability spec).
 builder.Services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddSource(QueryTelemetry.SourceName));
 builder.Services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddMeter(QueryTelemetry.SourceName));
 

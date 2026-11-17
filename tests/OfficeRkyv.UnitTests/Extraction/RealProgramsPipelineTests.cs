@@ -8,7 +8,7 @@ namespace OfficeRkyv.UnitTests.Extraction;
 /// The one test that runs the real OCR programs, for the wiring that the fakes cannot show: the argument lists,
 /// the files the programs read and write, and their output. It builds its scan itself: a PDF with a text page is
 /// rendered by <c>pdftoppm</c>, and the picture is the only content of a second PDF, which has no text layer. It
-/// is skipped when either program is not on <c>PATH</c>; the dev shell has both.
+/// is skipped when either program is not on <c>PATH</c>; docs/architecture.md (Tooling) says how to install both.
 /// </summary>
 public sealed class RealProgramsPipelineTests
 {
@@ -17,7 +17,7 @@ public sealed class RealProgramsPipelineTests
     {
         if (OnPath("tesseract") is null || OnPath("pdftoppm") is null)
         {
-            Skip.Test("tesseract and pdftoppm are not both on PATH; the dev shell (nix develop) provides them.");
+            Skip.Test("tesseract and pdftoppm are not both on PATH; docs/architecture.md (Tooling) says how to install them.");
         }
 
         var scan = await ScanOfAsync(TestPdfs.WithPages(TestPdfs.InvoiceText));

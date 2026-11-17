@@ -3,8 +3,8 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="DotNetQuery.Core" />
-    <PackageReference Include="DotNetQuery.Extensions.DependencyInjection" />
+    <PackageReference Include="Fetchling.Core" />
+    <PackageReference Include="Fetchling.Extensions.DependencyInjection" />
     <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="Radzen.Blazor" />
     <PackageReference Include="WolverineFx.Grpc" />

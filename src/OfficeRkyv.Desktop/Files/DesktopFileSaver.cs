@@ -10,7 +10,7 @@ namespace OfficeRkyv.Desktop.Files;
 /// </summary>
 internal sealed partial class DesktopFileSaver(ILogger logger) : IFileSaver
 {
-    // The schema GTK's own file dialog reads. The `desktop` dev shell puts it on XDG_DATA_DIRS (see flake.nix).
+    // The schema GTK's own file dialog reads. A distribution installs it with GTK; without it GLib aborts (docs/desktop.md).
     private const string FileChooserSchema = "org.gtk.gtk4.Settings.FileChooser";
 
     public async Task<FileSaveResult> SaveAsync(

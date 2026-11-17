@@ -6,8 +6,8 @@ context: |
   Product: office-rkyv, paperless office software to store and search any kind of document.
 
   Stack: .NET 10, C#. API: ASP.NET Core gRPC, Wolverine (message handling), Fisher (event store
-  on SQLite), FluentValidation, Mapperly. UI: Blazor with Radzen components, DotNetQuery for data.
-  Tests: TUnit, Playwright, Aspire. Nix dev shell, `just` recipes, CSharpier, conventional commits.
+  on SQLite), FluentValidation, Mapperly. UI: Blazor with Radzen components, Fetchling for data.
+  Tests: TUnit, Playwright, Aspire. `mise` tasks, CSharpier, conventional commits.
 
   Projects (src/):
   - Contracts: the .proto files and the error codes, shared by API and UI.
@@ -20,7 +20,7 @@ context: |
   - ServiceDefaults: OpenTelemetry, health checks, service discovery.
   - AppHost: Aspire orchestration for development and the functional tests.
 
-  One request: page -> DotNetQuery query or mutation -> facade -> gRPC client -> <Feature>ServiceImpl
+  One request: page -> Fetchling query or mutation -> facade -> gRPC client -> <Feature>ServiceImpl
   -> Wolverine -> handler -> Fisher session -> SQLite. Failures become gRPC statuses with a stable
   error code in one place; the UI maps the code to localized text.
 

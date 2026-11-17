@@ -9,7 +9,7 @@ public static class OfficeRkyvUiExtensions
     /// <summary>
     /// What the shared UI needs from its host's container: Radzen, localization from the library's resources,
     /// authorization of pages and the signed-in user as a cascaded value, and the facades. The host adds the
-    /// rest: DotNetQuery (its options differ per host), the gRPC clients (their addresses differ, and each gets
+    /// rest: Fetchling (its options differ per host), the gRPC clients (their addresses differ, and each gets
     /// <see cref="Auth.CallerTokenCredentials"/>), the user settings, and who is signed in
     /// (an <c>AuthenticationStateProvider</c> and an <see cref="Auth.ISignInService"/>).
     /// </summary>

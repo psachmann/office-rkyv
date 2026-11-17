@@ -18,7 +18,7 @@ office-rkyv is paperless office software: a gRPC API on an event store, and one 
 - **No hardcoded user-facing text.** It comes from `.resx` resources through `IStringLocalizer<T>` ([docs/ui.md](docs/ui.md#localization)).
 - **Log only through `[LoggerMessage]` methods**, never `logger.LogXxx(...)` directly ([docs/observability.md](docs/observability.md#logging)).
 - **Don't remove a desktop workaround** without re-checking it on a real desktop ([docs/desktop.md](docs/desktop.md#workarounds-for-the-experimental-backend)).
-- **Run things through `just`** inside the Nix dev shell: `just build`, `just test`, `just format`, `just dev`, `just desktop`.
+- **Run things through `mise`**: `mise run build`, `mise run test`, `mise run format`, `mise run dev`, `mise run desktop` (`mise tasks` lists them).
 - **Conventional commits.**
 
 ## Keeping the docs true

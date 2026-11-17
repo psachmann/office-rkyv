@@ -1,8 +1,8 @@
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
-using DotNetQuery.Core;
-using DotNetQuery.Extensions.DependencyInjection;
+using Fetchling.Core;
+using Fetchling.Extensions.DependencyInjection;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -27,7 +27,7 @@ public sealed class WorkspaceFacadeTests
 
     private ServiceProvider CreateServices() =>
         new ServiceCollection()
-            .AddDotNetQuery()
+            .AddFetchling()
             .AddSingleton<ArchivesService.ArchivesServiceClient>(archives)
             .AddSingleton<DocumentsService.DocumentsServiceClient>(documents)
             .AddSingleton<UsersService.UsersServiceClient>(users)

@@ -10,9 +10,9 @@
     <Using Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="DotNetQuery.Blazor" />
-    <PackageReference Include="DotNetQuery.Blazor.DevTools" />
-    <PackageReference Include="DotNetQuery.Core" />
+    <PackageReference Include="Fetchling.Blazor" />
+    <PackageReference Include="Fetchling.Blazor.DevTools" />
+    <PackageReference Include="Fetchling.Core" />
     <PackageReference Include="Grpc.Net.ClientFactory" />
     <PackageReference Include="Grpc.StatusProto" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />

@@ -44,7 +44,7 @@ The same holds for the pipeline and UI-logic levels, which live in the same proj
 - **The searchable text is read and awaited through the host.** `FindContentTextAsync(sha256)` and `CountContentTextsAsync()` read the `ContentText` rows; there is no wait for them, since a row is written in the transaction of the extraction's outcome, so `WaitForExtractionAsync` is enough. `WaitForIndexingAsync()` waits for the start-up work of `ContentTextIndexer`, which runs in the background after a host has started. A test of texts extracted before the search existed stops a host with `StopKeepingDataAsync()`, deletes the rows through a `DocumentStore.For(...)` configured with `AddAggregateSnapshots` and `AddSearchIndexes`, and starts another on the file (`ContentTextIndexerPipelineTests`). A PDF's text layer built with PdfPig's standard fonts holds ASCII only: a test that needs an umlaut in a text makes the file an image and prepares the text in `FakeOcr.TextOfPage`.
 - **PDFs are built in the test, not checked in.** `TestPdfs.WithPages("text", "")` makes a PDF with PdfPig's document builder, a page with a text layer for each text and a blank page for each empty one (`WithoutText(n)`, `ScanOf(image)` for a picture as the only content); `Truncated`, `Zip`, `Png`, `Jpeg` and `Tiff` make the other kinds of content. A page's text layer needs at least 20 letters or digits to be used, so `TestPdfs.InvoiceText` has 23.
 - **A host can be started again on the data of an earlier one.** `StopKeepingDataAsync()` stops a host and keeps its database and blob directory; `StartAsync(databasePath: first.DatabasePath)` starts another on them (`RestartPipelineTests`: an extraction that was running when the first host stopped is finished by the second). Disposing a host still deletes the data. A host waits for a running handler on the way down, so a fake that holds a read must end it when the host stops, as `FakeOcr` does.
-- **One test runs the real programs.** `RealProgramsPipelineTests` builds a PDF with a text page, renders it with `pdftoppm`, puts the picture alone into a second PDF, uploads that without a fake, and checks that the extracted text has the words. It calls `Skip.Test` when either program is not on `PATH`, so a machine without them reports it skipped and not failed; in the dev shell it runs, and so it does in the pre-push hook.
+- **One test runs the real programs.** `RealProgramsPipelineTests` builds a PDF with a text page, renders it with `pdftoppm`, puts the picture alone into a second PDF, uploads that without a fake, and checks that the extracted text has the words. It calls `Skip.Test` when either program is not on `PATH`, so a machine without them reports it skipped and not failed; with both installed it runs, and so it does in the pre-push hook.
 - **A program is run through `IProgramRunner`, and its unit tests use a fake:** `FakeProgramRunner` records the calls and answers with a prepared `ProgramResult`, so the argument lists and the mapping of a failed, timed-out or missing program to an unread page (`OcrProgramTests`) and the start check (`OcrProgramsStartCheckTests`) need no process. `ProgramRunnerTests` runs `sh`, `printf`, `cat` and `sleep` for the runner itself.
 - **A streaming refusal is read like a unary one:** wrap the whole call in `GrpcFailure.Of`, because a server that refuses mid-upload makes the next write fail and the call's status is what explains it.
 - Use `InvokeAndSettleAsync` when the command cascades (an archive deletion returning its documents), so the test asserts on the settled state and not on a race.
@@ -52,7 +52,7 @@ The same holds for the pipeline and UI-logic levels, which live in the same proj
 
 ## UI-logic tests
 
-- Build a small service provider with `AddDotNetQuery()`, the facades, and fake gRPC clients that derive from the generated client classes.
+- Build a small service provider with `AddFetchling()`, the facades, and fake gRPC clients that derive from the generated client classes.
 - To see the clients as the web host registers them, register the real client with `CallerTokenCredentials.AddTo` and a fake `AuthenticationStateProvider` per scope (`CallerTokenCredentialsTests`, `WorkspaceErrorsOverTheWireTests`): the scope is the circuit, and whoever the fake says is signed in is who the token is for.
 - A query only refetches while something is subscribed, as a rendered page is. A test that counts fetches holds a subscription open.
 
@@ -78,13 +78,13 @@ In practice the page objects (`WorkspacePage`, `SettingsPage`) find an element t
 
 ## By hand: the desktop
 
-Playwright cannot drive WebKitGTK, so nothing automated opens the desktop window. A task that changes desktop behaviour says what to do in the app and what to observe in its stdout. `just desktop` runs it in Development, which logs the host's lifecycle and the page's console to the terminal. The sign-in's logic is unit-tested (`DesktopSignInTests`, `DesktopApiTests`); that the window shows the landing page, the workspace and the two log lines (`Signed in as user …`, `Signed out`) is observed by hand.
+Playwright cannot drive WebKitGTK, so nothing automated opens the desktop window. A task that changes desktop behaviour says what to do in the app and what to observe in its stdout. `mise run desktop` runs it in Development, which logs the host's lifecycle and the page's console to the terminal. The sign-in's logic is unit-tested (`DesktopSignInTests`, `DesktopApiTests`); that the window shows the landing page, the workspace and the two log lines (`Signed in as user …`, `Signed out`) is observed by hand.
 
 ## Running
 
-- `just test` runs both projects (Debug). `just test Release` is what the pre-push hook runs, with warnings as errors.
+- `mise run test` runs both projects (Debug). `mise run test Release` is what the pre-push hook runs, with warnings as errors.
 - `dotnet test --project tests/OfficeRkyv.UnitTests` runs the three fast levels only.
-- The functional tests need Playwright's browsers once: `just setup`.
+- The functional tests need Playwright's browsers once: `mise run setup`.
 
 ## Known flakiness
 

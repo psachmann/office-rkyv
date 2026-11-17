@@ -94,12 +94,12 @@ See [desktop.md](desktop.md#signing-in): the same two interfaces, implemented in
 
 ## Data: one facade per gRPC service
 
-A page never calls a gRPC client. It injects a facade from `src/OfficeRkyv.UI/Shared` (`UsersFacade`, `ArchivesFacade`, `DocumentsFacade`), which wraps the service's client in DotNetQuery queries and mutations.
+A page never calls a gRPC client. It injects a facade from `src/OfficeRkyv.UI/Shared` (`UsersFacade`, `ArchivesFacade`, `DocumentsFacade`), which wraps the service's client in Fetchling queries and mutations.
 
 - **Queries are shared.** A facade exposes each query as a property and is registered scoped, so there is one per circuit (web) or per window (desktop), and every component showing the same key shares one cache entry.
 - **Requests carry no owner.** The API acts for the caller (see [Signing in](#signing-in)). The workspace queries are still asked with the signed-in user's id, but only to key the cache, so that a desktop sign-out and sign-in as another user never serves the first user's lists.
 - **Mutations are not shared.** A `Create…Mutation()` method returns a fresh instance that the calling component owns and disposes, so its state reports only what that component started.
-- **Pages render a query through `Transition`** (from DotNetQuery.Blazor), which gives the loading, failure and success branches. A part of the page with its own query shows its own loading and failure state; an empty-list text is never shown for a list that did not load.
+- **Pages render a query through `Transition`** (from Fetchling.Blazor), which gives the loading, failure and success branches. A part of the page with its own query shows its own loading and failure state; an empty-list text is never shown for a list that did not load.
 - **A mutation refreshes by kind, not by key.** Workspace queries are keyed `[kind, id]` through `WorkspaceKeys` (`ForArchives`, `ForInbox`, `ForArchiveDocuments`, and `ForSearch` for `[search, ownerId, query]`), and a mutation's `OnSuccess` calls `queryClient.Invalidate(WorkspaceKeys.Inbox, …)`, which marks every query of those kinds stale. `MutationOptions.InvalidateKeys` matches whole keys only, so it is used only where the key has one part (`UsersFacade`). Every document mutation refreshes the search kind too, since a change moves or renames what a search finds.
 - **Results that settle later get a second refresh.** Deleting an archive returns its documents to the inbox after the call has answered (see [api.md](api.md)), so `ArchivesFacade` invalidates the inbox and the search again after `CascadeSettleDelay`.
 
@@ -119,12 +119,12 @@ Search is reached from the header on every page, not from the workspace. `Header
 
 A document is a file, so two operations on the facade are not queries or mutations.
 
-- **`DocumentsFacade.UploadAsync`** streams one file to the API (a header, then 64 KB chunks) and reports the bytes sent through a callback. It is a method and not a DotNetQuery mutation because a mutation has no progress to report. It invalidates the inbox and archive-content queries when a document was created, and throws a refusal exactly as the typed client throws every refusal, so `WorkspaceErrors` explains it. The upload dialog (`UploadDocumentsDialog`) calls it once per file, one file after another, and shows each file's own state; a refused file does not stop the next.
+- **`DocumentsFacade.UploadAsync`** streams one file to the API (a header, then 64 KB chunks) and reports the bytes sent through a callback. It is a method and not a Fetchling mutation because a mutation has no progress to report. It invalidates the inbox and archive-content queries when a document was created, and throws a refusal exactly as the typed client throws every refusal, so `WorkspaceErrors` explains it. The upload dialog (`UploadDocumentsDialog`) calls it once per file, one file after another, and shows each file's own state; a refused file does not stop the next.
 - **`DocumentsFacade.OpenDownloadAsync`** returns the document's file as a forward-only `Stream`. The first message is read when it is opened, so a refusal (unknown or deleted document) is thrown there and not while saving.
 - **Saving is the host's job: `IFileSaver`** (`OfficeRkyv.UI.Files`) takes a file name, a content type and a stream. The web host (`WebFileSaver`) hands the stream to the browser as a download; the desktop (`DesktopFileSaver`) writes it where the user chooses. It returns where the file went when the host can say, and the page shows that in a notification. A cancelled save writes nothing and throws nothing. Register an implementation in every host, as for `IUserSettingsService`.
 - **A size limit is refused before sending.** `FileLimits` in `OfficeRkyv.Contracts` carries the default limit and the chunk size, so the dialog can say no quickly. The server's configured limit stays the authority.
 
-What the UI library registers itself is in `AddOfficeRkyvUi` (Radzen, localization, authorization, the facades). The host adds what differs per host: DotNetQuery and its options, the gRPC clients and their addresses (each through `CallerTokenCredentials`), its `IUserSettingsService`, and who is signed in (an `AuthenticationStateProvider` and an `ISignInService`).
+What the UI library registers itself is in `AddOfficeRkyvUi` (Radzen, localization, authorization, the facades). The host adds what differs per host: Fetchling and its options, the gRPC clients and their addresses (each through `CallerTokenCredentials`), its `IUserSettingsService`, and who is signed in (an `AuthenticationStateProvider` and an `ISignInService`).
 
 ## Failures become localized messages
 
@@ -149,7 +149,7 @@ Give a `data-testid` only to an element that has no name of its own, such as a n
 ## Decided in
 
 - [add-ui-localization](../openspec/changes/archive/2026-09-22-add-ui-localization/design.md): resources per component, culture resolution, the reload on language change.
-- [landing-page-user-management](../openspec/changes/archive/2026-09-24-landing-page-user-management/design.md) (D4): DotNetQuery queries and mutations rendered through `Transition`.
+- [landing-page-user-management](../openspec/changes/archive/2026-09-24-landing-page-user-management/design.md) (D4): Fetchling queries and mutations rendered through `Transition`.
 - [structured-error-codes](../openspec/changes/archive/2026-09-28-structured-error-codes/design.md) (D6): typed gRPC clients, messages chosen from codes.
 - [add-archives-and-inbox](../openspec/changes/archive/2026-09-29-add-archives-and-inbox/design.md) (D8): one facade per service, invalidation by kind.
 - [add-settings-page](../openspec/changes/archive/2026-09-29-add-settings-page/design.md): the appearance choice and the two linked themes.

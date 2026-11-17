@@ -1,2 +1,2 @@
 global using System.Reactive;
-global using DotNetQuery.Core;
+global using Fetchling.Core;

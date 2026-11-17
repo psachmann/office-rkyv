@@ -4,10 +4,10 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Sqlite" Version="13.5.0" />
-    <PackageVersion Include="DotNetQuery.Blazor" Version="2.0.0" />
-    <PackageVersion Include="DotNetQuery.Blazor.DevTools" Version="2.0.0" />
-    <PackageVersion Include="DotNetQuery.Core" Version="2.0.0" />
-    <PackageVersion Include="DotNetQuery.Extensions.DependencyInjection" Version="2.0.0" />
+    <PackageVersion Include="Fetchling.Blazor" Version="3.0.0" />
+    <PackageVersion Include="Fetchling.Blazor.DevTools" Version="3.0.0" />
+    <PackageVersion Include="Fetchling.Core" Version="3.0.0" />
+    <PackageVersion Include="Fetchling.Extensions.DependencyInjection" Version="3.0.0" />
     <PackageVersion Include="Fisher" Version="1.13.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="Google.Protobuf" Version="3.35.1" />

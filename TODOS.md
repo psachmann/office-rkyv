@@ -50,7 +50,7 @@ The text of every PDF and image is extracted and kept in the background ([add-do
 - [ ] **Further formats.** Office documents, plain text and other formats are recorded as unsupported.
   - Why postponed: each is a reader of its own, and PDF and images are what a scanner and a phone produce.
   - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (Non-Goals).
-- [ ] **Shipping the OCR programs with a packaged app.** `tesseract` and `pdftoppm` must be on `PATH`; the dev shells provide them. A Nix package or a Flatpak would have to include them and point `TextExtraction:TesseractPath` and `TextExtraction:PdftoppmPath` at them. Same family as the GSettings item under Desktop.
+- [ ] **Shipping the OCR programs with a packaged app.** `tesseract` and `pdftoppm` must be on `PATH`; the system's package manager provides them. A Flatpak or a distribution package would have to include or depend on them and point `TextExtraction:TesseractPath` and `TextExtraction:PdftoppmPath` at them. Same family as the GSettings item under Desktop.
   - Decided in: [add-document-text-extraction](openspec/changes/archive/2026-10-17-add-document-text-extraction/design.md) (Non-Goals, D6).
 - [ ] **A sandbox for the OCR programs.** They parse files a user chose and run with the user's rights, as separate processes with fixed arguments and no shell, and nothing more.
   - Why postponed: no sandbox exists for a plain process on every target; worth revisiting when the app is packaged.
@@ -105,7 +105,7 @@ All seven were set aside in [add-archives-and-inbox](openspec/changes/archive/20
 
 ## Decisions to revisit
 
-- [ ] **Upload as a DotNet Query mutation.** `DocumentsFacade.UploadAsync` is a plain method because a mutation cannot report progress. If the library gains mutation progress, the upload becomes an ordinary mutation and the exception in [docs/ui.md](docs/ui.md#files-upload-and-download) goes away. The proposal for the library is drafted in [dotnet-query-streaming-issue.md](dotnet-query-streaming-issue.md).
+- [ ] **Upload as a Fetchling mutation.** `DocumentsFacade.UploadAsync` is a plain method because a mutation cannot report progress. If the library gains mutation progress, the upload becomes an ordinary mutation and the exception in [docs/ui.md](docs/ui.md#files-upload-and-download) goes away.
 - [ ] **Web download through an HTTP endpoint.** The browser download collects the whole file in memory before saving. Move to a streaming endpoint on the Web host if that is a problem near the 100 MB limit. Decided in [add-document-file-upload](openspec/changes/archive/2026-10-10-add-document-file-upload/design.md) (D12).
 - [ ] **The client's size check uses the default limit.** The upload dialog refuses files over `FileLimits.DefaultMaxFileSizeBytes`. A server configured with a different `FileStorage:MaxFileSizeBytes` is still the authority, but the quick client-side answer would then be wrong. Fix by exposing the configured limit to the UI.
 - [ ] **The owner is checked after the content is stored, for callers other than the API.** An upload through the API is refused for an unknown or deleted caller before anything is stored. `DocumentIngest` itself (the seed, a later folder watcher) still checks the owner when the command runs, so a refusal there leaves an orphan blob, as an invalid file name does through the API. Checking the header first would avoid it; the blob collector makes it harmless.
@@ -115,13 +115,13 @@ All seven were set aside in [add-archives-and-inbox](openspec/changes/archive/20
 
 ## Desktop
 
-- [ ] **GSettings schemas outside the dev shell.** GTK's save dialog aborts the process without `org.gtk.gtk4.Settings.FileChooser`. The `desktop` dev shell provides it and `DesktopFileSaver` falls back to the Downloads directory when it is missing, but a packaged app has to ship or locate the schemas itself. See [docs/desktop.md](docs/desktop.md#saving-a-downloaded-file).
+- [ ] **GSettings schemas in a packaged app.** GTK's save dialog aborts the process without `org.gtk.gtk4.Settings.FileChooser`. A distribution installs it with GTK and `DesktopFileSaver` falls back to the Downloads directory when it is missing, but a packaged app (Flatpak, AppImage) has to ship or locate the schemas itself. See [docs/desktop.md](docs/desktop.md#saving-a-downloaded-file).
 - [ ] **The Downloads fallback has never run on a real desktop.** Its naming rules are unit-tested; the path through `DesktopFileSaver` was not exercised by hand because the dialog works here.
 - [ ] **The save dialog has no parent window.** It is opened with `null`, so it may not stay on top of the app window on every desktop.
 
 ## Development and tests
 
-- [ ] **Temporary databases and blob folders are never cleaned up.** Every `just dev` leaves a `xxxxxxxx.xxx.db` and a matching `.db.blobs` folder in the temp directory.
+- [ ] **Temporary databases and blob folders are never cleaned up.** Every `mise run dev` leaves a `xxxxxxxx.xxx.db` and a matching `.db.blobs` folder in the temp directory.
 - [ ] **Flaky functional tests.** Both fail on an untouched checkout:
   - `SettingsTests.ChoosingALanguage_ReloadsTheSettingsPageInThatLanguage`: a 2-second timeout waiting for the language dropdown. Not yet listed in [docs/testing.md](docs/testing.md#known-flakiness).
   - `SettingsTests.Settings_IsReachableFromTheSidebar_AtTheBottom_AndMarkedAsTheCurrentPage`: listed there.

@@ -1,5 +1,5 @@
-using DotNetQuery.Core;
-using DotNetQuery.Extensions.DependencyInjection;
+using Fetchling.Core;
+using Fetchling.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebView.Maui;
 using Microsoft.Extensions.Logging;
@@ -40,7 +40,7 @@ public static class MauiProgram
 
         // The shared UI: Radzen, localization from its resources, and the facades.
         builder.Services.AddOfficeRkyvUi();
-        builder.Services.AddDotNetQuery(options =>
+        builder.Services.AddFetchling(options =>
         {
             options.ExecutionMode = QueryExecutionMode.Ssr; // one scope per WebView, like a circuit
             options.StaleTime = TimeSpan.Zero; // data is immediately stale

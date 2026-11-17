@@ -1,7 +1,7 @@
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
-using DotNetQuery.Extensions.DependencyInjection;
+using Fetchling.Extensions.DependencyInjection;
 using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
 using OfficeRkyv.Contracts.Users;
@@ -17,7 +17,7 @@ public sealed class UsersFacadeTests
 
     private ServiceProvider CreateServices() =>
         new ServiceCollection()
-            .AddDotNetQuery()
+            .AddFetchling()
             .AddSingleton<UsersService.UsersServiceClient>(client)
             .AddScoped<UsersFacade>()
             .BuildServiceProvider();
