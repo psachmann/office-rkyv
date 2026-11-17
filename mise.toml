@@ -1,0 +1,33 @@
+[tools]
+dotnet = "10"
+
+[tasks.setup]
+description = "One-time setup: restore .NET tools, build, and download Playwright's browsers"
+# `dotnet build` also generates playwright.ps1 in the functional tests' output folder, which the last step needs.
+run = [
+  "dotnet tool restore",
+  "dotnet build",
+  "pwsh ./tests/OfficeRkyv.FunctionalTests/bin/Debug/net10.0/playwright.ps1 install",
+]
+
+[tasks.dev]
+description = "Start the whole app (API, web UI, dependencies) via the Aspire AppHost"
+run = "dotnet aspire run"
+
+[tasks.format]
+description = "Format all C# sources with CSharpier"
+run = "dotnet csharpier format ."
+
+[tasks.build]
+description = "Build the solution in the given configuration (e.g. Debug, Release)"
+usage = 'arg "[config]" help="Build configuration" default="Debug"'
+run = 'dotnet build --configuration ${usage_config?}'
+
+[tasks.test]
+description = "Run all tests in the given configuration (e.g. Debug, Release)"
+usage = 'arg "[config]" help="Build configuration" default="Debug"'
+run = 'dotnet test --configuration ${usage_config?}'
+
+[tasks.desktop]
+description = "Run the standalone Linux desktop app (needs GTK4 and WebKitGTK installed)"
+run = 'DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT:-Development} dotnet run --project src/OfficeRkyv.Desktop'
