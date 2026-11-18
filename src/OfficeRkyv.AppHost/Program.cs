@@ -1,6 +1,6 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var sqlite = builder.AddSqlite("officerkyv-db").WithSqliteWeb();
+var sqlite = builder.AddSqlite("officerkyv-db");
 
 // The key the web host signs caller tokens with and the API validates them with. Generated for each run and not
 // persisted: it lives only in this process and the environment of the two it starts. A deployment outside Aspire

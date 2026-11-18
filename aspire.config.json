@@ -5,7 +5,7 @@
   },
   "channel": "stable",
   "features": {
-    "defaultWatchEnabled": true,
+    "defaultWatchEnabled": false,
     "updateNotificationsEnabled": true
   }
 }

@@ -40,4 +40,4 @@ var app = builder.Build();
 app.MapDefaultEndpoints();
 app.MapOfficeRkyvApi();
 
-app.Run();
+await app.RunAsync();

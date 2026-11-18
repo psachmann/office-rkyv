@@ -8,40 +8,44 @@
     <PackageVersion Include="Fetchling.Blazor.DevTools" Version="3.0.0" />
     <PackageVersion Include="Fetchling.Core" Version="3.0.0" />
     <PackageVersion Include="Fetchling.Extensions.DependencyInjection" Version="3.0.0" />
-    <PackageVersion Include="Fisher" Version="1.13.0" />
+    <PackageVersion Include="Fisher" Version="1.29.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
-    <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
-    <PackageVersion Include="Grpc.AspNetCore" Version="2.84.0" />
-    <PackageVersion Include="Grpc.Core.Api" Version="2.84.0" />
-    <PackageVersion Include="Grpc.Net.ClientFactory" Version="2.84.0" />
-    <PackageVersion Include="Grpc.StatusProto" Version="2.84.0" />
-    <PackageVersion Include="Grpc.Tools" Version="2.84.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+    <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.85.0" />
+    <PackageVersion Include="Grpc.Core.Api" Version="2.85.0" />
+    <PackageVersion Include="Grpc.Net.ClientFactory" Version="2.85.0" />
+    <PackageVersion Include="Grpc.StatusProto" Version="2.85.0" />
+    <PackageVersion Include="Grpc.Tools" Version="2.85.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.15" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.10.0" />
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.19.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.21.0" />
     <!-- Experimental backend, "will change between releases": pinned exactly, bumped deliberately. -->
-    <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4" Version="0.1.0-preview.12.26421.1" />
-    <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4.BlazorWebView" Version="0.1.0-preview.12.26421.1" />
+    <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4" Version="0.1.0-preview.14.26567.2" />
+    <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4.BlazorWebView" Version="0.1.0-preview.14.26567.2" />
     <PackageVersion Include="PdfPig" Version="0.1.16" />
     <PackageVersion Include="Radzen.Blazor" Version="11.5.1" />
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
-    <PackageVersion Include="WolverineFx" Version="6.41.0" />
-    <PackageVersion Include="WolverineFx.Fisher" Version="6.41.0" />
-    <PackageVersion Include="WolverineFx.FluentValidation" Version="6.41.0" />
-    <PackageVersion Include="WolverineFx.Grpc" Version="6.41.0" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.41.0" />
-    <PackageVersion Include="TUnit" Version="1.70.1" />
-    <PackageVersion Include="TUnit.Aspire" Version="1.70.1" />
-    <PackageVersion Include="TUnit.Mocks" Version="1.70.1" />
+    <PackageVersion Include="WolverineFx" Version="6.64.2" />
+    <PackageVersion Include="WolverineFx.Fisher" Version="6.64.2" />
+    <PackageVersion Include="WolverineFx.FluentValidation" Version="6.64.2" />
+    <PackageVersion Include="WolverineFx.Grpc" Version="6.64.2" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.64.2" />
+    <PackageVersion Include="TUnit" Version="1.87.0" />
+    <PackageVersion Include="TUnit.Aspire" Version="1.87.0" />
+    <PackageVersion Include="TUnit.Mocks" Version="1.87.0" />
     <PackageVersion Include="TUnit.Mocks.Logging" Version="1.68.17" />
-    <PackageVersion Include="TUnit.Playwright" Version="1.70.1" />
+    <PackageVersion Include="TUnit.Playwright" Version="1.87.0" />
+  </ItemGroup>
+  <!-- Global package references  -->
+  <ItemGroup>
+    <GlobalPackageReference Include="SonarAnalyzer.CSharp" Version="10.36.0.15337" />
   </ItemGroup>
 </Project>

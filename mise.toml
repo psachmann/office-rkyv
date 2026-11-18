@@ -10,6 +10,13 @@ run = [
   "pwsh ./tests/OfficeRkyv.FunctionalTests/bin/Debug/net10.0/playwright.ps1 install",
 ]
 
+[tasks.update]
+description = "Updates dotnet tools and dependencies for the entire project"
+run = [
+  "dotnet tool update --framework 10.0 --all",
+  "dotnet outdated --upgrade:Auto --maximum-version 10.0",
+]
+
 [tasks.dev]
 description = "Start the whole app (API, web UI, dependencies) via the Aspire AppHost"
 run = "dotnet aspire run"
