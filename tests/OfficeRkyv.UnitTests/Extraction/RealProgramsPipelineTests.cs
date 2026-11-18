@@ -17,7 +17,9 @@ public sealed class RealProgramsPipelineTests
     {
         if (OnPath("tesseract") is null || OnPath("pdftoppm") is null)
         {
-            Skip.Test("tesseract and pdftoppm are not both on PATH; docs/architecture.md (Tooling) says how to install them.");
+            Skip.Test(
+                "tesseract and pdftoppm are not both on PATH; docs/architecture.md (Tooling) says how to install them."
+            );
         }
 
         var scan = await ScanOfAsync(TestPdfs.WithPages(TestPdfs.InvoiceText));

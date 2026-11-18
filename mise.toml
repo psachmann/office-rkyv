@@ -3,11 +3,11 @@ dotnet = "10"
 
 [tasks.setup]
 description = "One-time setup: restore .NET tools, build, and download Playwright's browsers"
-# `dotnet build` also generates playwright.ps1 in the functional tests' output folder, which the last step needs.
+# The Playwright CLI finds the browser version from the functional tests project, so it runs from that folder.
 run = [
   "dotnet tool restore",
   "dotnet build",
-  "pwsh ./tests/OfficeRkyv.FunctionalTests/bin/Debug/net10.0/playwright.ps1 install",
+  "(cd tests/OfficeRkyv.FunctionalTests && dotnet playwright install chromium)",
 ]
 
 [tasks.update]

@@ -97,8 +97,7 @@ internal sealed partial class DesktopFileSaver(ILogger logger) : IFileSaver
 
     private static string FallbackPath(string fileName)
     {
-        var directory =
-            GLib.Functions.GetUserSpecialDir(GLib.UserDirectory.DirectoryDownload)
+        var directory = GLib.Functions.GetUserSpecialDir(GLib.UserDirectory.DirectoryDownload)
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
 
         Directory.CreateDirectory(directory);

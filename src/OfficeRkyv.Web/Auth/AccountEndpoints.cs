@@ -20,38 +20,32 @@ public static class AccountEndpoints
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet(
-            SignInRoute,
-            async (string? ticket, SignInTickets tickets, HttpContext context) =>
+        endpoints.MapGet(SignInRoute, async (string? ticket, SignInTickets tickets, HttpContext context) =>
+        {
+            if (tickets.RedeemSignIn(ticket) is not { } userId)
             {
-                if (tickets.RedeemSignIn(ticket) is not { } userId)
-                {
-                    return Results.LocalRedirect("/");
-                }
-
-                // Persistent: the cookie outlives the browser session, up to the scheme's lifetime.
-                await context.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    SignedInUser.PrincipalFor(userId),
-                    new AuthenticationProperties { IsPersistent = true }
-                );
-
-                return Results.LocalRedirect("/workspace");
-            }
-        );
-
-        endpoints.MapGet(
-            SignOutRoute,
-            async (string? ticket, SignInTickets tickets, HttpContext context) =>
-            {
-                if (tickets.RedeemSignOut(ticket))
-                {
-                    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-                }
-
                 return Results.LocalRedirect("/");
             }
-        );
+
+            // Persistent: the cookie outlives the browser session, up to the scheme's lifetime.
+            await context.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                SignedInUser.PrincipalFor(userId),
+                new AuthenticationProperties { IsPersistent = true }
+            );
+
+            return Results.LocalRedirect("/workspace");
+        });
+
+        endpoints.MapGet(SignOutRoute, async (string? ticket, SignInTickets tickets, HttpContext context) =>
+        {
+            if (tickets.RedeemSignOut(ticket))
+            {
+                await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+
+            return Results.LocalRedirect("/");
+        });
 
         return endpoints;
     }

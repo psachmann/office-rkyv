@@ -22,8 +22,8 @@ internal static class UserExistence
     /// </summary>
     public static async Task RequireActiveAsync(IQuerySession session, Guid userId)
     {
-        var user =
-            await session.LoadAsync<User>(userId) ?? throw new NotFoundException($"User '{userId}' does not exist.");
+        var user = await session.LoadAsync<User>(userId)
+            ?? throw new NotFoundException($"User '{userId}' does not exist.");
 
         if (user.Status is EntityStatus.Deleted)
         {

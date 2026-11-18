@@ -111,32 +111,29 @@ app.UseAntiforgery();
 
 app.MapAccountEndpoints();
 
-app.MapGet(
-    "/culture/set",
-    (string culture, string? redirectUri, HttpContext context) =>
+app.MapGet("/culture/set", (string culture, string? redirectUri, HttpContext context) =>
+{
+    if (!SupportedCultures.IsSupported(culture))
     {
-        if (!SupportedCultures.IsSupported(culture))
-        {
-            return Results.BadRequest();
-        }
-
-        context.Response.Cookies.Append(
-            CookieRequestCultureProvider.DefaultCookieName,
-            CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(culture)),
-            new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true }
-        );
-
-        var target =
-            redirectUri is { Length: > 0 }
-            && redirectUri.StartsWith('/')
-            && !redirectUri.StartsWith("//", StringComparison.Ordinal)
-            && !redirectUri.StartsWith("/\\", StringComparison.Ordinal)
-                ? redirectUri
-                : "/";
-
-        return Results.LocalRedirect(target);
+        return Results.BadRequest();
     }
-);
+
+    context.Response.Cookies.Append(
+        CookieRequestCultureProvider.DefaultCookieName,
+        CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(culture)),
+        new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true }
+    );
+
+    var target =
+        redirectUri is { Length: > 0 }
+        && redirectUri.StartsWith('/')
+        && !redirectUri.StartsWith("//", StringComparison.Ordinal)
+        && !redirectUri.StartsWith("/\\", StringComparison.Ordinal)
+            ? redirectUri
+            : "/";
+
+    return Results.LocalRedirect(target);
+});
 
 app.MapStaticAssets();
 

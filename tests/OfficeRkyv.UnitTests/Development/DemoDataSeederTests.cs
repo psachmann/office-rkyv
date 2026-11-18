@@ -175,9 +175,8 @@ public sealed class DemoDataSeederTests : IAsyncDisposable
     [Test]
     public async Task TheApiServersSeed_RunsAfterStartup_InDevelopment()
     {
-        await using var development = await PipelineHost.StartAsync(
-            "Development",
-            builder => builder.AddDevelopmentSeedData()
+        await using var development = await PipelineHost.StartAsync("Development", builder =>
+            builder.AddDevelopmentSeedData()
         );
 
         var users = await WaitForUsers(development);
@@ -197,14 +196,11 @@ public sealed class DemoDataSeederTests : IAsyncDisposable
         bool expected
     )
     {
-        await using var host = await PipelineHost.StartAsync(
-            environment,
-            builder =>
-            {
-                builder.Configuration[DemoDataSeeding.SettingName] = setting;
-                builder.AddDevelopmentSeedData();
-            }
-        );
+        await using var host = await PipelineHost.StartAsync(environment, builder =>
+        {
+            builder.Configuration[DemoDataSeeding.SettingName] = setting;
+            builder.AddDevelopmentSeedData();
+        });
 
         await Assert.That(host.Host.Services.GetService<DemoDataSeeder>() is not null).IsEqualTo(expected);
     }

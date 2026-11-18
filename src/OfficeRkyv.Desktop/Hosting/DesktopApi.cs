@@ -113,8 +113,7 @@ public sealed class DesktopApi : IAsyncDisposable
         );
 
         // Proto-first clients, like all of these, always have an HTTP client builder to configure.
-        var http =
-            builder.HttpClientBuilder
+        var http = builder.HttpClientBuilder
             ?? throw new InvalidOperationException(
                 $"The gRPC client {typeof(TClient).Name} has no HTTP client builder."
             );
