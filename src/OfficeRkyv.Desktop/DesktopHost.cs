@@ -80,7 +80,10 @@ internal sealed partial class DesktopHost
             return;
         }
 
-        api = DesktopApi.StartAsync(Paths, CallerTokenKey).GetAwaiter().GetResult();
+        // This runs on the GTK main thread, which waits here for the start. The start awaits work that resumes on
+        // the thread it was started on (the OCR start check waits for a process), so it runs on the thread pool
+        // instead: waiting on it from the main thread does not then deadlock. See docs/desktop.md (Activation).
+        api = Task.Run(() => DesktopApi.StartAsync(Paths, CallerTokenKey)).GetAwaiter().GetResult();
         LogApiListening(Logger, string.Join(", ", api.Addresses), Paths.DatabasePath);
     }
 
