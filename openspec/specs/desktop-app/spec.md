@@ -17,8 +17,8 @@ The desktop app SHALL run as a single program on a Linux desktop, showing the UI
 - **WHEN** the desktop app is running
 - **THEN** its API accepts connections only through a socket in the user's private runtime directory, and listens on no network port
 
-### Requirement: The desktop app offers the same workspace as the web app
-The desktop app SHALL offer the same pages and features as the web UI: the landing page with its user cards and user creation, signing in and out, the signed-in user's workspace (inbox, archives, documents, uploading files, filing, renaming and deleting), and the settings page, with the same behaviour, validation and localized messages as specified for the web UI. Handing a downloaded file to the user, and how long a sign-in lasts (see the `sign-in` capability), are the parts that differ.
+### Requirement: The desktop app offers the same pages as the web app
+The desktop app SHALL offer the same pages and features as the web UI: the landing page with its user cards and user creation, signing in and out, the signed-in user's inbox and archive pages (documents, uploading files, filing, renaming and deleting), and the settings page, with the same behaviour, validation and localized messages as specified for the web UI. Handing a downloaded file to the user, and how long a sign-in lasts (see the `sign-in` capability), are the parts that differ.
 
 #### Scenario: Working with documents on the desktop
 - **WHEN** a user signs in on the desktop, creates an archive, uploads a file as a document, files the document into the archive, and then deletes the archive
@@ -26,8 +26,11 @@ The desktop app SHALL offer the same pages and features as the web UI: the landi
 
 #### Scenario: Signing in and out on the desktop
 - **WHEN** a user chooses Alice on the desktop's landing page, then signs out from the sidebar and chooses Bob
-- **THEN** the workspace shows Alice's documents first, then the landing page, then Bob's documents and none of Alice's
+- **THEN** the inbox shows Alice's documents first, then the landing page, then Bob's documents and none of Alice's
 
+#### Scenario: Moving between pages on the desktop
+- **WHEN** a signed-in user on the desktop opens an archive from the sidebar and then the inbox
+- **THEN** each page shows its own documents, and the sidebar entries stay on the page throughout
 ### Requirement: The desktop app keeps the user's data
 The desktop app SHALL store its data, including the content of every uploaded file, in the user's data directory (`$XDG_DATA_HOME/office-rkyv`, defaulting to `~/.local/share/office-rkyv`), and SHALL keep it across restarts.
 
