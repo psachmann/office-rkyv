@@ -19,7 +19,7 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run `mise run format` and `mise run build`. Verify: both succeed with no new warnings.
-- [ ] 4.2 Run `mise run test` (unit, pipeline, UI-logic and functional levels from docs/testing.md). Verify: results match the pre-change run; known flaky tests are those listed in TODOS.md and docs/testing.md.
-- [ ] 4.3 Run the web host (`mise run dev`) and check a list page loads and the exported telemetry shows the `Fetchling` source and `fetchling.*` metrics. Verify: observed in the Aspire dashboard.
-- [ ] 4.4 Run `mise run desktop` and open a list page. Verify: the page renders and the app's stdout shows no missing-assembly or `Fetchling` errors.
+- [x] 4.1 Run `mise run format` and `mise run build`. Verify: both succeed with no new warnings.
+- [x] 4.2 Run `mise run test` (unit, pipeline, UI-logic and functional levels from docs/testing.md). Verify: results match the pre-change run; known flaky tests are those listed in TODOS.md and docs/testing.md.
+- [x] 4.3 Run the web host (`mise run dev`) and check a list page loads and the exported telemetry shows the `Fetchling` source and `fetchling.*` metrics. Verify: observed in the Aspire dashboard.
+- [x] 4.4 Run `mise run desktop` and open a list page. Verify: the page renders and the app's stdout shows no missing-assembly or `Fetchling` errors.

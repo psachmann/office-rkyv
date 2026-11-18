@@ -6,8 +6,7 @@ using OfficeRkyv.Api.Shared.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString =
-    builder.Configuration.GetConnectionString("officerkyv-db")
+var connectionString = builder.Configuration.GetConnectionString("officerkyv-db")
     ?? throw new InvalidProgramException("No DB connection string provided");
 
 // The web host signs the caller tokens with the same key; the AppHost hands both processes one.
