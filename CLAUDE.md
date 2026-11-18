@@ -16,6 +16,7 @@ office-rkyv is paperless office software: a gRPC API on an event store, and one 
 ## Rules for every session
 
 - **No hardcoded user-facing text.** It comes from `.resx` resources through `IStringLocalizer<T>` ([docs/ui.md](docs/ui.md#localization)).
+- **Razor component C# goes in a `<Component>.razor.cs` code-behind, not in `@code` blocks** ([docs/ui.md](docs/ui.md#component-code)).
 - **Log only through `[LoggerMessage]` methods**, never `logger.LogXxx(...)` directly ([docs/observability.md](docs/observability.md#logging)).
 - **Don't remove a desktop workaround** without re-checking it on a real desktop ([docs/desktop.md](docs/desktop.md#workarounds-for-the-experimental-backend)).
 - **Run things through `mise`**: `mise run build`, `mise run test`, `mise run format`, `mise run dev`, `mise run desktop` (`mise tasks` lists them).

@@ -125,4 +125,7 @@ All seven were set aside in [add-archives-and-inbox](openspec/changes/archive/20
 - [ ] **Flaky functional tests.** Both fail on an untouched checkout:
   - `SettingsTests.ChoosingALanguage_ReloadsTheSettingsPageInThatLanguage`: a 2-second timeout waiting for the language dropdown. Not yet listed in [docs/testing.md](docs/testing.md#known-flakiness).
   - `SettingsTests.Settings_IsReachableFromTheSidebar_AtTheBottom_AndMarkedAsTheCurrentPage`: listed there.
+- [ ] **Analyzer warnings in code-behind files.** Moving `@code` blocks into `.razor.cs` made the analyzers see code they could not see before. The build passes with `S3881` (Dispose pattern) on `Main`, `Settings`, `ArchiveDialog`, `CreateUserDialog`, `DocumentDialog` and `UploadDocumentsDialog`, and `S5693` (HTTP content length) in `UploadDocumentsDialog`.
+  - Why postponed: fixing them changes the code, which the move did not, and the dispose pattern needs a decision per component.
+  - Decided in: [code-behind-for-razor-components](openspec/changes/archive/2026-11-18-code-behind-for-razor-components/design.md) (D7).
 - [ ] **`ApiTelemetryTests` can time out under load.** `Command_ProducesStoreSpanUnderItsHandlerSpan` failed once when both test projects ran at the same time, and passes alone.

@@ -19,10 +19,3 @@
     <RadzenButton Text="@Localizer["SignOut"]" Icon="logout" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
                   Click="@(() => SignIn.SignOutAsync())" />
 </RadzenStack>
-
-@code {
-    /// <summary>The signed-in user.</summary>
-    [Parameter, EditorRequired] public Guid UserId { get; set; }
-
-    protected override void OnParametersSet() => Users.FindUserById.SetArgs(UserId);
-}

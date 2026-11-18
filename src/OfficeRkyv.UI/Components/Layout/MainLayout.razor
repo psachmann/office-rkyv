@@ -68,11 +68,3 @@
     <a href="." class="reload">@Localizer["Reload"]</a>
     <span class="dismiss"><i class="rzi" aria-hidden="true">close</i></span>
 </div>
-
-
-@code {
-    /// <summary>Where a page puts its own navigation entries in the sidebar, between the top menu and Settings.</summary>
-    public static readonly object WorkspaceNavigationSection = new();
-
-    public bool IsExpanded { get; set; } = true;
-}

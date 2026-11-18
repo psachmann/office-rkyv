@@ -55,7 +55,7 @@ internal sealed partial class ErrorStatusProvider(ILogger<ErrorStatusProvider> l
 - Placeholders in the message match the parameter names, ignoring case. An `Exception` parameter is attached to the entry and needs no placeholder.
 - No hand-assigned event ids. The method name is the event name, and the generator derives the numeric id from it, so renaming a method changes the id shown in the console (`OfficeRkyv.Desktop[1777324192]`).
 - The message stays on the type that emits it. There is no shared class of log messages per project.
-- A Razor component declares its log methods in a code-behind file (`Main.razor.cs`): the generator does not see code written in a `.razor` file, and the analyzer may not either.
+- A Razor component declares its log methods in its code-behind file (`Main.razor.cs`, see [Component code](ui.md#component-code)): the generator does not see code written in a `.razor` file, and the analyzer may not either.
 - A type that takes an optional logger keeps `logger ?? NullLogger.Instance`, since a generated method needs a logger.
 - The desktop's sign-in logs two messages as the evidence of the by-hand check, at Information and with the user id only: `Signed in as user {UserId}` and `Signed out` (`DesktopSignIn`).
 

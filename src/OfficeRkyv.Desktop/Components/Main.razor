@@ -21,27 +21,3 @@
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
-
-@code {
-    private int generation;
-    private IDisposable? subscription;
-
-    protected override void OnInitialized() =>
-        // The stream replays the current settings on subscribing: that culture is the one this root already renders with.
-        subscription = SettingsService.Settings
-            .Select(settings => settings.Culture.Name)
-            .DistinctUntilChanged()
-            .Skip(1)
-            .Subscribe(culture =>
-            {
-                LogLanguageChanged(Logger, culture);
-
-                _ = InvokeAsync(() =>
-                {
-                    generation++;
-                    StateHasChanged();
-                });
-            });
-
-    public void Dispose() => subscription?.Dispose();
-}

@@ -4,7 +4,7 @@ The conventions of the shared Blazor UI (`src/OfficeRkyv.UI`) and of its web hos
 
 ## Localization
 
-The Blazor UI (a shared Razor class library, `src/OfficeRkyv.UI`, used by the web host `src/OfficeRkyv.Web`) sources all static text from `.resx` resources via `IStringLocalizer<T>` — never hardcode user-facing strings directly in `.razor` markup or `@code` blocks.
+The Blazor UI (a shared Razor class library, `src/OfficeRkyv.UI`, used by the web host `src/OfficeRkyv.Web`) sources all static text from `.resx` resources via `IStringLocalizer<T>` — never hardcode user-facing strings directly in `.razor` markup or in a component's C# (see [Component code](#component-code)).
 
 ### Adding a new localized string
 
@@ -137,6 +137,14 @@ The API answers a refused call with a gRPC status and a stable code (see [api.md
 - `Unauthenticated` ends the sign-in instead of showing a message (`WorkspaceErrors.SignedOut`; see [Signing in](#a-sign-in-the-api-stops-accepting)).
 
 Adding a code to `OfficeRkyv.Contracts` therefore needs a case in the matching record and a key in its `.resx`.
+
+## Component code
+
+A component's C# lives in a code-behind file beside it: `Foo.razor` has a `Foo.razor.cs` partial class in the same namespace. Avoid `@code` blocks in `.razor` files. There is no size threshold: a one-line `OnParametersSet` moves too, so the rule needs no judgment per component. The one exception is a markup template, a member that returns markup (`RenderFragment X => @<div>...</div>`): C# in a `.cs` file cannot hold markup, so such a member stays in the `.razor` file's `@code` block, and nothing else does.
+
+- **Stays in `.razor`:** markup, directives (`@page`, `@inject`, `@using`, `@inherits`, `@attribute`) and inline expressions in markup (`@if`, `@foreach`, `@(...)`, a one-call event lambda).
+- **Moves to `.razor.cs`:** parameters, fields, properties, lifecycle methods, handlers and any other member, plus the `using`s they need. `@inject` stays in `.razor` next to the markup that uses it.
+- Members keep their accessibility and names. The logging methods of a component are declared here too, as [observability.md](observability.md#logging) requires.
 
 ## Styling
 
