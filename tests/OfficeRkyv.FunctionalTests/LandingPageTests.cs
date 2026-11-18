@@ -19,7 +19,15 @@ public class BrowserParallelLimit : IParallelLimit
 [ClassDataSource<AppHostFixture>(Shared = SharedType.PerClass)]
 public class LandingPageTests(AppHostFixture fixture) : PageTest
 {
-    private WorkspacePage Workspace => new(Page);
+    private SignInPage SignIn => new(Page);
+
+    private InboxPage Inbox => new(Page);
+
+    private ArchivePage Archive => new(Page);
+
+    private SidebarPage Sidebar => new(Page);
+
+    private DocumentListPage Documents => new(Page);
 
     private ILocator NewUserButton => Page.GetByRole(AriaRole.Button, new() { Name = "New user" });
 
@@ -58,46 +66,45 @@ public class LandingPageTests(AppHostFixture fixture) : PageTest
 
     [Test]
     [DependsOn(nameof(Dialog_HintsAtMissingFields_AndCreatesNothing))]
-    public async Task CreatingAUser_SignsInAsThem_AndOpensTheirEmptyWorkspace()
+    public async Task CreatingAUser_SignsInAsThem_AndOpensTheirEmptyInbox()
     {
         await NewUserButton.ClickAsync();
         await Page.GetByLabel("Email").FillAsync("Alice@Example.com");
         await Page.GetByLabel("Display name").FillAsync("  Alice  ");
         await CreateUserButton.ClickAsync();
 
-        // The display name was trimmed by the server; the workspace is the new user's, with nothing in it.
-        await Expect(Page).ToHaveURLAsync(new Regex("/workspace$"));
-        await Expect(Workspace.Heading).ToHaveTextAsync("Alice");
-        await Expect(Workspace.EmptyState).ToBeVisibleAsync();
-        await Expect(Workspace.SignedInName).ToHaveTextAsync("Alice");
+        // The display name was trimmed by the server; the inbox is the new user's, with nothing in it.
+        await Expect(Page).ToHaveURLAsync(new Regex("/inbox$"));
+        await Expect(Sidebar.SignedInName).ToHaveTextAsync("Alice");
+        await Expect(Documents.EmptyState).ToBeVisibleAsync();
     }
 
     [Test]
-    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyWorkspace))]
+    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyInbox))]
     public async Task EachUser_IsACard_WithTheEmailAsEntered()
     {
-        await Expect(Workspace.UserCard("Alice")).ToBeVisibleAsync();
+        await Expect(SignIn.UserCard("Alice")).ToBeVisibleAsync();
         await Expect(Page.GetByText("Alice@Example.com", new() { Exact = true })).ToBeVisibleAsync();
         await Expect(Page.GetByText("No users yet")).ToBeHiddenAsync();
     }
 
     [Test]
-    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyWorkspace))]
+    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyInbox))]
     public async Task TheCards_AreOrderedByDisplayName_IgnoringCase()
     {
         // Created out of order, and one in lower case, so neither creation order nor ordinal order gives the result.
-        await Workspace.CreateUserAsync("bob", "bob@example.com");
-        await Expect(Workspace.Heading).ToHaveTextAsync("bob");
-        await Workspace.SignOutButton.ClickAsync();
-        await Workspace.CreateUserAsync("Carol", "carol@example.com");
-        await Expect(Workspace.Heading).ToHaveTextAsync("Carol");
-        await Workspace.SignOutButton.ClickAsync();
+        await SignIn.CreateUserAsync("bob", "bob@example.com");
+        await Expect(Sidebar.SignedInName).ToHaveTextAsync("bob");
+        await Sidebar.SignOutButton.ClickAsync();
+        await SignIn.CreateUserAsync("Carol", "carol@example.com");
+        await Expect(Sidebar.SignedInName).ToHaveTextAsync("Carol");
+        await Sidebar.SignOutButton.ClickAsync();
 
         await Expect(CardNames).ToHaveTextAsync(["Alice", "bob", "Carol"]);
     }
 
     [Test]
-    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyWorkspace))]
+    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyInbox))]
     public async Task ChoosingTheCreateAction_WhileUsersExist_OpensTheSameForm()
     {
         await NewUserButton.ClickAsync();
@@ -107,7 +114,7 @@ public class LandingPageTests(AppHostFixture fixture) : PageTest
     }
 
     [Test]
-    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyWorkspace))]
+    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyInbox))]
     public async Task ADuplicateEmailInAnotherCase_ShowsTheLocalizedAlreadyInUseMessage_AndSignsNobodyIn()
     {
         await NewUserButton.ClickAsync();
@@ -119,11 +126,11 @@ public class LandingPageTests(AppHostFixture fixture) : PageTest
 
         // The form stays open with what was typed, ready to be corrected, and nobody is signed in.
         await Expect(Page.GetByLabel("Display name")).ToHaveValueAsync("Impostor");
-        await Expect(Workspace.SignedInName).ToHaveCountAsync(0);
+        await Expect(Sidebar.SignedInName).ToHaveCountAsync(0);
     }
 
     [Test]
-    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyWorkspace))]
+    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyInbox))]
     public async Task InputTheClientDoesNotCheck_IsRejectedByTheServer_WithALocalizedMessage()
     {
         await NewUserButton.ClickAsync();
@@ -137,11 +144,11 @@ public class LandingPageTests(AppHostFixture fixture) : PageTest
     }
 
     [Test]
-    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyWorkspace))]
+    [DependsOn(nameof(CreatingAUser_SignsInAsThem_AndOpensTheirEmptyInbox))]
     public async Task Users_SurviveAReload()
     {
         await Page.ReloadAsync();
 
-        await Expect(Workspace.UserCard("Alice")).ToBeVisibleAsync();
+        await Expect(SignIn.UserCard("Alice")).ToBeVisibleAsync();
     }
 }

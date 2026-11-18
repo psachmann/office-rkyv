@@ -22,7 +22,7 @@ using OfficeRkyv.Api.Shared.Errors;
 using OfficeRkyv.Api.Shared.Exceptions;
 using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Users;
-using OfficeRkyv.UI.Components.Pages.Users;
+using OfficeRkyv.UI.Components.Pages;
 using Wolverine;
 using Wolverine.Fisher;
 using Wolverine.Grpc.Client;

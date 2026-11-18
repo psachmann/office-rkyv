@@ -3,6 +3,7 @@ using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Documents;
+using OfficeRkyv.UI.Components.Shared;
 
 namespace OfficeRkyv.UI.Shared;
 
@@ -16,16 +17,11 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
 {
     // Any document change can move a document between the inbox and an archive's contents, or change what a
     // search finds, so every document mutation refreshes all three.
-    private static readonly string[] DocumentKinds =
-    [
-        WorkspaceKeys.Inbox,
-        WorkspaceKeys.ArchiveDocuments,
-        WorkspaceKeys.Search,
-    ];
+    private static readonly string[] DocumentKinds = [QueryKinds.Inbox, QueryKinds.ArchiveDocuments, QueryKinds.Search];
 
     // Filing also moves the archive's version (it appends an event to it), and the next rename or delete of
     // that archive has to send the new one - so the archive list is refreshed too.
-    private static readonly string[] FilingKinds = [.. DocumentKinds, WorkspaceKeys.Archives];
+    private static readonly string[] FilingKinds = [.. DocumentKinds, QueryKinds.Archives];
 
     /// <summary>
     /// The signed-in user's unfiled documents. The query is asked with the user's id, which only keys the cache:
@@ -35,7 +31,7 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
         queryClient.CreateQuery(
             new QueryOptions<Guid, IReadOnlyList<DocumentDto>>
             {
-                KeyFactory = WorkspaceKeys.ForInbox,
+                KeyFactory = QueryKinds.ForInbox,
                 Fetcher = async (_, ct) =>
                     [.. (await documentService.ListInboxAsync(new ListInboxRequest(), null, null, ct)).Documents],
             }
@@ -46,7 +42,7 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
         queryClient.CreateQuery(
             new QueryOptions<Guid, IReadOnlyList<DocumentDto>>
             {
-                KeyFactory = WorkspaceKeys.ForArchiveDocuments,
+                KeyFactory = QueryKinds.ForArchiveDocuments,
                 Fetcher = async (archiveId, ct) =>
                     [
                         .. (
@@ -70,7 +66,7 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
         queryClient.CreateQuery(
             new QueryOptions<DocumentSearch, DocumentSearchResult>
             {
-                KeyFactory = WorkspaceKeys.ForSearch,
+                KeyFactory = QueryKinds.ForSearch,
                 Fetcher = async (search, ct) =>
                 {
                     var response = await documentService.SearchDocumentsAsync(
@@ -88,7 +84,7 @@ public sealed class DocumentsFacade(IQueryClient queryClient, DocumentsService.D
     /// <summary>
     /// Uploads one file as a new document of the signed-in user and returns it. This is a method and not a mutation because a
     /// mutation has no progress to report: <paramref name="onProgress"/> gets the number of bytes sent so far.
-    /// A refusal is thrown as the typed client throws every refusal, so <c>WorkspaceErrors</c> explains it.
+    /// A refusal is thrown as the typed client throws every refusal, so <c>DocumentErrors</c> explains it.
     /// </summary>
     /// <remarks>
     /// The server may refuse while the content is still being sent (too large): the next write then fails

@@ -30,7 +30,7 @@ public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.Arc
         queryClient.CreateQuery(
             new QueryOptions<Guid, IReadOnlyList<ArchiveDto>>
             {
-                KeyFactory = WorkspaceKeys.ForArchives,
+                KeyFactory = QueryKinds.ForArchives,
                 Fetcher = async (_, ct) =>
                     [.. (await archiveService.ListArchivesAsync(new ListArchivesRequest(), null, null, ct)).Archives],
             }
@@ -42,7 +42,7 @@ public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.Arc
             {
                 Mutator = async (request, ct) =>
                     (await archiveService.CreateArchiveAsync(request, null, null, ct)).Archive,
-                OnSuccess = (_, _) => queryClient.Invalidate(WorkspaceKeys.Archives),
+                OnSuccess = (_, _) => queryClient.Invalidate(QueryKinds.Archives),
             }
         );
 
@@ -52,7 +52,7 @@ public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.Arc
             {
                 Mutator = async (request, ct) =>
                     (await archiveService.RenameArchiveAsync(request, null, null, ct)).Archive,
-                OnSuccess = (_, _) => queryClient.Invalidate(WorkspaceKeys.Archives),
+                OnSuccess = (_, _) => queryClient.Invalidate(QueryKinds.Archives),
             }
         );
 
@@ -65,10 +65,10 @@ public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.Arc
                 OnSuccess = (_, _) =>
                 {
                     queryClient.Invalidate(
-                        WorkspaceKeys.Archives,
-                        WorkspaceKeys.ArchiveDocuments,
-                        WorkspaceKeys.Inbox,
-                        WorkspaceKeys.Search
+                        QueryKinds.Archives,
+                        QueryKinds.ArchiveDocuments,
+                        QueryKinds.Inbox,
+                        QueryKinds.Search
                     );
                     _ = InvalidateInboxAgainAsync();
                 },
@@ -80,7 +80,7 @@ public sealed class ArchivesFacade(IQueryClient queryClient, ArchivesService.Arc
         try
         {
             await Task.Delay(CascadeSettleDelay, disposed.Token);
-            queryClient.Invalidate(WorkspaceKeys.Inbox, WorkspaceKeys.Search);
+            queryClient.Invalidate(QueryKinds.Inbox, QueryKinds.Search);
         }
         catch (OperationCanceledException)
         {

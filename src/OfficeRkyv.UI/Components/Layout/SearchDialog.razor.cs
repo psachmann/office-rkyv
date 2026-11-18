@@ -8,7 +8,7 @@ using OfficeRkyv.Contracts;
 using OfficeRkyv.Contracts.Archives;
 using OfficeRkyv.Contracts.Documents;
 using OfficeRkyv.UI.Auth;
-using OfficeRkyv.UI.Components.Pages.Users;
+using OfficeRkyv.UI.Components.Shared;
 using OfficeRkyv.UI.Shared;
 using Radzen;
 using Radzen.Blazor;
@@ -38,7 +38,7 @@ public partial class SearchDialog
 
     protected override async Task OnInitializedAsync()
     {
-        // A user the API does not accept is no longer signed in, as on the workspace page.
+        // A user the API does not accept is no longer signed in, as on the document pages.
         WatchForSignOut(Documents.SearchDocuments);
         WatchForSignOut(Archives.FindArchives);
 
@@ -78,7 +78,7 @@ public partial class SearchDialog
         where TData : class =>
         disposables.Add(
             query.Failure.Subscribe(error =>
-                _ = InvokeAsync(() => WorkspaceErrors.EndSignInIfRefusedAsync(error, SignIn))
+                _ = InvokeAsync(() => DocumentErrors.EndSignInIfRefusedAsync(error, SignIn))
             )
         );
 
@@ -105,9 +105,7 @@ public partial class SearchDialog
     private void Choose(DocumentDto document)
     {
         DialogService.Close();
-        Navigation.NavigateTo(
-            document.HasArchiveId ? WorkspaceAddresses.Archive(document.ArchiveId) : WorkspaceAddresses.Inbox
-        );
+        Navigation.NavigateTo(document.HasArchiveId ? Addresses.Archive(document.ArchiveId) : Addresses.Inbox);
     }
 
     // The refusal (unknown or deleted document) is thrown by opening the stream, so it is shown in the dialog and
@@ -135,18 +133,18 @@ public partial class SearchDialog
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            var errors = WorkspaceErrors.From(exception);
+            var errors = DocumentErrors.From(exception);
             downloadErrorKey = errors.General ?? "ActionFailed";
-            _ = WorkspaceErrors.EndSignInIfRefusedAsync(exception, SignIn);
+            _ = DocumentErrors.EndSignInIfRefusedAsync(exception, SignIn);
 
             // The item changed or is gone: what is shown is out of date, so load it again.
             if (errors.ReloadNeeded)
             {
                 QueryClient.Invalidate(
-                    WorkspaceKeys.Archives,
-                    WorkspaceKeys.Inbox,
-                    WorkspaceKeys.ArchiveDocuments,
-                    WorkspaceKeys.Search
+                    QueryKinds.Archives,
+                    QueryKinds.Inbox,
+                    QueryKinds.ArchiveDocuments,
+                    QueryKinds.Search
                 );
             }
         }
@@ -159,7 +157,7 @@ public partial class SearchDialog
 
     // What a refused search says: the text for its own refusal, and the general one otherwise.
     private string SearchFailureText(Exception error) =>
-        WorkspaceErrors.From(error).Query is { } key ? ErrorLocalizer[key].Value : Localizer["SearchFailed"].Value;
+        DocumentErrors.From(error).Query is { } key ? ErrorLocalizer[key].Value : Localizer["SearchFailed"].Value;
 
     public async ValueTask DisposeAsync()
     {

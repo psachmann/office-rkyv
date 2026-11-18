@@ -1,0 +1,45 @@
+@layout MainLayout
+@inherits LayoutComponentBase
+@inject IStringLocalizer<DocumentsLayout> Localizer
+@inject IStringLocalizer<DocumentErrors> ErrorLocalizer
+@inject UsersFacade Users
+@inject ArchivesFacade Archives
+@inject DocumentsFacade Documents
+@inject IQueryClient QueryClient
+@inject ISignInService SignIn
+
+@* What the inbox page and the archive pages share: the sidebar entries, the check that the signed-in user still exists,
+   and the one alert that shows why an action was refused. A page inside it keeps the sidebar while the visitor moves
+   between the inbox and the archives. *@
+<Transition Query="@Users.FindUserById">
+    <Content Context="found">
+        @if (found.User is null)
+        {
+            @* The API has no such user any more, so there is no one's page to show: the sign-in ends (see OnInitialized)
+               and the landing page follows. Nothing of a user is shown meanwhile. *@
+            <LoadingIndicator />
+        }
+        else
+        {
+            <SectionContent SectionId="MainLayout.NavigationSection">
+                <DocumentNavigation />
+            </SectionContent>
+
+            <CascadingValue Value="@Failures">
+                @if (Failures.Key is { } key)
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" AllowClose="true"
+                                 Close="@(() => Failures.Clear())" data-testid="page-error">@ErrorLocalizer[key]</RadzenAlert>
+                }
+
+                @Body
+            </CascadingValue>
+        }
+    </Content>
+    <Loading>
+        <LoadingIndicator />
+    </Loading>
+    <Failure>
+        <LoadFailedAlert Message="@Localizer["UserLoadFailed"]" />
+    </Failure>
+</Transition>

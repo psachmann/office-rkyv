@@ -1,0 +1,49 @@
+@using OfficeRkyv.UI.Files
+@inherits TrackedComponent
+@inject IStringLocalizer<DocumentList> Localizer
+@inject DocumentsFacade Documents
+@inject IFileSaver FileSaver
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject ContextMenuService ContextMenuService
+
+@* The documents of one list, with the actions on each: download, rename, file into, delete. The page that shows the
+   list owns its query; the actions here are the same on the inbox page and on an archive page. *@
+@if (Items.Count == 0)
+{
+    <RadzenCard data-testid="empty-state">
+        <RadzenStack Gap="0.5rem" AlignItems="AlignItems.Center" class="rz-p-4">
+            <RadzenText TextStyle="TextStyle.H6">@EmptyTitle</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2">@EmptyText</RadzenText>
+        </RadzenStack>
+    </RadzenCard>
+}
+else
+{
+    <RadzenDataGrid TItem="DocumentDto" Data="@Items" AllowSorting="true"
+                    RowRender="@(args => args.Attributes["data-testid"] = "document-row")">
+        <Columns>
+            <RadzenDataGridColumn TItem="DocumentDto" Property="@nameof(DocumentDto.Title)" Title="@Localizer["ColumnTitle"]" />
+            <RadzenDataGridColumn TItem="DocumentDto" Property="@nameof(DocumentDto.FileName)" Title="@Localizer["ColumnFile"]">
+                <Template Context="document">
+                    <span data-testid="document-file">@document.FileName (@FileSize.Format(document.Size))</span>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="DocumentDto" Title="" Sortable="false" Filterable="false" TextAlign="TextAlign.Right">
+                <Template Context="document">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
+                        <RadzenButton Text="@Localizer["Download"]" Icon="download" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                      Click="@(() => DownloadDocument(document))"
+                                      aria-label="@Localizer["DownloadAria", document.Title]" />
+                        <RadzenButton Text="@Localizer["Rename"]" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                      Click="@(() => OpenRenameDocumentDialog(document))" />
+                        <RadzenButton Text="@Localizer["FileInto"]" Icon="drive_file_move" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                                      Click="@(args => OpenFileMenu(args, document))" />
+                        <RadzenButton Text="@Localizer["Delete"]" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined"
+                                      Click="@(() => DeleteDocument(document))" />
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}

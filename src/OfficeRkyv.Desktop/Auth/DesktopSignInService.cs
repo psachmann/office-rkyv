@@ -9,7 +9,7 @@ namespace OfficeRkyv.Desktop.Auth;
 /// </summary>
 /// <remarks>
 /// A sign-in needs no navigation here: the landing page, where it is made, sends a signed-in visitor on to the
-/// workspace as soon as the authentication state changes. A sign-out goes to the landing page itself, because it
+/// inbox as soon as the authentication state changes. A sign-out goes to the landing page itself, because it
 /// can be made from a page that needs no user (the settings), which would otherwise stay open.
 /// </remarks>
 internal sealed class DesktopSignInService(DesktopSignIn signIn, NavigationManager navigation) : ISignInService

@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Resources;
 using Google.Rpc;
 using Grpc.Core;
-using OfficeRkyv.UI.Components.Pages.Users;
+using OfficeRkyv.UI.Components.Pages;
 using GrpcStatus = Grpc.Core.Status;
 using ProtoAny = Google.Protobuf.WellKnownTypes.Any;
 
@@ -129,7 +129,7 @@ public sealed class CreateUserErrorsTests
     public async Task EveryKeyItCanProduce_ExistsInTheResourceFile()
     {
         var resources = new ResourceManager(
-            "OfficeRkyv.UI.Localization.Resources.Components.Pages.Users.CreateUserDialog",
+            "OfficeRkyv.UI.Localization.Resources.Components.Pages.CreateUserDialog",
             typeof(CreateUserErrors).Assembly
         );
 

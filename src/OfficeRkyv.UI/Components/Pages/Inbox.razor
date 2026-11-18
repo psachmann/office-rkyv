@@ -1,0 +1,40 @@
+@using Microsoft.AspNetCore.Authorization
+@page "/inbox"
+@layout DocumentsLayout
+@attribute [Authorize]
+@inherits TrackedComponent
+@inject IStringLocalizer<Inbox> Localizer
+@inject DocumentsFacade Documents
+@inject ArchivesFacade Archives
+@inject DialogService DialogService
+
+<PageTitle>@Localizer["Title"]</PageTitle>
+
+<RadzenStack Gap="1rem" class="rz-p-4">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-m-0" data-testid="page-heading">@Localizer["Heading"]</RadzenText>
+        <RadzenButton Icon="note_add" Text="@Localizer["NewDocument"]" Click="@OpenCreateDocumentDialog" data-testid="new-document" />
+    </RadzenStack>
+
+    <Transition Query="@Documents.FindInbox">
+        <Content Context="inbox">
+            <Transition Query="@Archives.FindArchives">
+                <Content Context="archives">
+                    <DocumentList Items="@inbox" Archives="@archives" EmptyTitle="@Localizer["EmptyTitle"]" EmptyText="@Localizer["EmptyText"]" />
+                </Content>
+                <Loading>
+                    <LoadingIndicator />
+                </Loading>
+                <Failure>
+                    <LoadFailedAlert Message="@Localizer["LoadFailed"]" />
+                </Failure>
+            </Transition>
+        </Content>
+        <Loading>
+            <LoadingIndicator />
+        </Loading>
+        <Failure>
+            <LoadFailedAlert Message="@Localizer["LoadFailed"]" />
+        </Failure>
+    </Transition>
+</RadzenStack>

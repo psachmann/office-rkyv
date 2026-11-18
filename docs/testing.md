@@ -8,8 +8,8 @@ The test levels this project has, what each one runs, and which to pick. Read it
 |---|---|---|---|
 | Unit | `tests/OfficeRkyv.UnitTests` | Pure logic. No host, no store, no network. | `EmailAddressTests`, `CreateUserCommandValidatorTests`, `DesktopPathsTests`, `TranslationCompletenessTests` |
 | Pipeline | `tests/OfficeRkyv.UnitTests` | The real Wolverine pipeline over a real Fisher store in a temporary SQLite file, with the gRPC services served over the wire. | `ArchivePipelineTests`, `UserPipelineTests`, `ApiTelemetryTests` |
-| UI logic | `tests/OfficeRkyv.UnitTests` | Facades, error mapping and settings services, with fake gRPC clients and no browser. | `WorkspaceFacadeTests`, `CreateUserErrorsTests`, `WebUserSettingsServiceTests` |
-| Functional | `tests/OfficeRkyv.FunctionalTests` | Playwright against the whole app, started through the Aspire AppHost. | `WorkspaceTests`, `LandingPageTests`, `SettingsTests` |
+| UI logic | `tests/OfficeRkyv.UnitTests` | Facades, error mapping and settings services, with fake gRPC clients and no browser. | `FacadesTests`, `FailureReporterTests`, `ArchiveResolutionTests`, `CreateUserErrorsTests`, `WebUserSettingsServiceTests` |
+| Functional | `tests/OfficeRkyv.FunctionalTests` | Playwright against the whole app, started through the Aspire AppHost. | `InboxTests`, `ArchiveTests`, `SidebarTests`, `DocumentActionsTests`, `LandingPageTests`, `SettingsTests` |
 | By hand | none | The desktop app on a real desktop, with its stdout as evidence. | Any change to `src/OfficeRkyv.Desktop` that a unit test cannot reach |
 
 The project named `OfficeRkyv.UnitTests` holds the first three levels. Pipeline tests are integration tests; they live there because they need no browser and no AppHost, and they run in seconds.
@@ -53,7 +53,7 @@ The same holds for the pipeline and UI-logic levels, which live in the same proj
 ## UI-logic tests
 
 - Build a small service provider with `AddFetchling()`, the facades, and fake gRPC clients that derive from the generated client classes.
-- To see the clients as the web host registers them, register the real client with `CallerTokenCredentials.AddTo` and a fake `AuthenticationStateProvider` per scope (`CallerTokenCredentialsTests`, `WorkspaceErrorsOverTheWireTests`): the scope is the circuit, and whoever the fake says is signed in is who the token is for.
+- To see the clients as the web host registers them, register the real client with `CallerTokenCredentials.AddTo` and a fake `AuthenticationStateProvider` per scope (`CallerTokenCredentialsTests`, `DocumentErrorsOverTheWireTests`): the scope is the circuit, and whoever the fake says is signed in is who the token is for.
 - A query only refetches while something is subscribed, as a rendered page is. A test that counts fetches holds a subscription open.
 
 ## Functional tests
@@ -63,22 +63,22 @@ The same holds for the pipeline and UI-logic levels, which live in the same proj
 - We are using data-testid to locate user input elements and other ui elements
 - We are using page objects to encapsulate locators and view logic into reusable units
 
-In practice the page objects (`WorkspacePage`, `SettingsPage`) find an element the way a person does, by role, label or visible text, and use `data-testid` only for parts with no name of their own, such as a navigation entry or a document row. Follow that; [ui.md](ui.md#test-ids) says which elements get a test id.
+In practice the page objects (`SignInPage`, `InboxPage`, `ArchivePage`, `SidebarPage`, `DocumentListPage`, `SettingsPage`) find an element the way a person does, by role, label or visible text, and use `data-testid` only for parts with no name of their own, such as a navigation entry or a document row. Follow that; [ui.md](ui.md#test-ids) says which elements get a test id.
 
 - **One AppHost per test session.** Every class takes `AppHostFixture` (an `AspireFixture<Projects.OfficeRkyv_AppHost>`) with `Shared = SharedType.PerTestSession`, so all functional tests share one app and one SQLite database. The fixture starts the API with `Seed__DemoData=false`, so the development seed ([architecture.md](architecture.md#one-api-composition)) does not put a demo user into that database; `DevelopmentSeedTests` guards it.
-- **Each test creates its own user and signs in as them** (`WorkspacePage.OpenNewUsersWorkspaceAsync` creates the user through the landing page's dialog, which signs in and lands in their workspace). A browser context has its own cookie, so tests stay independent and parallel, and a test that needs a second user opens a second context (`Browser.NewContextAsync`, see `SignInTests`). Other users' data is never looked at.
-- **`LandingPageTests` has an AppHost of its own** (`SharedType.PerClass`): it needs the empty database first, which the shared one cannot give while other classes create users, and its tests build on each other's users and are ordered with `DependsOn`. The user cards are found by role, a button named by the display name (`WorkspacePage.UserCard`).
+- **Each test creates its own user and signs in as them** (`SignInPage.OpenNewUsersInboxAsync` creates the user through the landing page's dialog, which signs in and lands in their inbox). A browser context has its own cookie, so tests stay independent and parallel, and a test that needs a second user opens a second context (`Browser.NewContextAsync`, see `SignInTests`). Other users' data is never looked at.
+- **`LandingPageTests` has an AppHost of its own** (`SharedType.PerClass`): it needs the empty database first, which the shared one cannot give while other classes create users, and its tests build on each other's users and are ordered with `DependsOn`. The user cards are found by role, a button named by the display name (`SignInPage.UserCard`).
 - **`SignInTests`** covers choosing a card, a reload and a new tab, signing out, the pages a signed-out or signed-in visitor is sent to, a forged or reused sign-in address, two browsers as two users, and the old `/users/{id}` address. The sidebar's name and sign-out button are found as `sidebar-user` and by role.
 - **Browsers are limited** with `[ParallelLimiter<BrowserParallelLimit>]` on every class.
 - **Assert with Playwright's `Expect`**, which waits, for anything on the page; TUnit assertions for everything else.
-- **Files are set on the upload dialog's input** (`WorkspacePage.UploadAsync`, from byte arrays), and a download is the Playwright download event (`WorkspacePage.DownloadAsync`): compare its suggested name and the bytes it saved with the originals.
+- **Files are set on the upload dialog's input** (`InboxPage.UploadAsync`, from byte arrays), and a download is the Playwright download event (`DocumentListPage.DownloadAsync`): compare its suggested name and the bytes it saved with the originals.
 - **A document row is found by its exact title cell** (`DocumentRow`), because the row also shows the file name, which a rename does not change.
 - **A search is debounced, so wait for something only the results show.** `SearchTests` drives the header and the search dialog through `SearchDialogPage`. The dialog runs the search once typing has rested, and a document that the inbox shows too proves nothing; wait for one that is in an archive before acting on the results.
 - **The page is not interactive until its circuit connects, so a click or a key before that does nothing.** `SearchDialogPage.OpenWithTheControlAsync` and `OpenWithTheShortcutAsync` repeat the action until the dialog is there (and look first whether it already is: a click would hit the dialog's overlay). A negative check, such as the shortcut opening nothing, first opens and closes the dialog once so the shortcut is known to be registered, then waits a second for what must not happen.
 
 ## By hand: the desktop
 
-Playwright cannot drive WebKitGTK, so nothing automated opens the desktop window. A task that changes desktop behaviour says what to do in the app and what to observe in its stdout. `mise run desktop` runs it in Development, which logs the host's lifecycle and the page's console to the terminal. The sign-in's logic is unit-tested (`DesktopSignInTests`, `DesktopApiTests`); that the window shows the landing page, the workspace and the two log lines (`Signed in as user …`, `Signed out`) is observed by hand.
+Playwright cannot drive WebKitGTK, so nothing automated opens the desktop window. A task that changes desktop behaviour says what to do in the app and what to observe in its stdout. `mise run desktop` runs it in Development, which logs the host's lifecycle and the page's console to the terminal. The sign-in's logic is unit-tested (`DesktopSignInTests`, `DesktopApiTests`); that the window shows the landing page, the inbox and the two log lines (`Signed in as user …`, `Signed out`) is observed by hand.
 
 ## Running
 

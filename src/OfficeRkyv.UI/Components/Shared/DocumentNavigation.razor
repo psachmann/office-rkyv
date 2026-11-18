@@ -1,0 +1,59 @@
+@inject IStringLocalizer<DocumentNavigation> Localizer
+@inject DocumentsFacade Documents
+@inject ArchivesFacade Archives
+@inject DialogService DialogService
+
+@* The inbox and the user's archives, as the sidebar lists them. The layout places it in the sidebar, so the entries are
+   there while a page of documents is open and nowhere else. *@
+<nav aria-label="@Localizer["NavLabel"]">
+    <RadzenPanelMenu>
+        <RadzenPanelMenuItem Path="@Addresses.Inbox" Match="NavLinkMatch.All">
+            <Template>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-w-100">
+                    <span class="rz-navigation-item-text" data-testid="nav-inbox">@Localizer["NavInbox"]</span>
+                    <Transition Query="@Documents.FindInbox">
+                        <Content Context="inbox">
+                            <RadzenBadge Text="@inbox.Count.ToString()" data-testid="nav-inbox-count" />
+                        </Content>
+                    </Transition>
+                </RadzenStack>
+            </Template>
+        </RadzenPanelMenuItem>
+    </RadzenPanelMenu>
+
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-pt-4 rz-px-4">
+        <RadzenText TextStyle="TextStyle.Overline" class="rz-m-0">@Localizer["NavArchives"]</RadzenText>
+        <RadzenButton Icon="create_new_folder" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                      Text="@Localizer["NewArchive"]" Click="@OpenCreateArchiveDialog" data-testid="new-archive" />
+    </RadzenStack>
+
+    <Transition Query="@Archives.FindArchives">
+        <Content Context="archives">
+            @if (archives.Count == 0)
+            {
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-px-4" data-testid="no-archives">@Localizer["NoArchives"]</RadzenText>
+            }
+            else
+            {
+                <RadzenPanelMenu>
+                    @foreach (var archive in archives)
+                    {
+                        <RadzenPanelMenuItem Path="@Addresses.Archive(archive.Id)">
+                            <Template>
+                                <span class="rz-navigation-item-text" data-testid="nav-archive">@archive.Name</span>
+                            </Template>
+                        </RadzenPanelMenuItem>
+                    }
+                </RadzenPanelMenu>
+            }
+        </Content>
+        <Loading>
+            <div class="rz-mx-4">
+                <LoadingIndicator Size="ProgressBarCircularSize.Small" />
+            </div>
+        </Loading>
+        <Failure>
+            <RadzenText TextStyle="TextStyle.Caption" class="rz-px-4" data-testid="archives-load-failed">@Localizer["ArchivesLoadFailed"]</RadzenText>
+        </Failure>
+    </Transition>
+</nav>

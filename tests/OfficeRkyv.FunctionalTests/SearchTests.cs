@@ -7,13 +7,21 @@ namespace OfficeRkyv.FunctionalTests;
 
 /// <summary>
 /// The search from the header, against the real app: the control, the dialog and its results, choosing a result,
-/// and the keyboard shortcut. Every test creates its own user, as the workspace tests do.
+/// and the keyboard shortcut. Every test creates its own user, as the inbox tests do.
 /// </summary>
 [ParallelLimiter<BrowserParallelLimit>]
 [ClassDataSource<AppHostFixture>(Shared = SharedType.PerTestSession)]
 public class SearchTests(AppHostFixture fixture) : PageTest
 {
-    private WorkspacePage Workspace => new(Page);
+    private SignInPage SignIn => new(Page);
+
+    private InboxPage Inbox => new(Page);
+
+    private ArchivePage Archive => new(Page);
+
+    private SidebarPage Sidebar => new(Page);
+
+    private DocumentListPage Documents => new(Page);
 
     private SearchDialogPage Search => new(Page);
 
@@ -22,24 +30,24 @@ public class SearchTests(AppHostFixture fixture) : PageTest
         ?? throw new InvalidOperationException("The web service has no address.");
 
     // Invoice March and Lease in the inbox, Invoice April in the archive Taxes 2026.
-    private async Task OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync(string user)
+    private async Task OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync(string user)
     {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"{user} {Guid.NewGuid():n}");
-        await Workspace.CreateArchiveAsync("Taxes 2026");
-        await Workspace.CreateDocumentAsync("Invoice April");
-        await Workspace.FileDocumentIntoAsync("Invoice April", "Taxes 2026");
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeHiddenAsync();
-        await Workspace.CreateDocumentAsync("Invoice March");
-        await Workspace.CreateDocumentAsync("Lease");
-        await Expect(Workspace.InboxCount).ToHaveTextAsync("2");
+        await SignIn.OpenNewUsersInboxAsync(BaseAddress, $"{user} {Guid.NewGuid():n}");
+        await Sidebar.CreateArchiveAsync("Taxes 2026");
+        await Inbox.CreateDocumentAsync("Invoice April");
+        await Documents.FileDocumentIntoAsync("Invoice April", "Taxes 2026");
+        await Expect(Documents.DocumentRow("Invoice April")).ToBeHiddenAsync();
+        await Inbox.CreateDocumentAsync("Invoice March");
+        await Inbox.CreateDocumentAsync("Lease");
+        await Expect(Sidebar.InboxCount).ToHaveTextAsync("2");
     }
 
     // ---- the control and the dialog ----
 
     [Test]
-    public async Task TheControl_IsInTheHeader_OnTheWorkspaceAndOnTheSettingsPage_AndOpensTheDialog()
+    public async Task TheControl_IsInTheHeader_OnTheInboxAndOnTheSettingsPage_AndOpensTheDialog()
     {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Ada {Guid.NewGuid():n}");
+        await SignIn.OpenNewUsersInboxAsync(BaseAddress, $"Ada {Guid.NewGuid():n}");
         await Expect(Search.Control).ToBeVisibleAsync();
         await Expect(Search.Control).ToContainTextAsync("Ctrl+K");
 
@@ -54,7 +62,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     public async Task TheControl_IsNotThereWhileNobodyIsSignedIn()
     {
         await Page.GotoAsync(BaseAddress);
-        await Expect(Workspace.LandingHeading).ToBeVisibleAsync();
+        await Expect(SignIn.LandingHeading).ToBeVisibleAsync();
 
         await Expect(Search.Control).ToHaveCountAsync(0);
     }
@@ -62,7 +70,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task Searching_FindsDocumentsInTheInboxAndInArchives_AndSaysWhereEachIs()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Judith");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Judith");
         await Search.OpenWithTheControlAsync();
 
         await Search.SearchAsync("invoice");
@@ -78,7 +86,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task Searching_FromTheSettingsPage_FindsTheUsersDocuments()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Kai");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Kai");
         await Page.GotoAsync($"{BaseAddress}settings");
 
         await Search.OpenWithTheControlAsync();
@@ -90,7 +98,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task AWordThatMatchesNothing_ShowsTheNoResultsMessage()
     {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Lena {Guid.NewGuid():n}");
+        await SignIn.OpenNewUsersInboxAsync(BaseAddress, $"Lena {Guid.NewGuid():n}");
         await Search.OpenWithTheControlAsync();
 
         await Search.SearchAsync("garden");
@@ -102,7 +110,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task AnEmptyField_AndAQueryOfTwoCharacters_ShowTheHint_AndNoResults()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Mira");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Mira");
         await Search.OpenWithTheControlAsync();
         await Expect(Search.Hint).ToBeVisibleAsync();
 
@@ -116,7 +124,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task Escape_ClosesTheDialog_AndItOpensEmptyAgain()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Nora");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Nora");
         await Search.OpenWithTheControlAsync();
         await Search.SearchAsync("invoice");
         await Expect(Search.Result("Invoice April")).ToBeVisibleAsync();
@@ -132,7 +140,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task TheQuery_IsNotKeptInTheAddress()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Otto");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Otto");
         var address = Page.Url;
         await Search.OpenWithTheControlAsync();
 
@@ -147,21 +155,21 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task ChoosingAResultInAnArchive_OpensThatArchive_AndClosesTheDialog()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Pia");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Pia");
         await Search.OpenWithTheControlAsync();
         await Search.SearchAsync("invoice");
 
         await Search.Result("Invoice April").ClickAsync();
 
         await Expect(Search.Dialog).ToBeHiddenAsync();
-        await Expect(Workspace.Selection).ToHaveTextAsync("Taxes 2026");
-        await Expect(Workspace.DocumentRow("Invoice April")).ToBeVisibleAsync();
+        await Expect(Documents.Heading).ToHaveTextAsync("Taxes 2026");
+        await Expect(Documents.DocumentRow("Invoice April")).ToBeVisibleAsync();
     }
 
     [Test]
     public async Task ChoosingAResultInTheInbox_FromAnotherPage_OpensTheInbox()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Quinn");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Quinn");
         await Page.GotoAsync($"{BaseAddress}settings");
         await Search.OpenWithTheControlAsync();
         await Search.SearchAsync("invoice march");
@@ -169,14 +177,14 @@ public class SearchTests(AppHostFixture fixture) : PageTest
         await Search.Result("Invoice March").ClickAsync();
 
         await Expect(Search.Dialog).ToBeHiddenAsync();
-        await Expect(Page).ToHaveURLAsync(new Regex("/workspace$"));
-        await Expect(Workspace.Selection).ToHaveTextAsync("Inbox");
+        await Expect(Page).ToHaveURLAsync(new Regex("/inbox$"));
+        await Expect(Documents.Heading).ToHaveTextAsync("Inbox");
     }
 
     [Test]
     public async Task Enter_ChoosesTheFirstResult()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Rosa");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Rosa");
         await Search.OpenWithTheControlAsync();
         await Search.SearchAsync("invoice april");
         await Expect(Search.Result("Invoice April")).ToBeVisibleAsync();
@@ -184,13 +192,13 @@ public class SearchTests(AppHostFixture fixture) : PageTest
         await Page.Keyboard.PressAsync("Enter");
 
         await Expect(Search.Dialog).ToBeHiddenAsync();
-        await Expect(Workspace.Selection).ToHaveTextAsync("Taxes 2026");
+        await Expect(Documents.Heading).ToHaveTextAsync("Taxes 2026");
     }
 
     [Test]
     public async Task TheArrowKeys_MoveTheFocusThroughTheResults_AndBackToTheField()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Sven");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Sven");
         await Search.OpenWithTheControlAsync();
         await Search.SearchAsync("invoice");
         await Expect(Search.Results).ToHaveCountAsync(2);
@@ -212,16 +220,16 @@ public class SearchTests(AppHostFixture fixture) : PageTest
 
         await Expect(Search.Dialog).ToBeHiddenAsync();
         var inTheArchive = second.Contains("Taxes 2026", StringComparison.Ordinal);
-        await Expect(Workspace.Selection).ToHaveTextAsync(inTheArchive ? "Taxes 2026" : "Inbox");
+        await Expect(Documents.Heading).ToHaveTextAsync(inTheArchive ? "Taxes 2026" : "Inbox");
     }
 
     [Test]
     public async Task DownloadingAResult_GivesTheOriginalFile_AndLeavesTheDialogOpen()
     {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Tilda {Guid.NewGuid():n}");
+        await SignIn.OpenNewUsersInboxAsync(BaseAddress, $"Tilda {Guid.NewGuid():n}");
         var content = System.Text.Encoding.UTF8.GetBytes("%PDF-1.4 Invoice March");
-        await Workspace.UploadAsync(new WorkspacePage.UploadFile("Invoice March.pdf", content));
-        await Workspace.CloseUploadDialogAsync();
+        await Inbox.UploadAsync(new InboxPage.UploadFile("Invoice March.pdf", content));
+        await Inbox.CloseUploadDialogAsync();
         await Search.OpenWithTheControlAsync();
         await Search.SearchAsync("invoice");
         await Expect(Search.Result("Invoice March")).ToBeVisibleAsync();
@@ -239,9 +247,9 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     // ---- the shortcut ----
 
     [Test]
-    public async Task Ctrl_K_OpensTheDialog_OnTheWorkspaceAndOnTheSettingsPage_WithTheFieldFocused()
+    public async Task Ctrl_K_OpensTheDialog_OnTheInboxAndOnTheSettingsPage_WithTheFieldFocused()
     {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Uma {Guid.NewGuid():n}");
+        await SignIn.OpenNewUsersInboxAsync(BaseAddress, $"Uma {Guid.NewGuid():n}");
 
         await Search.OpenWithTheShortcutAsync();
         await Expect(Search.Field).ToBeFocusedAsync();
@@ -255,7 +263,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task Ctrl_K_WhileTheDialogIsOpen_KeepsOneDialog_TheQuery_AndTheFocus()
     {
-        await OpenWorkspaceWithDocumentsInTheInboxAndAnArchiveAsync("Vera");
+        await OpenInboxWithDocumentsInTheInboxAndAnArchiveAsync("Vera");
         await Search.OpenWithTheShortcutAsync();
         await Search.SearchAsync("invoice");
         await Expect(Search.Result("Invoice April")).ToBeVisibleAsync();
@@ -273,12 +281,12 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task Ctrl_K_WhileAnotherDialogIsOpen_OpensNothing()
     {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Willi {Guid.NewGuid():n}");
+        await SignIn.OpenNewUsersInboxAsync(BaseAddress, $"Willi {Guid.NewGuid():n}");
         // Once the shortcut works for this page, it is registered; then the upload dialog is opened.
         await Search.OpenWithTheShortcutAsync();
         await Search.CloseAsync();
         await Page.GetByRole(AriaRole.Button, new() { Name = "New document" }).ClickAsync();
-        await Expect(Workspace.Dialog).ToBeVisibleAsync();
+        await Expect(Documents.Dialog).ToBeVisibleAsync();
 
         await Page.Keyboard.PressAsync("Control+K");
 
@@ -292,7 +300,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     public async Task Ctrl_K_WhileNobodyIsSignedIn_OpensNothing()
     {
         await Page.GotoAsync(BaseAddress);
-        await Expect(Workspace.LandingHeading).ToBeVisibleAsync();
+        await Expect(SignIn.LandingHeading).ToBeVisibleAsync();
 
         await Page.Keyboard.PressAsync("Control+K");
 
@@ -305,7 +313,7 @@ public class SearchTests(AppHostFixture fixture) : PageTest
     [Test]
     public async Task InGerman_TheControlAndTheDialogAreNamedInGerman_AndTheShortcutIsStrgK()
     {
-        await Workspace.OpenNewUsersWorkspaceAsync(BaseAddress, $"Xaver {Guid.NewGuid():n}");
+        await SignIn.OpenNewUsersInboxAsync(BaseAddress, $"Xaver {Guid.NewGuid():n}");
         await Context.AddCookiesAsync([
             new()
             {

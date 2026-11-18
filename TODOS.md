@@ -61,6 +61,9 @@ The text of every PDF and image is extracted and kept in the background ([add-do
 
 ### Documents and users
 
+- [ ] **Upload straight into an archive.** A new document always goes to the inbox, and the archive page offers no upload, so a document that belongs in an archive is filed after it arrives.
+  - Why postponed: the upload dialog would need to know its target and the archive page would offer the action again; that is a design of its own (what happens to the file's name, and whether a refused upload stays in the archive), and the split of the workspace into two pages was not the place for it.
+  - Decided in: [split-workspace-into-inbox-and-archive](openspec/changes/archive/2026-11-18-split-workspace-into-inbox-and-archive/proposal.md) (Not in this change).
 - [ ] **Tags and other metadata.**
 - [ ] **Search the words inside files: what is left.** Documents are found by the text of their files ([add-document-content-search](openspec/changes/archive/2026-10-23-add-document-content-search/design.md)): a separate `ContentText` document per content, the `.txt` files staying the source it is rebuilt from, text matches listed after title matches. Two things were left out of that first version:
   - [ ] **Ranking text matches by relevance.** Documents found only through their text are ordered by title, because there is no score that compares across the two indexes and `bm25()` of the text index has no meaning for several words. Revisit with the Lucene.NET item below. Decided in: [add-document-content-search](openspec/changes/archive/2026-10-23-add-document-content-search/design.md) (D3).

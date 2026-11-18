@@ -3,7 +3,7 @@
 @inject ISignInService SignIn
 
 @* Who is signed in, and how to stop: shown in the sidebar while a user is signed in. The name comes from the same
-   query the workspace heading uses, so the two share one request. *@
+   query the page layout uses, so the two share one request. *@
 <RadzenStack Gap="0.5rem" class="rz-p-3">
     <Transition Query="@Users.FindUserById">
         <Content Context="found">

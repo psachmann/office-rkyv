@@ -1,0 +1,50 @@
+@page "/archives/{ArchiveId:guid}"
+@layout DocumentsLayout
+@attribute [Authorize]
+@inherits TrackedComponent
+@using Microsoft.AspNetCore.Authorization
+@inject IStringLocalizer<Archive> Localizer
+@inject DocumentsFacade Documents
+@inject ArchivesFacade Archives
+@inject DialogService DialogService
+
+<PageTitle>@Localizer["Title"]</PageTitle>
+
+<RadzenStack Gap="1rem" class="rz-p-4">
+    <Transition Query="@Archives.FindArchives">
+        <Content Context="archives">
+            @if (Find(archives) is { } archive)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem">
+                        <RadzenText TextStyle="TextStyle.H5" class="rz-m-0" data-testid="page-heading">@archive.Name</RadzenText>
+                        <RadzenButton Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text"
+                                      Click="@(() => OpenRenameArchiveDialog(archive))"
+                                      aria-label="@Localizer["RenameArchiveAria", archive.Name]" />
+                        <RadzenButton Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text"
+                                      Click="@(() => DeleteArchive(archive))"
+                                      aria-label="@Localizer["DeleteArchiveAria", archive.Name]" />
+                    </RadzenStack>
+                </RadzenStack>
+
+                <Transition Query="@Documents.FindArchiveDocuments">
+                    <Content Context="contents">
+                        <DocumentList Items="@contents" Archives="@archives" EmptyTitle="@Localizer["EmptyTitle"]" EmptyText="@Localizer["EmptyText"]" />
+                    </Content>
+                    <Loading>
+                        <LoadingIndicator />
+                    </Loading>
+                    <Failure>
+                        <LoadFailedAlert Message="@Localizer["LoadFailed"]" />
+                    </Failure>
+                </Transition>
+            }
+        </Content>
+        <Loading>
+            <LoadingIndicator />
+        </Loading>
+        <Failure>
+            <LoadFailedAlert Message="@Localizer["LoadFailed"]" />
+        </Failure>
+    </Transition>
+</RadzenStack>

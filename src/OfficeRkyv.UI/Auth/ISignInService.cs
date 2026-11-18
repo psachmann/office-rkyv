@@ -8,7 +8,7 @@ namespace OfficeRkyv.UI.Auth;
 /// </summary>
 public interface ISignInService
 {
-    /// <summary>Signs in as the user, and shows that user's workspace.</summary>
+    /// <summary>Signs in as the user, and shows that user's inbox.</summary>
     Task SignInAsync(Guid userId);
 
     /// <summary>Ends the sign-in, and shows the landing page.</summary>

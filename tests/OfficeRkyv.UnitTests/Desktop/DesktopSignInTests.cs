@@ -101,7 +101,7 @@ public sealed class DesktopSignInTests
 
     private sealed class RecordingNavigation : NavigationManager
     {
-        public RecordingNavigation() => Initialize("http://localhost/", "http://localhost/workspace");
+        public RecordingNavigation() => Initialize("http://localhost/", "http://localhost/inbox");
 
         public List<string> Visited { get; } = [];
 

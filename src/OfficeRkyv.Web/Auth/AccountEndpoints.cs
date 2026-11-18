@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using OfficeRkyv.UI.Auth;
+using OfficeRkyv.UI.Shared;
 
 namespace OfficeRkyv.Web.Auth;
 
@@ -34,7 +35,7 @@ public static class AccountEndpoints
                 new AuthenticationProperties { IsPersistent = true }
             );
 
-            return Results.LocalRedirect("/workspace");
+            return Results.LocalRedirect(Addresses.Inbox);
         });
 
         endpoints.MapGet(SignOutRoute, async (string? ticket, SignInTickets tickets, HttpContext context) =>

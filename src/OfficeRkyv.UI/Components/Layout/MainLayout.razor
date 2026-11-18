@@ -38,7 +38,7 @@
                         Match="NavLinkMatch.All"
                     />
                 </RadzenPanelMenu>
-                <SectionOutlet SectionId="WorkspaceNavigationSection" />
+                <SectionOutlet SectionId="NavigationSection" />
                 <div class="app-sidebar-bottom">
                     <AuthorizeView Context="auth">
                         @if (SignedInUser.IdOf(auth.User) is { } userId)

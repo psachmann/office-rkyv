@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using OfficeRkyv.Contracts.Users;
 using OfficeRkyv.UI.Auth;
-using OfficeRkyv.UI.Components.Pages.Users;
+using OfficeRkyv.UI.Shared;
 using Radzen;
 
 namespace OfficeRkyv.UI.Components.Pages;
@@ -13,14 +13,14 @@ public partial class Home
     private Task<AuthenticationState> AuthenticationState { get; set; } = null!;
 
     // Runs again whenever the authentication state changes, which is how a sign-in made in place (the desktop's)
-    // reaches the workspace: the page that the visitor signed in on sends them on.
+    // reaches the inbox: the page that the visitor signed in on sends them on.
     protected override async Task OnParametersSetAsync()
     {
         // A signed-in visitor has no use for the landing page. The history entry is replaced, so back does not
         // return to a page that would send them on again.
         if (SignedInUser.IdOf((await AuthenticationState).User) is not null)
         {
-            Navigation.NavigateTo("/workspace", replace: true);
+            Navigation.NavigateTo(Addresses.Inbox, replace: true);
 
             return;
         }

@@ -1,11 +1,10 @@
 @using System.Reactive.Linq
 @using System.Reactive.Subjects
 @using Microsoft.AspNetCore.Components.Authorization
-@using OfficeRkyv.UI.Components.Pages.Users
 @using OfficeRkyv.UI.Files
 @implements IAsyncDisposable
 @inject IStringLocalizer<SearchDialog> Localizer
-@inject IStringLocalizer<WorkspaceErrors> ErrorLocalizer
+@inject IStringLocalizer<DocumentErrors> ErrorLocalizer
 @inject ArchivesFacade Archives
 @inject DocumentsFacade Documents
 @inject IQueryClient QueryClient

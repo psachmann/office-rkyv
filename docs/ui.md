@@ -30,7 +30,6 @@ A text missing from a translation silently falls back to English, so the unit te
 | Archive | Archiv |
 | Document | Dokument |
 | User | Benutzer |
-| Workspace | Arbeitsbereich |
 | File into... | Ablegen in... |
 | Home | Startseite |
 | Settings | Einstellungen |
@@ -74,15 +73,15 @@ A person says who they are by choosing themselves from the landing page: a card 
 
 - **Reading.** The UI reads the signed-in user only through Blazor's `AuthenticationStateProvider` and the cascaded `Task<AuthenticationState>` (`AddOfficeRkyvUi` adds `AddAuthorizationCore` and `AddCascadingAuthenticationState`). The user id is the `NameIdentifier` claim, read through `SignedInUser.IdOf(ClaimsPrincipal)` in `OfficeRkyv.UI.Auth`; `SignedInUser.PrincipalFor` makes the principal both hosts produce.
 - **Acting.** Signing in and out goes through `ISignInService` (`SignInAsync(Guid userId)`, `SignOutAsync()`), which each host implements, as for `IUserSettingsService` and for the same reason: the web needs a real navigation to change a cookie, the desktop changes in place. Register an implementation in every host.
-- **Routing.** Both routers (`Routes.razor`, `Main.razor`) use `AuthorizeRouteView`, whose `NotAuthorized` is `RedirectToLanding`. The workspace is `[Authorize]`; the landing page sends a signed-in visitor on to `/workspace` (in `OnParametersSetAsync`, so a sign-in made in place reaches it too); settings and not-found need no user. The workspace is `/workspace` and `/workspace/archives/{id}`: a user's id is never part of an address, and the old `/users/{id}` shows the not-found page.
+- **Routing.** Both routers (`Routes.razor`, `Main.razor`) use `AuthorizeRouteView`, whose `NotAuthorized` is `RedirectToLanding`. The inbox (`/inbox`) and an archive (`/archives/{id}`) are `[Authorize]`, and both sit in `DocumentsLayout`; the landing page sends a signed-in visitor on to `/inbox` (in `OnParametersSetAsync`, so a sign-in made in place reaches it too); settings and not-found need no user. A user's id is never part of an address. The old addresses `/workspace`, `/workspace/archives/{id}` and `/users/{id}` have no route and show the not-found page, with no redirect. An archive address naming an archive that is not the user's shows the not-found page, and an archive that is deleted while its page is open goes to `/inbox`.
 - **The sidebar** shows the signed-in user's name and a sign-out button above Settings (`SidebarUser`, through `AuthorizeView`).
 - **Every gRPC client carries the user.** `CallerTokenCredentials.AddTo(IHttpClientBuilder, key)` registers call credentials that issue a caller token per call, for the user in the `AuthenticationStateProvider` of the scope the client was resolved in (the circuit on the web, the window on the desktop; checked by `CallerTokenCredentialsTests`). Nobody signed in, no header, and the API refuses a call that needs a caller. Both hosts register their clients through it.
 
 ### Web: a cookie, set by an endpoint that redeems a ticket
 
-A Blazor Server circuit cannot set a cookie, so a sign-in is a real request, as the language switch is (`/culture/set`). `WebSignInService` asks the singleton `SignInTickets` for a ticket (32 random bytes, base64url, valid 60 seconds, usable once, bound to sign-in or sign-out) and navigates with `forceLoad` to `/account/sign-in?ticket=…` or `/account/sign-out?ticket=…` (`AccountEndpoints`). The endpoint redeems it, sets or clears the cookie (ASP.NET Core cookie authentication: `HttpOnly`, `Secure`, `SameSite=Lax`, sliding, 14 days) and redirects to `/workspace` or `/`. A missing, used, expired or wrong-action ticket changes nothing and redirects to `/`. The ticket is what stops another site from signing a visitor in: only the app's own circuit can mint one. Because a sign-in is a reload, a circuit never outlives its user.
+A Blazor Server circuit cannot set a cookie, so a sign-in is a real request, as the language switch is (`/culture/set`). `WebSignInService` asks the singleton `SignInTickets` for a ticket (32 random bytes, base64url, valid 60 seconds, usable once, bound to sign-in or sign-out) and navigates with `forceLoad` to `/account/sign-in?ticket=…` or `/account/sign-out?ticket=…` (`AccountEndpoints`). The endpoint redeems it, sets or clears the cookie (ASP.NET Core cookie authentication: `HttpOnly`, `Secure`, `SameSite=Lax`, sliding, 14 days) and redirects to `/inbox` or `/`. A missing, used, expired or wrong-action ticket changes nothing and redirects to `/`. The ticket is what stops another site from signing a visitor in: only the app's own circuit can mint one. Because a sign-in is a reload, a circuit never outlives its user.
 
-The cookie scheme's login redirect goes to `/`, not to its default `/Account/Login`: `[Authorize]` on a routable component makes the authorization middleware challenge a signed-out request for `/workspace` before Blazor renders it, and the answer is the landing page.
+The cookie scheme's login redirect goes to `/`, not to its default `/Account/Login`: `[Authorize]` on a routable component makes the authorization middleware challenge a signed-out request for `/inbox` before Blazor renders it, and the answer is the landing page.
 
 ### Desktop
 
@@ -90,36 +89,36 @@ See [desktop.md](desktop.md#signing-in): the same two interfaces, implemented in
 
 ### A sign-in the API stops accepting
 
-`UNAUTHENTICATED` is `WorkspaceErrors.SignedOut`. A refusal that carries it, from a query or a mutation or a dialog, ends the sign-in (`WorkspaceErrors.EndSignInIfRefusedAsync` calls `ISignInService.SignOutAsync()`), and the landing page follows. `FindUserById` answering "no user" for the signed-in id does the same. The workspace never presents it as an empty inbox.
+`UNAUTHENTICATED` is `DocumentErrors.SignedOut`. A refusal that carries it, from a query or a mutation or a dialog, ends the sign-in (`DocumentErrors.EndSignInIfRefusedAsync` calls `ISignInService.SignOutAsync()`), and the landing page follows. `FindUserById` answering "no user" for the signed-in id does the same. The pages never present it as an empty inbox.
 
 ## Data: one facade per gRPC service
 
 A page never calls a gRPC client. It injects a facade from `src/OfficeRkyv.UI/Shared` (`UsersFacade`, `ArchivesFacade`, `DocumentsFacade`), which wraps the service's client in Fetchling queries and mutations.
 
 - **Queries are shared.** A facade exposes each query as a property and is registered scoped, so there is one per circuit (web) or per window (desktop), and every component showing the same key shares one cache entry.
-- **Requests carry no owner.** The API acts for the caller (see [Signing in](#signing-in)). The workspace queries are still asked with the signed-in user's id, but only to key the cache, so that a desktop sign-out and sign-in as another user never serves the first user's lists.
+- **Requests carry no owner.** The API acts for the caller (see [Signing in](#signing-in)). The document queries are still asked with the signed-in user's id, but only to key the cache, so that a desktop sign-out and sign-in as another user never serves the first user's lists.
 - **Mutations are not shared.** A `Create…Mutation()` method returns a fresh instance that the calling component owns and disposes, so its state reports only what that component started.
 - **Pages render a query through `Transition`** (from Fetchling.Blazor), which gives the loading, failure and success branches. A part of the page with its own query shows its own loading and failure state; an empty-list text is never shown for a list that did not load.
-- **A mutation refreshes by kind, not by key.** Workspace queries are keyed `[kind, id]` through `WorkspaceKeys` (`ForArchives`, `ForInbox`, `ForArchiveDocuments`, and `ForSearch` for `[search, ownerId, query]`), and a mutation's `OnSuccess` calls `queryClient.Invalidate(WorkspaceKeys.Inbox, …)`, which marks every query of those kinds stale. `MutationOptions.InvalidateKeys` matches whole keys only, so it is used only where the key has one part (`UsersFacade`). Every document mutation refreshes the search kind too, since a change moves or renames what a search finds.
+- **A mutation refreshes by kind, not by key.** Document and archive queries are keyed `[kind, id]` through `QueryKinds` (`ForArchives`, `ForInbox`, `ForArchiveDocuments`, and `ForSearch` for `[search, ownerId, query]`), and a mutation's `OnSuccess` calls `queryClient.Invalidate(QueryKinds.Inbox, …)`, which marks every query of those kinds stale. `MutationOptions.InvalidateKeys` matches whole keys only, so it is used only where the key has one part (`UsersFacade`). Every document mutation refreshes the search kind too, since a change moves or renames what a search finds.
 - **Results that settle later get a second refresh.** Deleting an archive returns its documents to the inbox after the call has answered (see [api.md](api.md)), so `ArchivesFacade` invalidates the inbox and the search again after `CascadeSettleDelay`.
 
 ### Search: a dialog from the header
 
-Search is reached from the header on every page, not from the workspace. `HeaderSearch` (in `MainLayout`, inside `AuthorizeView`, so only while someone is signed in) is a button that looks like a search field, with the shortcut written in it. It opens `SearchDialog` through `DialogService`.
+Search is reached from the header on every page, not from the document pages. `HeaderSearch` (in `MainLayout`, inside `AuthorizeView`, so only while someone is signed in) is a button that looks like a search field, with the shortcut written in it. It opens `SearchDialog` through `DialogService`.
 
-- **The dialog keeps its own state.** The field, the typed text and what the results are for live in the dialog, and nothing of a search is in the page address: a search is transient, so a reload or the back button has nothing to restore. This departs on purpose from "state worth keeping belongs in the address" (the workspace's selection still does). A dialog that opens again starts empty, and the shared `DocumentsFacade.SearchDocuments` query only renders while the text has a searchable word, so last time's results never show.
+- **The dialog keeps its own state.** The field, the typed text and what the results are for live in the dialog, and nothing of a search is in the page address: a search is transient, so a reload or the back button has nothing to restore. This departs on purpose from "state worth keeping belongs in the address" (the selected archive in the address still does). A dialog that opens again starts empty, and the shared `DocumentsFacade.SearchDocuments` query only renders while the text has a searchable word, so last time's results never show.
 - **Typing is debounced, with `Subject.Throttle`** (System.Reactive, 300 ms): one search per pause, not one per key. The dialog is the only writer of its query, so there is no version counter; its subscriptions are disposed with it.
 - **The dialog uses the server's word rule.** `SearchTerms` is in `OfficeRkyv.Contracts`; a text with no word the server would match shows a hint and sends nothing (an empty field too).
-- **A result is two actions:** an open button that closes the dialog and goes to the document's inbox or archive (`WorkspaceAddresses`, shared with the workspace), and a download button that leaves the dialog open and shows a refusal in an alert of its own, apart from a failed search. Rename, file and delete stay on the workspace lists.
+- **A result is two actions:** an open button that closes the dialog and goes to the document's inbox or archive (`Addresses`, shared with the pages), and a download button that leaves the dialog open and shows a refusal in an alert of its own, apart from a failed search. Rename, file and delete stay on the document lists.
 - **Keyboard keys are handled by `search-dialog.js` in the page** (Enter chooses the first result, the arrows move the focus through the results), not through .NET, so they need no round trip. A script call that arrives after the dialog was closed throws; the dialog catches the `JSException`, because an unhandled one ends the circuit.
 - **Ctrl+K / Cmd+K opens the dialog from any page** (`search-shortcut.js`, registered by `HeaderSearch`). The script cancels the key at once so the browser's own action does not run, and tells the component whether any `role="dialog"` or `alertdialog` is open: with the search dialog open the field gets the focus back, with another dialog open nothing happens. It writes `search shortcut registered` and `search shortcut pressed` to the page console, which is how the desktop's stdout shows that the key reached the page. The key-cap text comes from resources (`Ctrl+K`, `Strg+K`).
-- **The dialog sits outside the page's own `Transition`s and layout**, so it works the same on the settings page as on the workspace.
+- **The dialog sits outside the page's own `Transition`s and layout**, so it works the same on the settings page as on the inbox.
 
 ### Files: upload and download
 
 A document is a file, so two operations on the facade are not queries or mutations.
 
-- **`DocumentsFacade.UploadAsync`** streams one file to the API (a header, then 64 KB chunks) and reports the bytes sent through a callback. It is a method and not a Fetchling mutation because a mutation has no progress to report. It invalidates the inbox and archive-content queries when a document was created, and throws a refusal exactly as the typed client throws every refusal, so `WorkspaceErrors` explains it. The upload dialog (`UploadDocumentsDialog`) calls it once per file, one file after another, and shows each file's own state; a refused file does not stop the next.
+- **`DocumentsFacade.UploadAsync`** streams one file to the API (a header, then 64 KB chunks) and reports the bytes sent through a callback. It is a method and not a Fetchling mutation because a mutation has no progress to report. It invalidates the inbox and archive-content queries when a document was created, and throws a refusal exactly as the typed client throws every refusal, so `DocumentErrors` explains it. The upload dialog (`UploadDocumentsDialog`) calls it once per file, one file after another, and shows each file's own state; a refused file does not stop the next.
 - **`DocumentsFacade.OpenDownloadAsync`** returns the document's file as a forward-only `Stream`. The first message is read when it is opened, so a refusal (unknown or deleted document) is thrown there and not while saving.
 - **Saving is the host's job: `IFileSaver`** (`OfficeRkyv.UI.Files`) takes a file name, a content type and a stream. The web host (`WebFileSaver`) hands the stream to the browser as a download; the desktop (`DesktopFileSaver`) writes it where the user chooses. It returns where the file went when the host can say, and the page shows that in a notification. A cancelled save writes nothing and throws nothing. Register an implementation in every host, as for `IUserSettingsService`.
 - **A size limit is refused before sending.** `FileLimits` in `OfficeRkyv.Contracts` carries the default limit and the chunk size, so the dialog can say no quickly. The server's configured limit stays the authority.
@@ -130,13 +129,15 @@ What the UI library registers itself is in `AddOfficeRkyvUi` (Radzen, localizati
 
 The API answers a refused call with a gRPC status and a stable code (see [api.md](api.md)). The UI chooses its text from the status code and that code, never from the server's own message, which is English-only and not written for users.
 
-- One small record per form or page turns an exception into resource keys: `CreateUserErrors` and `WorkspaceErrors` in `src/OfficeRkyv.UI/Components/Pages/Users`. The component localizes the keys.
-- A field violation is shown under its field; the first violation per field wins. A violation on `content` or `file_name` belongs to a file of the upload dialog (`WorkspaceErrors.File`), not to a form field. Everything else is one general message.
+- One small record per form or page turns an exception into resource keys: `CreateUserErrors` in `Components/Pages` and `DocumentErrors` in `Components/Shared`. The component localizes the keys.
+- A field violation is shown under its field; the first violation per field wins. A violation on `content` or `file_name` belongs to a file of the upload dialog (`DocumentErrors.File`), not to a form field. Everything else is one general message.
 - An unknown code degrades to a generic text. It is never shown raw and never dropped.
-- A refusal that means the page is out of date (`Aborted`, `NotFound`, a deleted archive or document) also asks for a reload of the affected lists (`WorkspaceErrors.ReloadNeeded`). Another user's archive or document is `NotFound` too, so it reads the same.
-- `Unauthenticated` ends the sign-in instead of showing a message (`WorkspaceErrors.SignedOut`; see [Signing in](#a-sign-in-the-api-stops-accepting)).
+- A refusal that means the page is out of date (`Aborted`, `NotFound`, a deleted archive or document) also asks for a reload of the affected lists (`DocumentErrors.ReloadNeeded`). Another user's archive or document is `NotFound` too, so it reads the same.
+- `Unauthenticated` ends the sign-in instead of showing a message (`DocumentErrors.SignedOut`; see [Signing in](#a-sign-in-the-api-stops-accepting)).
 
 Adding a code to `OfficeRkyv.Contracts` therefore needs a case in the matching record and a key in its `.resx`.
+
+A page with lists of documents does not show its refusals in its own field. `FailureReporter` (in `Components/Shared`) holds the one message of the page: a refusal sets its key, ends the sign-in when `DocumentErrors` says so and reloads the lists it made stale. `DocumentsLayout` creates it and cascades it, and its alert is the one place a refusal from any part of the page is shown. A component that runs mutations of its own inherits `TrackedComponent`, which tracks each mutation, sends its failures to the reporter and disposes it with the component. A dialog keeps its own field messages and does not use the reporter.
 
 ## Component code
 
@@ -146,9 +147,15 @@ A component's C# lives in a code-behind file beside it: `Foo.razor` has a `Foo.r
 - **Moves to `.razor.cs`:** parameters, fields, properties, lifecycle methods, handlers and any other member, plus the `using`s they need. `@inject` stays in `.razor` next to the markup that uses it.
 - Members keep their accessibility and names. The logging methods of a component are declared here too, as [observability.md](observability.md#logging) requires.
 
+### Components/Shared
+
+`src/OfficeRkyv.UI/Components/Shared` holds the components that more than one page uses: the document list with its row actions, the sidebar's inbox and archive entries, the three dialogs, the loading and failure pieces, and the failure reporter. Their namespace is `OfficeRkyv.UI.Components.Shared`, which is not the same as `OfficeRkyv.UI.Shared`, the C# folder of facades, addresses, query kinds and helpers, which has no markup. A component goes in `Components/Shared` when a second page uses it, and a page's own components stay beside it in `Components/Pages`.
+
+The pages and the nested layout (`Components/Layout/DocumentsLayout`) sit on top of these. The layout owns what the two document pages share: the sidebar entries, the check that the signed-in user still exists, and the failure alert. A page with a document list sets its `@layout DocumentsLayout` and says nothing else about the sidebar, so the sidebar stays in place when the visitor moves between pages.
+
 ## Styling
 
-Use Radzen components and Radzen's utility classes before writing CSS. The workspace page has no stylesheet of its own. The existing exceptions are the layout's scoped `MainLayout.razor.css` and the global `wwwroot/app.css`; add to them only what Radzen cannot express.
+Use Radzen components and Radzen's utility classes before writing CSS. The document pages have no stylesheet of their own. The existing exceptions are the layout's scoped `MainLayout.razor.css` and the global `wwwroot/app.css`; add to them only what Radzen cannot express.
 
 ## Test ids
 

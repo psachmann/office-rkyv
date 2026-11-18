@@ -25,7 +25,7 @@ Each is verified and explained in the archived spike, `openspec/changes/archive/
 The desktop offers the same landing page and sign-in as the web, with the same two seams ([ui.md](ui.md#signing-in)), implemented in memory.
 
 - **`DesktopSignIn`** is one singleton for the running app and the `AuthenticationStateProvider` of every window and every gRPC client. Signing in or out sets the principal and raises `AuthenticationStateChanged`. Nothing is written to disk, so every start is signed out. It is app-wide and not per window: a second launch opens a second window on the running instance, and one person runs the app.
-- **`DesktopSignInService`** is the `ISignInService`, one per window (it needs that window's `NavigationManager`). A sign-in only changes the state: the landing page, where it is made, sends a signed-in visitor on to `/workspace`. A sign-out also navigates to `/`, because it can be made from the settings page, which needs no user.
+- **`DesktopSignInService`** is the `ISignInService`, one per window (it needs that window's `NavigationManager`). A sign-in only changes the state: the landing page, where it is made, sends a signed-in visitor on to `/inbox`. A sign-out also navigates to `/`, because it can be made from the settings page, which needs no user.
 - **The key.** `DesktopHost` makes 32 random bytes at every start and hands them to `DesktopApi.StartAsync` (the API's JwtBearer) and to `DesktopApi.AddSocketClients` (the token issuer). Nothing outside the process knows it.
 - **Call credentials over the socket.** gRPC attaches call credentials only over TLS, so the clients set `UnsafeUseInsecureChannelCallCredentials`. That is safe here because the socket lives in the owner-only runtime directory; the web host keeps TLS. The token is still required, so the API has one code path (checked by `DesktopApiTests`).
 - **Two log lines**, `[LoggerMessage]` at Information with the user id only, as the evidence of the by-hand check: `Signed in as user {UserId}` and `Signed out`.
@@ -49,7 +49,7 @@ The desktop hosts the API, so it extracts the text of every uploaded PDF and ima
 
 ## The search shortcut
 
-Ctrl+K opens the search dialog in the desktop as it does in the browser (see [ui.md](ui.md#search-a-dialog-from-the-header)); the script and the dialog are the UI library's, so the desktop has no code of its own for it. Whether WebKitGTK delivers the key to the page, and whether the dialog's field gets the focus, cannot be tested without the window, so it is checked by hand: `mise run desktop`, sign in, press Ctrl+K on the workspace and on the settings page. The page console is forwarded to stdout in Development, and shows `search shortcut registered` once after sign-in and `search shortcut pressed` for each press; no `pressed` line means the key never reached the page.
+Ctrl+K opens the search dialog in the desktop as it does in the browser (see [ui.md](ui.md#search-a-dialog-from-the-header)); the script and the dialog are the UI library's, so the desktop has no code of its own for it. Whether WebKitGTK delivers the key to the page, and whether the dialog's field gets the focus, cannot be tested without the window, so it is checked by hand: `mise run desktop`, sign in, press Ctrl+K on the inbox page and on the settings page. The page console is forwarded to stdout in Development, and shows `search shortcut registered` once after sign-in and `search shortcut pressed` for each press; no `pressed` line means the key never reached the page.
 
 ## Logging
 
