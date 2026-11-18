@@ -1,5 +1,6 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.Dotnet;
 using Aspire.Hosting.Testing;
 
 namespace OfficeRkyv.FunctionalTests;
@@ -16,7 +17,7 @@ public sealed class AppHostFixture : AspireFixture<Projects.OfficeRkyv_AppHost>
 
     protected override void ConfigureBuilder(IDistributedApplicationTestingBuilder builder)
     {
-        builder.CreateResourceBuilder<ProjectResource>(ApiResource).WithEnvironment("Seed__DemoData", "false");
+        builder.CreateResourceBuilder<DotnetProjectResource>(ApiResource).WithEnvironment("Seed__DemoData", "false");
 
         base.ConfigureBuilder(builder);
     }

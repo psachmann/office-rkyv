@@ -3,6 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="Aspire.Hosting.Dotnet" Version="17.0.0" />
     <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Sqlite" Version="13.5.0" />
     <PackageVersion Include="Fetchling.Blazor" Version="3.0.0" />
     <PackageVersion Include="Fetchling.Blazor.DevTools" Version="3.0.0" />

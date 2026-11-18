@@ -13,12 +13,12 @@ var callerTokenKey = builder.AddParameter(
 );
 
 var api = builder
-    .AddProject<Projects.OfficeRkyv_Api>("api-svc")
+    .AddDotnetProject("api-svc", "../OfficeRkyv.Api/OfficeRkyv.Api.csproj")
     .WithReference(sqlite)
     .WithEnvironment("CallerTokens__SigningKey", callerTokenKey);
 
 builder
-    .AddProject<Projects.OfficeRkyv_Web>("web-svc")
+    .AddDotnetProject("web-svc", "../OfficeRkyv.Web/OfficeRkyv.Web.csproj")
     .WithReference(api)
     .WaitFor(api)
     .WithEnvironment("CallerTokens__SigningKey", callerTokenKey)

@@ -5,6 +5,7 @@
     <UserSecretsId>8582016f-5083-4bf5-ba89-86b76b423424</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Dotnet" />
     <PackageReference Include="CommunityToolkit.Aspire.Hosting.Sqlite" />
   </ItemGroup>
   <ItemGroup>
